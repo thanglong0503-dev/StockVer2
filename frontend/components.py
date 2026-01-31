@@ -168,10 +168,21 @@ def render_analysis_section(tech, fund):
         action_text = tech['action'].replace('💎','').replace('💪','').replace('⚠️','')
         gauge_svg = create_svg_gauge(tech['score'], tech_color)
         
-        # [LOGIC MỚI] Kiểm tra nếu giá trị > 0 thì hiện số, ngược lại hiện ---
-        val_entry = f"{tech['entry']:,.0f}" if tech['entry'] > 0 else "<span style='color:#666'>---</span>"
-        val_target = f"{tech['target']:,.0f}" if tech['target'] > 0 else "<span style='color:#666'>---</span>"
-        val_stop = f"{tech['stop']:,.0f}" if tech['stop'] > 0 else "<span style='color:#666'>---</span>"
+        # [LOGIC HIỂN THỊ] 
+        # Nếu backend trả về 0 -> Hiện "---" màu xám
+        # Nếu backend trả về số > 0 -> Hiện số format đẹp
+        if tech['entry'] > 0:
+            val_entry = f"{tech['entry']:,.0f}"
+            val_target = f"{tech['target']:,.0f}"
+            val_stop = f"{tech['stop']:,.0f}"
+            style_target = "color:#00ff41;"
+            style_stop = "color:#ff0055;"
+        else:
+            val_entry = "<span style='color:#666; font-weight:400'>---</span>"
+            val_target = "<span style='color:#666; font-weight:400'>---</span>"
+            val_stop = "<span style='color:#666; font-weight:400'>---</span>"
+            style_target = "color:#666;"
+            style_stop = "color:#666;"
         
         signals_html = ""
         for p in tech['pros'][:3]:
@@ -190,8 +201,8 @@ def render_analysis_section(tech, fund):
             f'  </div>'
             f'  <div class="cyber-grid">'
             f'      <div class="cyber-metric"><div class="cyber-label">ENTRY_ZONE</div><div class="cyber-val">{val_entry}</div></div>'
-            f'      <div class="cyber-metric"><div class="cyber-label">TARGET_LOCK</div><div class="cyber-val" style="color:#00ff41;">{val_target}</div></div>'
-            f'      <div class="cyber-metric"><div class="cyber-label">STOP_LOSS</div><div class="cyber-val" style="color:#ff0055;">{val_stop}</div></div>'
+            f'      <div class="cyber-metric"><div class="cyber-label">TARGET_LOCK</div><div class="cyber-val" style="{style_target}">{val_target}</div></div>'
+            f'      <div class="cyber-metric"><div class="cyber-label">STOP_LOSS</div><div class="cyber-val" style="{style_stop}">{val_stop}</div></div>'
             f'      <div class="cyber-metric"><div class="cyber-label">ATR_VOLTY</div><div class="cyber-val">{tech.get("atr", 0):,.0f}</div></div>'
             f'  </div>'
             f'  <div style="margin-top:15px; background:rgba(0,0,0,0.5); padding:10px; border-left:2px solid {tech_color}; font-family:monospace;">'
@@ -201,7 +212,7 @@ def render_analysis_section(tech, fund):
         )
         st.markdown(html_tech, unsafe_allow_html=True)
 
-    # --- RIGHT CARD: FUNDAMENTAL ---
+    # --- RIGHT CARD: FUNDAMENTAL (Giữ nguyên) ---
     with c2:
         fund_color = fund['color']
         health_text = fund['health'].replace('💎','').replace('💪','').replace('⚠️','')
