@@ -4,4 +4,4 @@ pandas
 pandas_ta
 plotly
 prophet
-feedparser
+requests
