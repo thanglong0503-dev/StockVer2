@@ -2,10 +2,11 @@
 ================================================================================
 MODULE: frontend/components.py
 THEME: ULTRA CYBERPUNK HUD INTERFACE
-VERSION: 36.3.0-INTERACTIVE-FIX
+VERSION: 40.2.0-ULTIMATE-MERGE
 DESCRIPTION: 
-    Render complex HUD elements using embedded CSS animations and SVG generation.
-    UPDATED: Enabled Scroll Zoom & Pan Dragging for Charts (TradingView Style).
+    - Visuals: Cyberpunk CSS, SVG Gauges, Neon Effects.
+    - Logic: Smart Analysis Display (Hide Entry on Sell, 9 Fundamental Metrics).
+    - Charts: Interactive Zoom/Pan + Neon Crosshair (Spikelines).
 ================================================================================
 """
 
@@ -46,24 +47,7 @@ def inject_cyber_effects():
             border-color: #fff;
         }
 
-        /* 3. SCANNING LINE ANIMATION */
-        .hud-card::after {
-            content: "";
-            position: absolute;
-            top: 0; left: 0;
-            width: 100%; height: 5px;
-            background: rgba(0, 243, 255, 0.3);
-            box-shadow: 0 0 10px #00f3ff;
-            animation: scan 4s linear infinite;
-            opacity: 0.3;
-            pointer-events: none;
-        }
-        @keyframes scan {
-            0% { top: -10%; }
-            100% { top: 110%; }
-        }
-
-        /* 4. TEXT GLITCH EFFECT */
+        /* 3. TEXT GLITCH EFFECT */
         .glitch-text {
             color: #fff;
             font-family: 'Rajdhani', sans-serif;
@@ -72,7 +56,7 @@ def inject_cyber_effects():
             text-transform: uppercase;
         }
         
-        /* 5. METRIC GRID */
+        /* 4. METRIC GRID */
         .cyber-grid {
             display: grid;
             grid-template-columns: repeat(2, 1fr);
@@ -89,17 +73,14 @@ def inject_cyber_effects():
         .cyber-label { font-size: 10px; color: #00f3ff; text-transform: uppercase; letter-spacing: 1px; }
         .cyber-val { font-size: 16px; color: #fff; font-weight: 700; font-family: 'Rajdhani'; }
 
-        /* 6. STATUS INDICATORS */
+        /* 5. STATUS INDICATORS */
         .status-dot {
             height: 8px; width: 8px;
-            background-color: #333;
             border-radius: 50%;
             display: inline-block;
             margin-right: 5px;
             box-shadow: 0 0 5px currentColor;
         }
-        .status-dot.active { animation: blink 1s infinite; }
-        @keyframes blink { 50% { opacity: 0.3; } }
     </style>
     """
     st.markdown(css, unsafe_allow_html=True)
@@ -108,9 +89,6 @@ def inject_cyber_effects():
 # 2. SVG GENERATOR (VẼ ĐỒ HỌA BẰNG CODE)
 # ==============================================================================
 def create_svg_gauge(score, color):
-    """
-    Tạo mã SVG để vẽ đồng hồ đo sức mạnh.
-    """
     percentage = max(0, min(10, score)) / 10
     rotation = -90 + (percentage * 180)
     
@@ -156,8 +134,7 @@ def render_market_overview(indices_data):
             st.markdown(html, unsafe_allow_html=True)
 
 # ==============================================================================
-# ==============================================================================
-# 4. CYBERPUNK DASHBOARD (TRUNG TÂM PHÂN TÍCH)
+# 4. CYBERPUNK DASHBOARD (TRUNG TÂM PHÂN TÍCH - ĐÃ FIX HTML & LOGIC)
 # ==============================================================================
 def render_analysis_section(tech, fund):
     c1, c2 = st.columns(2)
@@ -168,9 +145,7 @@ def render_analysis_section(tech, fund):
         action_text = tech['action'].replace('💎','').replace('💪','').replace('⚠️','')
         gauge_svg = create_svg_gauge(tech['score'], tech_color)
         
-        # [LOGIC HIỂN THỊ] 
-        # Nếu backend trả về 0 -> Hiện "---" màu xám
-        # Nếu backend trả về số > 0 -> Hiện số format đẹp
+        # [LOGIC] Ẩn số liệu khi Báo Bán (Entry=0)
         if tech['entry'] > 0:
             val_entry = f"{tech['entry']:,.0f}"
             val_target = f"{tech['target']:,.0f}"
@@ -212,54 +187,37 @@ def render_analysis_section(tech, fund):
         )
         st.markdown(html_tech, unsafe_allow_html=True)
 
-    # ... (Phần Technical bên trái giữ nguyên)
-
-    # --- RIGHT CARD: FUNDAMENTAL (HIỂN THỊ 9 CHỈ SỐ) ---
+    # --- RIGHT CARD: FUNDAMENTAL (HIỂN THỊ 9 CHỈ SỐ - ĐÃ FIX LỖI HTML) ---
     with c2:
         fund_color = fund['color']
         health_text = fund['health'].replace('💎','').replace('💪','').replace('⚠️','')
         
-        # Thanh sức khỏe
         score_val = 100 if "MẠNH" in health_text else (70 if "ỔN" in health_text else 30)
         bars_html = f'<div style="width:100%; height:6px; background:#222; margin-top:10px; border-radius:3px;"><div style="width:{score_val}%; height:100%; background:{fund_color}; box-shadow:0 0 10px {fund_color};"></div></div>'
 
-        # [NEW] XỬ LÝ HIỂN THỊ 9 CHỈ SỐ
+        # [METRICS GRID]
         metrics = fund.get('metrics', {})
-        
-        # Tạo Grid HTML cho 9 chỉ số
         metrics_html = '<div style="display:grid; grid-template-columns: 1fr 1fr 1fr; gap:8px; margin-top:15px;">'
         
-        # Danh sách key cần hiển thị
         display_keys = [
-            ('Rev Growth', 'Tăng Trưởng DT'), 
-            ('NI Growth', 'Tăng Trưởng LN'), 
-            ('ROE', 'ROE'),
-            ('Net Margin', 'Biên Lợi Nhuận'),
-            ('Debt/Asset', 'Nợ/Tài Sản'),
-            ('Current Ratio', 'Thanh Toán HH'),
-            ('OCF', 'Dòng Tiền KD'),
-            ('BEP', 'Sinh Lời CS'),
-            ('Inv Turnover', 'Vòng Quay Kho')
+            ('Rev Growth', 'Tăng Trưởng DT'), ('NI Growth', 'Tăng Trưởng LN'), ('ROE', 'ROE'),
+            ('Net Margin', 'Biên Lợi Nhuận'), ('Debt/Asset', 'Nợ/Tài Sản'), ('Current Ratio', 'Thanh Toán HH'),
+            ('OCF', 'Dòng Tiền KD'), ('BEP', 'Sinh Lời CS'), ('Inv Turnover', 'Vòng Quay Kho')
         ]
         
         for key, label in display_keys:
             val = metrics.get(key, 'N/A')
-            # Tô màu giá trị
             color_val = "#fff"
             if "Growth" in key: color_val = "#00ff41" if "-" not in str(val) else "#ff0055"
             if "OCF" in key: color_val = "#00ff41" if "-" not in str(val) else "#ff0055"
             
-            metrics_html += f"""
-                <div style="background:rgba(255,255,255,0.05); padding:5px; border-radius:4px; text-align:center;">
-                    <div style="font-size:9px; color:#888;">{label}</div>
-                    <div style="font-size:12px; font-weight:bold; color:{color_val}; font-family:Rajdhani;">{val}</div>
-                </div>
-            """
+            # [FIX QUAN TRỌNG]: HTML string trên 1 dòng để tránh lỗi f-string
+            metrics_html += f'<div style="background:rgba(255,255,255,0.05); padding:5px; border-radius:4px; text-align:center;"><div style="font-size:9px; color:#888;">{label}</div><div style="font-size:12px; font-weight:bold; color:{color_val}; font-family:Rajdhani;">{val}</div></div>'
+            
         metrics_html += "</div>"
 
-        # Hiển thị các chi tiết điểm cộng/trừ (Details)
         fin_html = ""
-        for d in fund['details'][:3]: # Chỉ lấy 3 cái quan trọng nhất
+        for d in fund['details'][:3]:
             color = "#ff0055" if any(x in d for x in ["cao", "Thấp", "giảm", "kém", "Âm"]) else "#00ff41"
             fin_html += f'<div style="display:flex; align-items:center; margin-bottom:2px;"><div class="status-dot" style="background:{color}; box-shadow:0 0 5px {color};"></div><div style="font-size:11px; color:#ddd;">{d}</div></div>'
 
@@ -276,19 +234,20 @@ def render_analysis_section(tech, fund):
             f'      </div>'
             f'  </div>'
             f'  {bars_html}'
-            f'  {metrics_html}' # Chèn bảng 9 chỉ số vào đây
+            f'  {metrics_html}'
             f'  <div style="margin-top:15px; border-top:1px solid #333; padding-top:10px;">'
             f'      {fin_html}'
             f'  </div>'
             f'</div>'
         )
         st.markdown(html_fund, unsafe_allow_html=True)
+
 # ==============================================================================
-# 5. ADVANCED CHARTING (INTERACTIVE ZOOM & PAN)
+# 5. ADVANCED CHARTING (INTERACTIVE ZOOM & PAN & CROSSHAIR)
 # ==============================================================================
 def render_interactive_chart(df, symbol):
     """
-    Vẽ biểu đồ với khả năng Zoom/Pan mượt mà như TradingView.
+    Vẽ biểu đồ với khả năng Zoom/Pan + Crosshair (Spikelines) Neon.
     """
     if df.empty:
         st.error("NO DATA SIGNAL RECEIVED.")
@@ -333,37 +292,42 @@ def render_interactive_chart(df, symbol):
         name='VOL', opacity=0.8
     ), row=2, col=1)
 
-    # 4. Styling & Interaction Config
+    # 4. Styling & Interaction Config (FULL OPTION)
     fig.update_layout(
         template="plotly_dark",
         height=650,
         margin=dict(l=0, r=50, t=30, b=0),
         paper_bgcolor='rgba(0,0,0,0)',
         plot_bgcolor='rgba(0,0,0,0)',
-        xaxis_rangeslider_visible=False, # Tắt cái thanh trượt to đùng ở dưới
+        xaxis_rangeslider_visible=False,
         hovermode="x unified",
         font=dict(family="Rajdhani", size=12, color="#aaa"),
         showlegend=False,
         
-        # *** KEY CONFIGURATION FOR SMOOTH PAN/ZOOM ***
-        dragmode='pan', # Mặc định là bàn tay để kéo (Pan)
+        # *** DRAG & ZOOM ***
+        dragmode='pan', 
+        
+        # *** NEON CROSSHAIR (SPIKELINES) ***
         xaxis=dict(
-            fixedrange=False, # Cho phép zoom trục X
-            showgrid=True, gridwidth=1, gridcolor='rgba(0, 243, 255, 0.1)', zeroline=False
+            fixedrange=False, showgrid=True, gridwidth=1, gridcolor='rgba(0, 243, 255, 0.1)', zeroline=False,
+            showspikes=True, spikemode='across', spikesnap='cursor', 
+            showline=False, spikedash='solid', 
+            spikecolor='#00f3ff', spikethickness=1 # Neon Cyan
         ),
         yaxis=dict(
-            fixedrange=False, # Cho phép zoom trục Y
-            showgrid=True, gridwidth=1, gridcolor='rgba(0, 243, 255, 0.1)', zeroline=False, side='right'
+            fixedrange=False, showgrid=True, gridwidth=1, gridcolor='rgba(0, 243, 255, 0.1)', zeroline=False, side='right',
+            showspikes=True, spikemode='across', spikesnap='cursor', 
+            showline=False, spikedash='dot',
+            spikecolor='#ff0055', spikethickness=1 # Neon Pink
         )
     )
     
-    # Config object cho Plotly (Quan trọng!)
     config = {
-        'scrollZoom': True,        # Cho phép lăn chuột để Zoom
-        'displayModeBar': True,    # Hiện thanh công cụ nhỏ
+        'scrollZoom': True,       
+        'displayModeBar': True,   
         'modeBarButtonsIfNeeded': False,
-        'displaylogo': False,      # Ẩn logo Plotly
-        'modeBarButtonsToRemove': ['select2d', 'lasso2d', 'autoScale2d'] # Bỏ mấy nút ko cần
+        'displaylogo': False,      
+        'modeBarButtonsToRemove': ['select2d', 'lasso2d', 'autoScale2d']
     }
     
     st.plotly_chart(fig, use_container_width=True, config=config)
