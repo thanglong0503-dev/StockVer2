@@ -1,40 +1,55 @@
 # backend/data.py
 import yfinance as yf
 import pandas as pd
+import random
 
-# Giữ nguyên các hàm cũ nếu muốn...
-
-# --- THÊM HÀM MỚI NÀY ---
-def get_batch_data(tickers):
-    """Lấy dữ liệu nhiều mã cùng lúc để vẽ bảng giá"""
+def get_market_data(tickers):
+    # Định dạng lại mã cho Yahoo (thêm .VN)
     symbols = [f"{t}.VN" for t in tickers]
+    
     try:
-        # Lấy data 1 tháng để vẽ biểu đồ nhỏ (sparkline)
+        # Tải data batch (nhanh hơn)
         data = yf.download(symbols, period="1mo", interval="1d", group_by='ticker', progress=False)
         
         rows = []
         for t in tickers:
             sym = f"{t}.VN"
             try:
-                # Xử lý format mới của yfinance
-                df_one = data[sym] if len(tickers) > 1 else data
-                closes = df_one['Close'].dropna()
+                # Xử lý truy cập MultiIndex an toàn
+                if len(tickers) > 1:
+                    df_ticker = data[sym]
+                else:
+                    df_ticker = data
+                
+                # Lấy cột Close và drop NaN
+                closes = df_ticker['Close'].dropna()
                 
                 if len(closes) < 2: continue
                 
-                price_now = closes.iloc[-1]
-                price_prev = closes.iloc[-2]
-                change = price_now - price_prev
-                pct = (change / price_prev) * 100
-                
+                # Tính toán giá
+                current_price = float(closes.iloc[-1])
+                prev_price = float(closes.iloc[-2])
+                change = current_price - prev_price
+                pct_change = (change / prev_price) * 100
+                volume = int(df_ticker['Volume'].iloc[-1]) if 'Volume' in df_ticker.columns else 0
+
+                # --- FIX LỖI SPARKLINE ---
+                # Lấy 20 giá gần nhất, chuyển thành list float thuần túy
+                trend_data = closes.tail(20).tolist()
+                trend_data = [float(x) for x in trend_data] # Ép kiểu float lần nữa cho chắc
+
                 rows.append({
-                    "Mã": t,
-                    "Giá": float(price_now) / 1000.0,
-                    "Thay đổi": float(change) / 1000.0,
-                    "%": float(pct),
-                    "Khối Lượng": int(df_one['Volume'].iloc[-1] if 'Volume' in df_one.columns else 0),
-                    "Xu hướng": closes.tail(20).tolist(), # Data vẽ biểu đồ
+                    "Symbol": t,
+                    "Price": current_price / 1000.0, # Đơn vị nghìn đồng
+                    "Change": change / 1000.0,
+                    "Pct": pct_change,
+                    "Volume": volume,
+                    "Trend": trend_data, # List này sẽ vẽ biểu đồ
                 })
-            except: continue
+            except Exception as e:
+                print(f"Lỗi mã {t}: {e}")
+                continue
+                
         return pd.DataFrame(rows)
-    except: return pd.DataFrame()
+    except Exception as e:
+        return pd.DataFrame()
