@@ -1,191 +1,80 @@
 import yfinance as yf
 import pandas as pd
 import pandas_ta as ta
+import feedparser
+import requests
 
-# ======================================================
-# 1. HÀM LẤY CHỈ SỐ THỊ TRƯỜNG (CHIẾN THUẬT ETF)
-# ======================================================
-def get_market_indices():
-    """
-    Dùng các mã GLOBAL (Quốc tế) để 100% tương thích với Streamlit Cloud.
-    Thay vì cố lấy VNINDEX (bị chặn), ta lấy VN30 ETF.
-    """
-    targets = [
-        # Dùng ETF VN30 đại diện cho thị trường VN (Yahoo không chặn mã này)
-        {"name": "VN30 (ETF)", "symbol": "E1VFVN30.VN"}, 
-        # Các chỉ số quốc tế
-        {"name": "DOW JONES", "symbol": "^DJI"},
-        {"name": "GOLD", "symbol": "GC=F"},
-        {"name": "BITCOIN", "symbol": "BTC-USD"}
-    ]
-    
-    results = []
-    
-    for item in targets:
-        try:
-            # Lấy đúng 5 ngày gần nhất
-            ticker = yf.Ticker(item["symbol"])
-            hist = ticker.history(period="5d")
-            
-            if len(hist) >= 2:
-                now = hist['Close'].iloc[-1]
-                prev = hist['Close'].iloc[-2]
-                change = now - prev
-                pct = (change / prev) * 100
-                
-                # Xác định màu sắc
-                color = "#10b981" if change >= 0 else "#ef4444"
-                
-                results.append({
-                    "Name": item["name"],
-                    "Price": now,
-                    "Change": change,
-                    "Pct": pct,
-                    "Color": color,
-                    "Status": "LIVE"
-                })
-            else:
-                # Nếu không có data (rất hiếm), trả về Offline
-                raise Exception("No Data")
-                
-        except Exception:
-            # Fallback an toàn để không bị lỗi giao diện
-            results.append({
-                "Name": item["name"],
-                "Price": 0.0, "Change": 0.0, "Pct": 0.0,
-                "Color": "#64748b", "Status": "OFFLINE"
+# --- 1. HÀM LẤY TIN TỨC GOOGLE (Code cũ của bạn) ---
+def get_stock_news_google(symbol):
+    try:
+        # URL RSS Google News tiếng Việt
+        rss_url = f"https://news.google.com/rss/search?q=cổ+phiếu+{symbol}&hl=vi&gl=VN&ceid=VN:vi"
+        feed = feedparser.parse(rss_url)
+        news_list = []
+        for e in feed.entries[:10]:
+            news_list.append({
+                'title': e.title,
+                'link': e.link,
+                'published': e.get('published', '')[:16] # Lấy ngày tháng
             })
-            
-    return results
+        return news_list
+    except: return []
 
-# ======================================================
-# 2. HÀM LẤY BẢNG GIÁ CỔ PHIẾU (RADAR)
-# ======================================================
+# --- 2. HÀM LẤY DỮ LIỆU TỔNG HỢP (Code cũ tách nhỏ) ---
+def get_stock_data_full(symbol):
+    """Lấy BCTC, Hồ sơ, Cổ tức từ Yahoo"""
+    try:
+        stock = yf.Ticker(f"{symbol}.VN")
+        
+        # Lấy thông tin cơ bản
+        info = stock.info
+        
+        # Lấy BCTC Quý
+        fin = stock.quarterly_financials
+        bal = stock.quarterly_balance_sheet
+        cash = stock.quarterly_cashflow
+        
+        # Lấy cổ tức
+        divs = stock.dividends
+        splits = stock.splits
+        
+        return info, fin, bal, cash, divs, splits
+    except:
+        return {}, pd.DataFrame(), pd.DataFrame(), pd.DataFrame(), pd.Series(), pd.Series()
+
+# --- 3. HÀM INDICATOR (Giữ nguyên cho Radar) ---
 def get_pro_data(tickers):
-    """
-    Lấy dữ liệu cổ phiếu từ Yahoo Finance.
-    Yahoo thường không chặn các mã cổ phiếu cụ thể (HPG, SSI...)
-    ngay cả khi chặn chỉ số index.
-    """
     rows = []
     for t in tickers:
         try:
-            symbol = f"{t}.VN"
-            # Tải từng mã để an toàn hơn trên Cloud
-            df = yf.Ticker(symbol).history(period="1y")
-            
+            df = yf.Ticker(f"{t}.VN").history(period="1y")
             if df.empty or len(df) < 50: continue
             
-            # Tính toán chỉ báo
-            # 1. Supertrend
-            try:
-                sti = ta.supertrend(df['High'], df['Low'], df['Close'], length=10, multiplier=3)
-                if sti is not None: df = df.join(sti)
-            except: pass
-            
-            # 2. RSI & EMA
+            # Tính chỉ báo cơ bản
+            sti = ta.supertrend(df['High'], df['Low'], df['Close'], length=10, multiplier=3)
+            if sti is not None: df = df.join(sti)
             df.ta.rsi(length=14, append=True)
-            df.ta.ema(length=34, append=True)
             
-            # Lấy nến mới nhất
             now = df.iloc[-1]
             close = now['Close']
             
-            # Logic chấm điểm
-            score = 3
+            # Chấm điểm nhanh
+            score = 5
             st_cols = [c for c in df.columns if 'SUPERT' in c]
             supertrend = now[st_cols[0]] if st_cols else close
             
-            if close > supertrend: score += 3
-            if close > now.get('EMA_34', 0): score += 1
-            rsi = now.get('RSI_14', 50)
-            if 50 <= rsi <= 70: score += 1
-            elif rsi < 30: score += 1
+            if close > supertrend: score += 2
+            else: score -= 2
             
-            final_score = max(0, min(10, score))
-            
-            # Dán nhãn hành động
-            action = "NEUTRAL"
-            if final_score >= 9: action = "STRONG BUY"
-            elif final_score >= 7: action = "BUY"
-            elif final_score <= 4: action = "SELL"
-            
-            # Dữ liệu vẽ chart mini
-            trend_list = df['Close'].tail(30).tolist()
-            trend_list = [float(x) for x in trend_list] # Ép kiểu float
-
             rows.append({
-                "Symbol": t,
-                "Price": close / 1000.0, # Chia 1000 để hiển thị gọn (VD: 20.5)
-                "Pct": (close - df['Close'].iloc[-2]) / df['Close'].iloc[-2],
-                "Signal": action,
-                "Score": final_score,
-                "Trend": trend_list
+                "Symbol": t, "Price": close/1000.0, 
+                "Pct": (close-df['Close'].iloc[-2])/df['Close'].iloc[-2],
+                "Signal": "BUY" if score >= 7 else "SELL", 
+                "Score": max(0, min(10, score)),
+                "Trend": df['Close'].tail(30).tolist()
             })
-        except: 
-            continue
-            
+        except: continue
     return pd.DataFrame(rows)
 
-# ======================================================
-# 3. HÀM LẤY LỊCH SỬ VẼ CHART
-# ======================================================
 def get_history_df(symbol):
     return yf.Ticker(f"{symbol}.VN").history(period="2y")
-# ======================================================
-# 5. CÁC HÀM LẤY DỮ LIỆU CƠ BẢN (FINANCE, NEWS...)
-# ======================================================
-
-def get_financial_report(symbol, report_type='incomestatement'):
-    """
-    Lấy Báo cáo tài chính từ TCBS
-    report_type: 'incomestatement' (KQKD), 'balancesheet' (Cân đối KT), 'cashflow' (Lưu chuyển TT)
-    """
-    try:
-        url = f"https://apipubaws.tcbs.com.vn/tcanalysis/v1/finance/{symbol}/{report_type}?yearly=0&isConsolidated=1"
-        headers = {'User-Agent': 'Mozilla/5.0'}
-        resp = requests.get(url, headers=headers, timeout=5)
-        data = resp.json()
-        
-        if data:
-            df = pd.DataFrame(data)
-            # Chọn các cột quan trọng và đổi tên (tùy vào dữ liệu trả về)
-            # Ở đây ta lấy đơn giản 5 quý gần nhất
-            df = df.iloc[:, :5] 
-            return df
-    except: pass
-    return pd.DataFrame()
-
-def get_stock_news(symbol):
-    """Lấy tin tức mới nhất liên quan mã CP"""
-    try:
-        url = f"https://apipubaws.tcbs.com.vn/tcanalysis/v1/ticker/{symbol}/news-event?page=0&size=10"
-        headers = {'User-Agent': 'Mozilla/5.0'}
-        resp = requests.get(url, headers=headers, timeout=5)
-        data = resp.json()
-        if 'list' in data:
-            return data['list'] # Trả về list các tin tức
-    except: pass
-    return []
-
-def get_company_profile(symbol):
-    """Lấy hồ sơ doanh nghiệp"""
-    try:
-        url = f"https://apipubaws.tcbs.com.vn/tcanalysis/v1/ticker/{symbol}/overview"
-        headers = {'User-Agent': 'Mozilla/5.0'}
-        resp = requests.get(url, headers=headers, timeout=5)
-        return resp.json()
-    except: pass
-    return {}
-
-def get_dividend_history(symbol):
-    """Lấy lịch sử trả cổ tức"""
-    try:
-        url = f"https://apipubaws.tcbs.com.vn/tcanalysis/v1/company/{symbol}/dividend-payment-histories?page=0&size=10"
-        headers = {'User-Agent': 'Mozilla/5.0'}
-        resp = requests.get(url, headers=headers, timeout=5)
-        data = resp.json()
-        if 'list' in data:
-            return pd.DataFrame(data['list'])
-    except: pass
-    return pd.DataFrame()
