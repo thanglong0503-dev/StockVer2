@@ -2,10 +2,13 @@
 ================================================================================
 MODULE: backend/ai.py
 PROJECT: THANG LONG TERMINAL (ENTERPRISE EDITION)
-VERSION: 36.3.2-PARTICLE-FX
+VERSION: 36.3.3-VISUAL-MASTER
 DESCRIPTION: 
-    Artificial Intelligence & Statistical Modeling Engine.
-    UPDATED: Added Scatter Dots (Particles) to visualize raw data points.
+    Artificial Intelligence Engine.
+    UPDATED VISUALS:
+    - History: Solid Line + Glowing Dots (Overlay).
+    - Forecast: Bold Neon Line + Clear Confidence Cloud.
+    - Interaction: Pan/Zoom enabled.
 ================================================================================
 """
 
@@ -21,9 +24,6 @@ from typing import Tuple, Optional, Dict
 # ==============================================================================
 
 class MonteCarloSimulator:
-    """
-    Mô phỏng biến động giá tương lai bằng phương pháp Geometric Brownian Motion (GBM).
-    """
     def __init__(self, df: pd.DataFrame, days: int = 30, simulations: int = 1000):
         self.df = df
         self.days = days
@@ -33,15 +33,14 @@ class MonteCarloSimulator:
         if self.df.empty or len(self.df) < 30:
             return None, None, {}
             
-        # 1. Tính tham số thống kê
+        # Stats
         data = self.df['Close']
         returns = data.pct_change().dropna()
-        
         mu = returns.mean() 
         sigma = returns.std() 
         last_price = data.iloc[-1]
         
-        # 2. GBM Formula
+        # GBM Formula
         drift = mu - 0.5 * sigma**2
         Z = np.random.normal(0, 1, (self.days, self.simulations))
         daily_returns = np.exp(drift + sigma * Z)
@@ -54,38 +53,37 @@ class MonteCarloSimulator:
             
         simulation_df = pd.DataFrame(price_paths)
         
-        # 3. Visualization - Line Chart
+        # Visualization
         dates = [datetime.now() + timedelta(days=i) for i in range(self.days)]
         fig = go.Figure()
         
-        # [NEW] Thêm các hạt giá lịch sử (30 ngày gần nhất) để tạo đà
+        # 1. Hạt giá lịch sử (30 ngày gần nhất) - Cyan Dots
         recent_history = self.df.tail(30)
         fig.add_trace(go.Scatter(
             x=recent_history.index, y=recent_history['Close'],
-            mode='markers+lines', # Vừa đường vừa hạt
-            name='Lịch sử gần đây',
-            line=dict(color='#00f3ff', width=1),
-            marker=dict(color='#00f3ff', size=4, opacity=0.8), # Hạt Cyan
+            mode='markers+lines', 
+            name='Lịch sử (30D)',
+            line=dict(color='#00f3ff', width=2), # Line đậm
+            marker=dict(color='#00f3ff', size=5, symbol='circle'), # Hạt to rõ
             showlegend=False
         ))
 
-        # Vẽ 50 đường mô phỏng mờ
+        # 2. Các đường mô phỏng
         display_sims = min(50, self.simulations)
         for i in range(display_sims):
             fig.add_trace(go.Scatter(
                 x=dates, y=simulation_df.iloc[:, i],
-                mode='lines', line=dict(width=1, color='#64748b'), opacity=0.1,
+                mode='lines', line=dict(width=1, color='#64748b'), opacity=0.15,
                 showlegend=False, hoverinfo='skip'
             ))
             
-        # Vẽ đường trung bình
+        # 3. Đường trung bình kỳ vọng (Đậm)
         fig.add_trace(go.Scatter(
             x=dates, y=simulation_df.mean(axis=1),
-            mode='lines', line=dict(color='#ff0055', width=3),
+            mode='lines', line=dict(color='#ff0055', width=4), # Siêu đậm
             name='Kỳ vọng (Mean)'
         ))
         
-        # Layout
         fig.update_layout(
             title=dict(text=f"🌌 MONTE CARLO: {self.simulations} KỊCH BẢN", font=dict(family="Rajdhani", size=18)),
             yaxis_title="Giá",
@@ -100,7 +98,6 @@ class MonteCarloSimulator:
             yaxis=dict(showgrid=True, gridcolor='rgba(255,255,255,0.1)', side='right')
         )
         
-        # 4. Stats
         final_prices = simulation_df.iloc[-1]
         stats = {
             "mean": final_prices.mean(),
@@ -109,7 +106,6 @@ class MonteCarloSimulator:
             "prob_up": (final_prices > last_price).mean() * 100
         }
         
-        # Histogram
         fig_hist = px.histogram(final_prices, nbins=50, title="📊 PHÂN PHỐI XÁC SUẤT", color_discrete_sequence=['#00f3ff'])
         fig_hist.add_vline(x=last_price, line_dash="dash", line_color="#ff0055", annotation_text="Hiện tại")
         fig_hist.update_layout(template="plotly_dark", paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)', margin=dict(l=20, r=20, t=50, b=20), showlegend=False)
@@ -121,9 +117,6 @@ class MonteCarloSimulator:
 # ==============================================================================
 
 class ProphetPredictor:
-    """
-    Wrapper class cho Facebook Prophet.
-    """
     def __init__(self, df: pd.DataFrame):
         self.df = df
         
@@ -139,9 +132,9 @@ class ProphetPredictor:
         df_p.columns = ['ds', 'y']
         df_p['ds'] = df_p['ds'].dt.tz_localize(None)
         
-        # Model
+        # Model Config
         m = Prophet(
-            daily_seasonality=False, # Tắt nhiễu
+            daily_seasonality=False, 
             weekly_seasonality=True,
             yearly_seasonality=True,
             changepoint_prior_scale=0.05,
@@ -152,53 +145,52 @@ class ProphetPredictor:
         future = m.make_future_dataframe(periods=periods)
         forecast = m.predict(future)
         
-        # Plotting Custom
+        # --- VẼ BIỂU ĐỒ ---
         fig = go.Figure()
         
-        # --- 1. DỮ LIỆU THỰC TẾ (HẠT/DOTS) ---
-        # Đây là phần "Lão đại" yêu cầu: Các hạt chấm chấm thể hiện giá chạy
-        fig.add_trace(go.Scatter(
-            x=df_p['ds'], y=df_p['y'],
-            mode='markers', # Chỉ vẽ hạt, không vẽ đường nối
-            name='Dữ liệu thực',
-            marker=dict(
-                color='#00f3ff', # Màu Cyan Cyberpunk
-                size=3,          # Kích thước hạt nhỏ vừa phải
-                opacity=0.6      # Hơi trong suốt để nhìn mượt
-            )
-        ))
-        
-        # --- 2. ĐƯỜNG XU HƯỚNG LỊCH SỬ (LINE) ---
-        # Vẽ thêm đường mờ bên dưới để thấy flow
-        fig.add_trace(go.Scatter(
-            x=df_p['ds'], y=df_p['y'],
-            mode='lines', name='Trend Lịch sử',
-            line=dict(color='#00f3ff', width=1),
-            opacity=0.3,
-            showlegend=False
-        ))
-        
-        # --- 3. DỰ BÁO TƯƠNG LAI (LINE) ---
+        # 1. BIÊN ĐỘ RỦI RO (CLOUD) - Vẽ trước để nằm dưới cùng
         future_data = forecast[forecast['ds'] > df_p['ds'].iloc[-1]]
-        
-        fig.add_trace(go.Scatter(
-            x=future_data['ds'], y=future_data['yhat'],
-            mode='lines', name='AI Dự báo',
-            line=dict(color='#ff0055', width=3) # Màu Hồng Neon nổi bật
-        ))
-        
-        # --- 4. BIÊN ĐỘ TIN CẬY (CLOUD) ---
         fig.add_trace(go.Scatter(
             x=pd.concat([future_data['ds'], future_data['ds'][::-1]]),
             y=pd.concat([future_data['yhat_upper'], future_data['yhat_lower'][::-1]]),
             fill='toself',
-            fillcolor='rgba(255, 0, 85, 0.15)',
+            fillcolor='rgba(255, 0, 85, 0.2)', # Màu nền đám mây (đậm hơn chút)
             line=dict(color='rgba(255,255,255,0)'),
             hoverinfo="skip",
-            name='Vùng rủi ro'
+            name='Vùng Rủi Ro'
+        ))
+
+        # 2. LỊCH SỬ: ĐƯỜNG TREND (LAYER DƯỚI)
+        fig.add_trace(go.Scatter(
+            x=df_p['ds'], y=df_p['y'],
+            mode='lines', 
+            name='Trend Lịch Sử',
+            line=dict(color='#0099aa', width=2), # Màu Cyan đậm hơn chút
+            opacity=0.8
         ))
         
-        # Layout
+        # 3. LỊCH SỬ: HẠT DỮ LIỆU (LAYER TRÊN) - Như ý Lão đại
+        fig.add_trace(go.Scatter(
+            x=df_p['ds'], y=df_p['y'],
+            mode='markers', 
+            name='Dữ Liệu Thô',
+            marker=dict(
+                color='#00f3ff', # Cyan phát sáng
+                size=4,          # Hạt vừa phải
+                line=dict(width=0)
+            ),
+            opacity=1.0 # Hạt sáng rõ
+        ))
+        
+        # 4. DỰ BÁO TƯƠNG LAI (LINE ĐẬM)
+        fig.add_trace(go.Scatter(
+            x=future_data['ds'], y=future_data['yhat'],
+            mode='lines', 
+            name='AI DỰ BÁO',
+            line=dict(color='#ff0055', width=4) # Neon Pink siêu đậm
+        ))
+        
+        # Layout Zoom/Pan
         fig.update_layout(
             title=dict(text=f"🔮 AI PROPHET: DỰ BÁO {periods} NGÀY TỚI", font=dict(family="Rajdhani", size=18)),
             yaxis_title="Giá dự kiến",
@@ -209,7 +201,7 @@ class ProphetPredictor:
             paper_bgcolor='rgba(0,0,0,0)',
             plot_bgcolor='rgba(0,0,0,0)',
             
-            # Zoom/Pan Config
+            # Interactive Config
             dragmode='pan',
             xaxis=dict(showgrid=True, gridcolor='rgba(255,255,255,0.1)'),
             yaxis=dict(showgrid=True, gridcolor='rgba(255,255,255,0.1)', side='right')
@@ -218,13 +210,10 @@ class ProphetPredictor:
         return fig
 
 # ==============================================================================
-# 3. WRAPPER FUNCTIONS
+# WRAPPERS
 # ==============================================================================
-
 def run_monte_carlo(df: pd.DataFrame) -> Tuple:
-    simulator = MonteCarloSimulator(df)
-    return simulator.run()
+    return MonteCarloSimulator(df).run()
 
 def run_prophet_ai(df: pd.DataFrame) -> Optional[go.Figure]:
-    predictor = ProphetPredictor(df)
-    return predictor.predict()
+    return ProphetPredictor(df).predict()
