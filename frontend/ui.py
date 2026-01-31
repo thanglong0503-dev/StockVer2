@@ -2,74 +2,120 @@
 import streamlit as st
 from datetime import datetime
 
-def load_custom_css():
+def load_hardcore_css():
     st.markdown("""
     <style>
-        /* 1. IMPORT FONT 'Rajdhani' (Font kỹ thuật số cực ngầu) */
-        @import url('https://fonts.googleapis.com/css2?family=Rajdhani:wght@400;600;700&display=swap');
-        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600&display=swap');
+        /* --- 1. FONTS & GLOBAL THEME --- */
+        @import url('https://fonts.googleapis.com/css2?family=Rajdhani:wght@500;700&family=Inter:wght@400;600&display=swap');
+        
+        :root {
+            --bg-color: #050505;
+            --card-bg: #111827;
+            --text-color: #e5e7eb;
+            --accent-cyan: #06b6d4;
+            --accent-green: #10b981;
+            --accent-red: #ef4444;
+            --border-color: #374151;
+        }
 
-        /* 2. FORCE DARK MODE & GLOBAL THEME */
         .stApp {
-            background-color: #050505; /* Đen sâu thẳm */
-            background-image: radial-gradient(circle at 50% 0%, #111827 0%, #050505 70%);
+            background-color: var(--bg-color);
+            color: var(--text-color);
             font-family: 'Inter', sans-serif;
-            color: #e5e7eb;
-        }
-        
-        /* 3. HEADER ẨN MẶC ĐỊNH */
-        header[data-testid="stHeader"] {visibility: hidden;}
-        .block-container {padding-top: 1rem; padding-bottom: 3rem;}
-
-        /* 4. CUSTOM COMPONENTS - "THANG LONG IDENTITY" */
-        
-        /* Box hiệu ứng kính (Glassmorphism) */
-        .glass-box {
-            background: rgba(20, 20, 30, 0.6);
-            backdrop-filter: blur(12px);
-            -webkit-backdrop-filter: blur(12px);
-            border: 1px solid rgba(255, 255, 255, 0.08);
-            border-radius: 12px;
-            padding: 20px;
-            margin-bottom: 16px;
-            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.5);
         }
 
-        /* Top Bar */
-        .top-bar {
-            display: flex; justify-content: space-between; align-items: center;
-            padding: 10px 20px;
-            background: linear-gradient(90deg, #0f172a 0%, #1e293b 100%);
-            border-bottom: 1px solid #334155;
+        /* --- 2. FIX LỖI TEXT INPUT & SELECTBOX (QUAN TRỌNG NHẤT) --- */
+        /* Nền của ô nhập liệu và dropdown */
+        .stSelectbox div[data-baseweb="select"] > div, 
+        .stTextInput div[data-baseweb="base-input"] {
+            background-color: #1f2937 !important;
+            color: white !important;
+            border-color: #4b5563 !important;
+        }
+        /* Màu chữ trong ô chọn */
+        .stSelectbox div[data-baseweb="select"] span {
+            color: white !important;
+        }
+        /* Icon mũi tên */
+        .stSelectbox svg {
+            fill: white !important;
+        }
+        /* Menu xổ xuống (Dropdown list) */
+        ul[data-baseweb="menu"] {
+            background-color: #1f2937 !important;
+            border: 1px solid #374151 !important;
+        }
+        li[data-baseweb="option"] {
+            color: white !important;
+        }
+        li[data-baseweb="option"]:hover, li[aria-selected="true"] {
+            background-color: #374151 !important;
+        }
+
+        /* --- 3. FIX LỖI BUTTON --- */
+        button[kind="secondary"] {
+            background-color: #1f2937 !important;
+            color: white !important;
+            border: 1px solid #374151 !important;
+        }
+        button[kind="secondary"]:hover {
+            border-color: var(--accent-cyan) !important;
+            color: var(--accent-cyan) !important;
+        }
+        button[kind="primary"] {
+            background: linear-gradient(90deg, #0891b2, #06b6d4) !important;
+            color: white !important;
+            border: none !important;
+            font-weight: bold !important;
+        }
+
+        /* --- 4. FIX LỖI BẢNG (DATAFRAME) --- */
+        [data-testid="stDataFrame"] {
+            background-color: var(--card-bg);
+            border: 1px solid var(--border-color);
             border-radius: 8px;
-            margin-bottom: 20px;
+            padding: 10px;
         }
-        .logo { 
-            font-family: 'Rajdhani', sans-serif; 
-            font-size: 1.8rem; font-weight: 800; 
-            color: #fff; text-transform: uppercase; letter-spacing: 2px;
-            text-shadow: 0 0 10px rgba(56, 189, 248, 0.5);
+        [data-testid="stDataFrame"] * {
+            color: #d1d5db !important; /* Màu chữ xám trắng */
+            font-family: 'Inter', sans-serif !important;
         }
-        .logo span { color: #38bdf8; } /* Màu xanh Neon đặc trưng */
-
-        /* Metric Value Styles */
-        .metric-label { font-size: 0.85rem; color: #94a3b8; text-transform: uppercase; letter-spacing: 1px; }
-        .metric-val { font-family: 'Rajdhani', sans-serif; font-size: 2rem; font-weight: 700; color: #f8fafc; }
-        .up { color: #22c55e; text-shadow: 0 0 10px rgba(34, 197, 94, 0.3); } /* Xanh lá phát sáng */
-        .down { color: #ef4444; text-shadow: 0 0 10px rgba(239, 68, 68, 0.3); } /* Đỏ phát sáng */
-        
-        /* 5. FIX TABLE & SPARKLINE */
-        [data-testid="stDataFrame"] { border: none !important; }
-        [data-testid="stDataFrame"] div[role="row"] {
-            background-color: transparent !important;
-            border-bottom: 1px solid #1e293b;
-        }
-        [data-testid="stDataFrame"] div[role="row"]:hover {
-            background-color: #1e293b !important;
-        }
-        /* Chỉnh màu tiêu đề bảng */
+        /* Header của bảng */
         [data-testid="stDataFrame"] div[role="columnheader"] {
-            color: #94a3b8; font-weight: 600; text-transform: uppercase; font-size: 0.8rem;
+            background-color: #1f2937 !important;
+            color: var(--accent-cyan) !important;
+            font-weight: bold;
+            text-transform: uppercase;
+        }
+
+        /* --- 5. COMPONENT STYLE --- */
+        .glass-box {
+            background: rgba(17, 24, 39, 0.7);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(55, 65, 81, 0.5);
+            border-radius: 12px;
+            padding: 24px;
+            margin-bottom: 20px;
+            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.5);
+        }
+        
+        .header-title {
+            font-family: 'Rajdhani', sans-serif;
+            font-size: 2.5rem;
+            font-weight: 800;
+            background: -webkit-linear-gradient(0deg, #fff, #94a3b8);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            letter-spacing: 2px;
+        }
+
+        .status-dot {
+            height: 12px; width: 12px; 
+            background-color: var(--accent-green); 
+            border-radius: 50%; 
+            display: inline-block;
+            box-shadow: 0 0 10px var(--accent-green);
+            margin-right: 8px;
         }
     </style>
     """, unsafe_allow_html=True)
@@ -77,23 +123,18 @@ def load_custom_css():
 def render_header():
     now = datetime.now().strftime("%H:%M:%S")
     st.markdown(f"""
-    <div class="top-bar">
-        <div class="logo">THANG LONG <span>TERMINAL</span></div>
-        <div style="font-family: 'Rajdhani'; font-size: 1.2rem; color: #94a3b8;">
-            LIVE MARKET DATA <span style="color:#22c55e; margin: 0 10px;">●</span> {now}
+    <div style="display: flex; justify-content: space-between; align-items: center; padding: 20px 0; border-bottom: 1px solid #374151; margin-bottom: 30px;">
+        <div>
+            <div class="header-title">THANG LONG <span style="color: #06b6d4; -webkit-text-fill-color: #06b6d4;">TERMINAL V3</span></div>
+            <div style="color: #9ca3af; font-family: 'Rajdhani'; font-size: 1.1rem; margin-top: 5px;">
+                ADVANCED MARKET INTELLIGENCE SYSTEM
+            </div>
         </div>
-    </div>
-    """, unsafe_allow_html=True)
-
-def render_kpi_card(label, value, change, is_up):
-    color_class = "up" if is_up else "down"
-    arrow = "▲" if is_up else "▼"
-    st.markdown(f"""
-    <div class="glass-box" style="padding: 15px; border-top: 3px solid {'#22c55e' if is_up else '#ef4444'}">
-        <div class="metric-label">{label}</div>
-        <div class="metric-val">{value}</div>
-        <div class="{color_class}" style="font-weight: 600; font-size: 1rem;">
-            {arrow} {change}
+        <div style="text-align: right;">
+            <div style="background: #1f2937; padding: 8px 16px; border-radius: 20px; border: 1px solid #374151;">
+                <span class="status-dot"></span> 
+                <span style="color: #e5e7eb; font-weight: 600; font-family: 'Rajdhani'; letter-spacing: 1px;">LIVE DATA: {now}</span>
+            </div>
         </div>
     </div>
     """, unsafe_allow_html=True)
