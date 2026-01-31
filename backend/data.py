@@ -2,91 +2,9 @@
 import yfinance as yf
 import pandas as pd
 import pandas_ta as ta
-import numpy as np
-
-def get_pro_data(tickers):
-    # Định dạng mã
-    symbols = [f"{t}.VN" for t in tickers]
-    try:
-        # Lấy data 1 năm để đủ tính chỉ báo
-        data = yf.download(symbols, period="1y", interval="1d", group_by='ticker', progress=False)
-        
-        rows = []
-        for t in tickers:
-            sym = f"{t}.VN"
-            try:
-                # Xử lý MultiIndex
-                df = data[sym] if len(tickers) > 1 else data
-                if df.empty or len(df) < 50: continue
-                
-                # --- 1. TÍNH CHỈ BÁO (CORE V36.1) ---
-                # SuperTrend
-                sti = ta.supertrend(df['High'], df['Low'], df['Close'], length=10, multiplier=3)
-                # Ghép Supertrend vào DF
-                df = df.join(sti)
-                # Tìm tên cột Supertrend (vì nó sinh tên động dạng SUPERT_10_3.0)
-                st_col = [c for c in df.columns if 'SUPERT' in c][0]
-                
-                # RSI & EMA
-                rsi = ta.rsi(df['Close'], length=14).iloc[-1]
-                ema34 = ta.ema(df['Close'], length=34).iloc[-1]
-                
-                # --- 2. LOGIC CHẤM ĐIỂM ---
-                close_now = float(df['Close'].iloc[-1])
-                close_prev = float(df['Close'].iloc[-2])
-                supertrend_val = df[st_col].iloc[-1]
-                
-                score = 5
-                signal = "NEUTRAL"
-                
-                # Logic SuperTrend
-                if close_now > supertrend_val: score += 2
-                else: score -= 2
-                
-                # Logic RSI
-                if rsi < 30: score += 1 # Quá bán (Bullish)
-                elif rsi > 70: score -= 1 # Quá mua (Bearish)
-                
-                # Logic EMA
-                if close_now > ema34: score += 1
-                
-                final_score = max(0, min(10, score))
-                
-                if final_score >= 8: signal = "STRONG BUY"
-                elif final_score >= 6: signal = "BUY"
-                elif final_score <= 2: signal = "STRONG SELL"
-                elif final_score <= 4: signal = "SELL"
-                
-                # --- 3. CHUẨN BỊ DATA CHO TABLE ---
-                # Fix lỗi chart: Chuyển Series thành List Float chuẩn Python
-                trend_list = df['Close'].tail(30).tolist()
-                trend_list = [float(x) for x in trend_list]
-
-                rows.append({
-                    "Symbol": t,
-                    "Price": close_now / 1000.0,
-                    "Change": (close_now - close_prev) / 1000.0,
-                    "Pct": ((close_now - close_prev) / close_prev), # Để dạng số thập phân (0.015) để column_config format
-                    "RSI": float(rsi),
-                    "Signal": signal,
-                    "Score": final_score, # Giữ nguyên thang 10
-                    "Trend": trend_list 
-                })
-            except Exception as e:
-                continue
-                
-        return pd.DataFrame(rows)
-    except: return pd.DataFrame()
-
-def get_history_df(symbol):
-    """Hàm lấy lịch sử để chạy AI"""
-    return yf.Ticker(f"{symbol}.VN").history(period="2y")
 
 def get_market_indices():
-    """
-    Lấy dữ liệu chỉ số thị trường quốc tế và Việt Nam
-    Tickers: ^VNINDEX (VNI), ^HASTC (HNX), ^DJI (Dow Jones), ^IXIC (Nasdaq)
-    """
+    """Lấy chỉ số thị trường (Tải từng cái để tránh lỗi)"""
     indices = {
         "VN-INDEX": "^VNINDEX",
         "HNX-INDEX": "^HASTC", 
@@ -96,34 +14,89 @@ def get_market_indices():
     
     data_list = []
     
-    try:
-        # Tải data batch cho nhanh
-        tickers_list = list(indices.values())
-        df = yf.download(tickers_list, period="5d", interval="1d", progress=False)['Close']
-        
-        for name, ticker in indices.items():
-            try:
-                # Xử lý data
-                if len(tickers_list) > 1:
-                    series = df[ticker].dropna()
-                else:
-                    series = df.dropna()
-                
-                if len(series) >= 2:
-                    now = series.iloc[-1]
-                    prev = series.iloc[-2]
-                    change = now - prev
-                    pct = (change / prev) * 100
-                    
-                    data_list.append({
-                        "Name": name,
-                        "Price": now,
-                        "Change": change,
-                        "Pct": pct,
-                        "Color": "#10b981" if change >= 0 else "#ef4444" # Xanh/Đỏ
-                    })
-            except: continue
+    for name, ticker in indices.items():
+        try:
+            # Tải riêng từng mã, lấy 5 ngày để chắc chắn có dữ liệu
+            df = yf.Ticker(ticker).history(period="5d")
             
-        return data_list
-    except:
-        return []
+            if len(df) >= 2:
+                now = df['Close'].iloc[-1]
+                prev = df['Close'].iloc[-2]
+                change = now - prev
+                pct = (change / prev) * 100
+                
+                data_list.append({
+                    "Name": name,
+                    "Price": now,
+                    "Change": change,
+                    "Pct": pct,
+                    "Color": "#10b981" if change >= 0 else "#ef4444"
+                })
+        except Exception as e:
+            print(f"Lỗi tải {name}: {e}")
+            continue
+            
+    return data_list
+
+def get_pro_data(tickers):
+    # (Giữ nguyên logic cũ của hàm này)
+    symbols = [f"{t}.VN" for t in tickers]
+    try:
+        data = yf.download(symbols, period="1y", interval="1d", group_by='ticker', progress=False)
+        rows = []
+        for t in tickers:
+            sym = f"{t}.VN"
+            try:
+                df = data[sym] if len(tickers) > 1 else data
+                if df.empty or len(df) < 50: continue
+                
+                # Tính chỉ báo
+                sti = ta.supertrend(df['High'], df['Low'], df['Close'], length=10, multiplier=3)
+                if sti is not None: df = df.join(sti)
+                
+                df.ta.rsi(length=14, append=True)
+                df.ta.ema(length=34, append=True)
+                
+                now = df.iloc[-1]
+                close = now['Close']
+                st_cols = [c for c in df.columns if 'SUPERT' in c]
+                supertrend = now[st_cols[0]] if st_cols else close
+                
+                # Chấm điểm
+                score = 3
+                pros, cons = [], []
+                
+                if close > supertrend: score += 3
+                if close > now.get('EMA_34', 0): score += 1
+                
+                rsi = now.get('RSI_14', 50)
+                if 50 <= rsi <= 70: score += 1
+                elif rsi < 30: score += 1
+                elif rsi > 75: score -= 1
+                
+                final_score = max(0, min(10, score))
+                
+                action = "NEUTRAL"
+                if final_score >= 9: action = "STRONG BUY"
+                elif final_score >= 7: action = "BUY"
+                elif final_score <= 2: action = "STRONG SELL"
+                elif final_score <= 4: action = "SELL"
+                
+                # Trend data
+                trend_list = df['Close'].tail(30).tolist()
+                trend_list = [float(x) for x in trend_list]
+
+                rows.append({
+                    "Symbol": t,
+                    "Price": close / 1000.0,
+                    "Pct": (close - df['Close'].iloc[-2]) / df['Close'].iloc[-2],
+                    "Signal": action,
+                    "Score": final_score,
+                    "Trend": trend_list
+                })
+            except: continue
+        return pd.DataFrame(rows)
+    except: return pd.DataFrame()
+
+def get_history_df(symbol):
+    return yf.Ticker(f"{symbol}.VN").history(period="2y")
