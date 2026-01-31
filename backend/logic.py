@@ -2,11 +2,12 @@
 ================================================================================
 MODULE: backend/logic.py
 PROJECT: THANG LONG TERMINAL (ENTERPRISE EDITION)
-VERSION: 36.1.0-STABLE
+VERSION: 40.0.0-ULTIMATE-LOGIC
 DESCRIPTION: 
-    Advanced Analysis Engine.
-    Contains classes for Technical Analysis (Multi-indicator) and 
-    Fundamental Analysis (Financial Health Scoring).
+    - Technical Analysis: Multi-indicator (SuperTrend, Ichimoku, RSI...).
+      *UPDATE*: Auto-hide Entry/Target when signal is SELL.
+    - Fundamental Analysis: Deep Dive into 9 Financial Health Metrics.
+      *UPDATE*: Full analysis of Profitability, Solvency, and Growth.
 ================================================================================
 """
 
@@ -16,73 +17,53 @@ import numpy as np
 from typing import Dict, List, Tuple, Optional
 
 # ==============================================================================
-# 1. TECHNICAL ANALYSIS ENGINE (BỘ MÁY PHÂN TÍCH KỸ THUẬT)
+# 1. TECHNICAL ANALYSIS ENGINE (BỘ MÁY KỸ THUẬT)
 # ==============================================================================
 
 class TechnicalAnalyzer:
     """
     Class chuyên dụng để phân tích kỹ thuật sâu.
-    Tích hợp: SuperTrend, Ichimoku, Bollinger Bands, RSI, MACD, ADX, Stochastic.
+    Tích hợp: SuperTrend, Ichimoku, Bollinger Bands, RSI, EMA.
     """
-    
     def __init__(self, df: pd.DataFrame):
         self.df = df
         self.latest = df.iloc[-1] if not df.empty else None
-        self.prev = df.iloc[-2] if not df.empty and len(df) > 1 else None
 
     def validate(self) -> bool:
-        """Kiểm tra dữ liệu đầu vào có đủ để phân tích không."""
+        """Kiểm tra dữ liệu đầu vào có đủ 50 nến không."""
         return self.df is not None and not self.df.empty and len(self.df) >= 50
 
     def add_indicators(self) -> pd.DataFrame:
-        """
-        Tính toán và nạp tất cả chỉ báo vào DataFrame.
-        Sử dụng thư viện pandas_ta tối ưu hiệu năng.
-        """
+        """Tính toán và nạp chỉ báo vào DataFrame."""
         if not self.validate(): return self.df
-
+        
         # 1. Trend Indicators
         # SuperTrend (10, 3)
         sti = ta.supertrend(self.df['High'], self.df['Low'], self.df['Close'], length=10, multiplier=3)
         if sti is not None: self.df = self.df.join(sti)
         
-        # EMAs (Exponential Moving Average)
-        self.df.ta.ema(length=34, append=True) # Ngắn hạn
-        self.df.ta.ema(length=89, append=True) # Trung hạn
-        self.df.ta.ema(length=200, append=True) # Dài hạn (Trend chính)
+        # EMA
+        self.df.ta.ema(length=34, append=True)
+        self.df.ta.ema(length=89, append=True)
+        self.df.ta.ema(length=200, append=True)
 
         # Ichimoku Cloud
         ichimoku = ta.ichimoku(self.df['High'], self.df['Low'], self.df['Close'], tenkan=9, kijun=26, senkou=52)
-        if ichimoku is not None:
-            self.df = self.df.join(ichimoku[0]) # Join Tenkan, Kijun, SpanA, SpanB
+        if ichimoku is not None: self.df = self.df.join(ichimoku[0])
 
-        # 2. Volatility Indicators
-        # Bollinger Bands (20, 2)
+        # 2. Volatility & Momentum
         self.df.ta.bbands(length=20, std=2, append=True)
-        
-        # ATR (Average True Range) - Dùng để tính Stoploss
         self.df.ta.atr(length=14, append=True)
-
-        # 3. Momentum Indicators
-        # RSI (Relative Strength Index)
         self.df.ta.rsi(length=14, append=True)
         
-        # MACD (Moving Average Convergence Divergence)
-        self.df.ta.macd(fast=12, slow=26, signal=9, append=True)
-        
-        # Stochastic Oscillator
-        self.df.ta.stoch(high=self.df['High'], low=self.df['Low'], close=self.df['Close'], k=14, d=3, append=True)
-
-        # ADX (Average Directional Index) - Đo sức mạnh xu hướng
-        self.df.ta.adx(length=14, append=True)
-        
-        # Cập nhật lại latest data sau khi thêm cột
+        # Update latest row
         self.latest = self.df.iloc[-1]
-        self.prev = self.df.iloc[-2]
-        
         return self.df
 
     def analyze(self) -> Dict:
+        """
+        Chấm điểm kỹ thuật (0-10) và đưa ra hành động Mua/Bán.
+        """
         if not self.validate(): return {}
         if 'RSI_14' not in self.df.columns: self.add_indicators()
             
@@ -91,63 +72,61 @@ class TechnicalAnalyzer:
         cons = []
         close = self.latest['Close']
         
-        # --- 1. TÍNH ĐIỂM (SCORING) ---
-        # SuperTrend
+        # --- A. SCORING LOGIC ---
+        
+        # 1. SuperTrend (Quan trọng nhất: +/- 2 điểm)
         st_col = [c for c in self.df.columns if 'SUPERT' in c]
         if st_col:
-            if close > self.latest[st_col[0]]: score += 2; pros.append("SuperTrend: Báo TĂNG (Uptrend)")
-            else: score -= 2; cons.append("SuperTrend: Báo GIẢM (Downtrend)")
+            if close > self.latest[st_col[0]]: 
+                score += 2; pros.append("SuperTrend: Uptrend (Tăng)")
+            else: 
+                score -= 2; cons.append("SuperTrend: Downtrend (Giảm)")
                 
-        # EMA
+        # 2. EMA (Trend dài hạn: +/- 1 điểm)
         ema34 = self.latest.get('EMA_34', 0)
         ema89 = self.latest.get('EMA_89', 0)
-        if close > ema34 > ema89: score += 1; pros.append("EMA: Giá trên MA ngắn hạn")
-        if close < self.latest.get('EMA_200', 0): score -= 1; cons.append("EMA: Dưới MA200 (Dài hạn xấu)")
+        ema200 = self.latest.get('EMA_200', 0)
+        
+        if close > ema34 > ema89: score += 1; pros.append("EMA: Xếp lớp tăng giá đẹp")
+        if close < ema200: score -= 1; cons.append("EMA: Giá dưới MA200 (Dài hạn xấu)")
             
-        # Ichimoku
+        # 3. Ichimoku (+1 điểm)
         span_a = self.latest.get('ISA_9', 0)
         span_b = self.latest.get('ISB_26', 0)
         if close > span_a and close > span_b: score += 1; pros.append("Ichimoku: Giá nằm trên Mây")
             
-        # RSI
+        # 4. RSI (+/- 1 điểm)
         rsi = self.latest.get('RSI_14', 50)
-        if 50 <= rsi <= 70: score += 1
-        elif rsi < 30: score += 1.5; pros.append("RSI: Quá bán (Dễ hồi phục)")
-        elif rsi > 75: score -= 1; cons.append("RSI: Quá mua (Cẩn trọng)")
+        if 50 <= rsi <= 70: score += 0.5
+        elif rsi < 30: score += 1.5; pros.append("RSI: Quá bán (Dễ có nhịp hồi)")
+        elif rsi > 75: score -= 1.0; cons.append("RSI: Quá mua (Cẩn trọng chỉnh)")
             
-        # Bollinger
+        # 5. Bollinger Bands (+2 điểm nếu Breakout)
         bb_upper = self.latest.get('BBU_20_2.0', 0)
-        if close > bb_upper: score += 2; pros.append("Bollinger: Breakout dải trên")
+        if close > bb_upper: score += 2; pros.append("Bollinger: Breakout dải trên (Tiền vào)")
             
-        # --- 2. TỔNG HỢP KẾT QUẢ ---
-        final_score = max(0, min(10, 5 + score))
+        # --- B. CLASSIFICATION ---
+        final_score = max(0, min(10, 5 + score)) # Base score = 5
         
-        # Mặc định tính toán Entry/Stop/Target
+        # Tính toán Entry/Stop/Target theo ATR
         atr = self.latest.get('ATRr_14', close * 0.02)
         entry_price = close
         stop_loss = close - (2 * atr)
         take_profit = close + (4 * atr)
 
-        # Mặc định là QUAN SÁT
         action = "QUAN SÁT"
-        color = "#fcee0a" 
+        color = "#fcee0a" # Vàng
 
-        # Phân loại tín hiệu
         if final_score >= 8:
-            action = "MUA MẠNH 💎"
-            color = "#00ff41"
+            action = "MUA MẠNH 💎"; color = "#00ff41" # Xanh Matrix
         elif final_score >= 6:
-            action = "MUA (BUY)"
-            color = "#00f3ff"
+            action = "MUA (BUY)"; color = "#00f3ff" # Xanh Cyan
         elif final_score <= 4:
-            # === [ĐOẠN QUAN TRỌNG NHẤT] ===
-            action = "BÁN / CẮT LỖ"
-            color = "#ff0055"
-            # ÉP VỀ 0 ĐỂ FRONTEND ẨN ĐI
+            action = "BÁN / CẮT LỖ"; color = "#ff0055" # Đỏ
+            # [LOGIC MỚI] Nếu báo Bán, reset các mốc về 0 để ẩn đi
             entry_price = 0
             stop_loss = 0
             take_profit = 0
-            # ===============================
             
         return {
             "score": final_score,
@@ -162,114 +141,137 @@ class TechnicalAnalyzer:
         }
 
 # ==============================================================================
-# 2. FUNDAMENTAL ANALYSIS ENGINE (BỘ MÁY PHÂN TÍCH CƠ BẢN)
+# 2. FUNDAMENTAL ANALYSIS ENGINE (BỘ MÁY PHÂN TÍCH CƠ BẢN - 9 CHỈ SỐ)
 # ==============================================================================
 
 class FundamentalAnalyzer:
     """
-    Class chuyên dụng phân tích sức khỏe tài chính.
-    Dựa trên dữ liệu: Info, BCTC Quý.
+    Class phân tích sức khỏe tài chính dựa trên 9 tiêu chí cốt lõi.
     """
-    def __init__(self, info: Dict, financials: pd.DataFrame):
+    def __init__(self, info: Dict, fin: pd.DataFrame, bal: pd.DataFrame, cash: pd.DataFrame):
         self.info = info
-        self.fin = financials # Income Statement
+        self.fin = fin   # Income Statement
+        self.bal = bal   # Balance Sheet
+        self.cash = cash # Cash Flow
         
+    def get_val(self, df, row_names, col_idx=0):
+        """Hàm an toàn lấy dữ liệu từ BCTC (vì tên dòng có thể thay đổi)."""
+        if df.empty: return 0.0
+        for name in row_names:
+            if name in df.index:
+                try:
+                    val = df.loc[name].iloc[col_idx]
+                    return float(val) if val is not None else 0.0
+                except: return 0.0
+        return 0.0
+
     def analyze(self) -> Dict:
-        """
-        Chấm điểm sức khỏe doanh nghiệp (F-Score simplified).
-        """
         score = 0
         details = []
+        metrics = {} # Dict chứa 9 chỉ số để hiển thị Grid
         
-        # Lấy dữ liệu an toàn
-        pe = self.info.get('trailingPE')
-        pb = self.info.get('priceToBook')
-        roe = self.info.get('returnOnEquity')
-        peg = self.info.get('pegRatio')
-        mkt_cap = self.info.get('marketCap', 0)
+        # --- NHÓM 1: SỨC SINH LỜI (PROFITABILITY) ---
         
-        # 1. VALUATION (Định giá)
-        if pe:
-            if 0 < pe < 12:
-                score += 2
-                details.append(f"P/E Hấp dẫn ({pe:.1f}x) - Rẻ")
-            elif 12 <= pe <= 20:
-                score += 1
-                details.append(f"P/E Hợp lý ({pe:.1f}x)")
-            else:
-                score -= 1
-                details.append(f"⚠️ P/E Cao ({pe:.1f}x)")
+        # 1. ROE
+        roe = self.info.get('returnOnEquity', 0) or 0
+        metrics['ROE'] = f"{roe*100:.1f}%"
+        if roe > 0.20: score += 2; details.append(f"ROE Siêu việt ({roe*100:.1f}%)")
+        elif roe > 0.15: score += 1
+        elif roe < 0.05: score -= 1; details.append("⚠️ ROE Quá thấp")
         
-        if pb and pb < 1.5:
-            score += 1
-            details.append(f"P/B Thấp ({pb:.1f}x) - Tài sản an toàn")
+        # 2. Net Margin
+        rev = self.get_val(self.fin, ['Total Revenue', 'Operating Revenue'], 0)
+        ni = self.get_val(self.fin, ['Net Income', 'Net Income Common Stockholders'], 0)
+        nm = (ni / rev) if rev else 0
+        metrics['Net Margin'] = f"{nm*100:.1f}%"
+        if nm > 0.15: score += 1
+        elif nm < 0.02: score -= 1
+        
+        # 3. BEP (EBIT / Assets)
+        ebit = self.get_val(self.fin, ['EBIT', 'Operating Income', 'Pretax Income'], 0)
+        assets = self.get_val(self.bal, ['Total Assets'], 0)
+        bep = (ebit / assets) if assets else 0
+        metrics['BEP'] = f"{bep*100:.1f}%"
+        if bep > 0.1: score += 1
+        
+        # --- NHÓM 2: SỨC KHỎE TÀI CHÍNH (SOLVENCY) ---
+        
+        # 4. Debt/Asset
+        liab = self.get_val(self.bal, ['Total Liabilities Net Minority Interest', 'Total Liabilities'], 0)
+        da = (liab / assets) if assets else 0
+        metrics['Debt/Asset'] = f"{da:.2f}"
+        
+        sector = self.info.get('sector', '')
+        if 'Financial' in sector: # Bank/Chứng khoán nợ cao là bt
+            if da > 0.95: score -= 1; details.append("⚠️ Đòn bẩy quá cao")
+        else:
+            if da < 0.6: score += 1
+            elif da > 0.8: score -= 1; details.append("⚠️ Nợ vay rủi ro")
             
-        # 2. PROFITABILITY (Khả năng sinh lời)
-        if roe:
-            roe_pct = roe * 100
-            if roe_pct > 15:
-                score += 2
-                details.append(f"ROE Xuất sắc ({roe_pct:.1f}%)")
-            elif roe_pct < 5:
-                score -= 1
-                details.append(f"⚠️ ROE Quá thấp ({roe_pct:.1f}%)")
-                
-        # 3. GROWTH (Tăng trưởng - Từ BCTC)
-        if not self.fin.empty and len(self.fin.columns) >= 2:
-            try:
-                # So sánh Lợi nhuận sau thuế quý gần nhất vs cùng kỳ
-                net_income_now = self.fin.iloc[0, 0] # Hàng Net Income, Cột mới nhất
-                
-                # Cố gắng tìm cột cùng kỳ năm ngoái (thường là cột thứ 4 index=4, nếu có 5 cột)
-                # Nếu không có đủ 5 cột thì so với quý trước (cột 1)
-                idx_prev = 4 if len(self.fin.columns) >= 5 else 1
-                net_income_prev = self.fin.iloc[0, idx_prev]
-                
-                period_label = "cùng kỳ" if idx_prev == 4 else "quý trước"
-                
-                if net_income_prev and net_income_prev != 0:
-                    growth = (net_income_now - net_income_prev) / abs(net_income_prev)
-                    if growth > 0.15:
-                        score += 2
-                        details.append(f"🚀 Tăng trưởng mạnh ({growth:.1%}) so với {period_label}")
-                    elif growth < -0.10:
-                        score -= 1
-                        details.append(f"⚠️ Suy giảm ({growth:.1%}) so với {period_label}")
-            except Exception as e:
-                # details.append(f"Lỗi tính tăng trưởng: {str(e)}")
-                pass
+        # 5. Current Ratio
+        curr_asset = self.get_val(self.bal, ['Current Assets', 'Total Current Assets'], 0)
+        curr_liab = self.get_val(self.bal, ['Current Liabilities', 'Total Current Liabilities'], 0)
+        cr = (curr_asset / curr_liab) if curr_liab else 0
+        metrics['Current Ratio'] = f"{cr:.2f}"
+        if cr > 1.2: score += 1
+        elif cr < 0.9: score -= 1; details.append("⚠️ Áp lực thanh khoản ngắn hạn")
+        
+        # 6. Operating Cash Flow (OCF)
+        ocf = self.get_val(self.cash, ['Operating Cash Flow', 'Cash Flow From Continuing Operating Activities'], 0)
+        metrics['OCF'] = f"{ocf/1e9:,.0f}B"
+        if ocf > 0: score += 1; details.append("Dòng tiền KD Dương (+)")
+        else: score -= 1; details.append("⚠️ Dòng tiền KD Âm (-)")
+        
+        # --- NHÓM 3: TĂNG TRƯỞNG & HIỆU QUẢ (GROWTH) ---
+        
+        # 7. Revenue Growth (YoY)
+        rev_prev = self.get_val(self.fin, ['Total Revenue', 'Operating Revenue'], 4) # Cùng kỳ năm ngoái
+        rev_g = ((rev - rev_prev) / rev_prev) if rev_prev else 0
+        metrics['Rev Growth'] = f"{rev_g*100:.1f}%"
+        if rev_g > 0.15: score += 1; details.append(f"Tăng trưởng DT tốt ({rev_g:.1%})")
+        
+        # 8. Inventory Turnover
+        inv = self.get_val(self.bal, ['Inventory'], 0)
+        cogs = self.get_val(self.fin, ['Cost Of Revenue', 'Cost of Goods Sold'], 0)
+        inv_turn = (cogs / inv) if inv else 0
+        metrics['Inv Turnover'] = f"{inv_turn:.1f}x" if inv else "N/A"
+        if inv > 0 and inv_turn > 4: score += 1
+        
+        # 9. NI Growth (YoY)
+        ni_prev = self.get_val(self.fin, ['Net Income', 'Net Income Common Stockholders'], 4)
+        ni_g = ((ni - ni_prev) / abs(ni_prev)) if ni_prev else 0
+        metrics['NI Growth'] = f"{ni_g*100:.1f}%"
+        if ni_g > 0.15: score += 1
+        elif ni_g < -0.1: score -= 1; details.append("⚠️ Lợi nhuận suy giảm")
 
-        # Xếp hạng
-        health = "TRUNG BÌNH"
-        color = "#f59e0b" # Vàng
+        # --- TỔNG KẾT ---
+        final_health = "TRUNG BÌNH"
+        color = "#fcee0a"
+        if score >= 6: final_health = "VỮNG MẠNH 💪"; color = "#00ff41"
+        elif score >= 3: final_health = "ỔN ĐỊNH"; color = "#00f3ff"
+        else: final_health = "YẾU KÉM ⚠️"; color = "#ff0055"
         
-        if score >= 6:
-            health = "KIM CƯƠNG 💎"
-            color = "#10b981" # Xanh
-        elif score >= 3:
-            health = "VỮNG MẠNH 💪"
-            color = "#3b82f6" # Blue
-        elif score < 2:
-            health = "YẾU KÉM ⚠️"
-            color = "#ef4444" # Đỏ
-            
         return {
-            "health": health,
+            "health": final_health,
             "color": color,
             "details": details,
-            "market_cap": mkt_cap
+            "market_cap": self.info.get('marketCap', 0),
+            "metrics": metrics # Bảng 9 chỉ số
         }
 
 # ==============================================================================
-# 3. WRAPPER FUNCTIONS (Hàm bọc để gọi từ bên ngoài)
+# 3. WRAPPER FUNCTIONS (Hàm bọc gọi từ App)
 # ==============================================================================
 
 def analyze_smart_v36(df: pd.DataFrame) -> Optional[Dict]:
-    """Hàm wrapper cho TechnicalAnalyzer"""
     analyzer = TechnicalAnalyzer(df)
     return analyzer.analyze()
 
-def analyze_fundamental(info: Dict, fin: pd.DataFrame) -> Dict:
-    """Hàm wrapper cho FundamentalAnalyzer"""
-    analyzer = FundamentalAnalyzer(info, fin)
+def analyze_fundamental_full(info, fin, bal, cash) -> Dict:
+    """Wrapper mới: Nhận đủ 4 tham số cho Logic V40."""
+    analyzer = FundamentalAnalyzer(info, fin, bal, cash)
     return analyzer.analyze()
+
+# Giữ hàm cũ để tránh lỗi import (nhưng trả về default)
+def analyze_fundamental(info: Dict, fin: pd.DataFrame) -> Dict:
+    return {"health": "N/A", "color": "#888", "details": [], "market_cap": 0, "metrics": {}}
