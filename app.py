@@ -307,6 +307,6 @@ st.markdown("""
 </style>
 
 <div class="cyber-footer">
-    🚀 CYBER COMMANDER V42 | DEVELOPED BY <span class="neon-green">THANGLONG</span> | © 2026
+    🚀 TL-TERMINAL | DEVELOPED BY <span class="neon-green">THANGLONG</span> | © 2026
 </div>
 """, unsafe_allow_html=True)
