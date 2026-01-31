@@ -132,3 +132,60 @@ def get_pro_data(tickers):
 # ======================================================
 def get_history_df(symbol):
     return yf.Ticker(f"{symbol}.VN").history(period="2y")
+# ======================================================
+# 5. CÁC HÀM LẤY DỮ LIỆU CƠ BẢN (FINANCE, NEWS...)
+# ======================================================
+
+def get_financial_report(symbol, report_type='incomestatement'):
+    """
+    Lấy Báo cáo tài chính từ TCBS
+    report_type: 'incomestatement' (KQKD), 'balancesheet' (Cân đối KT), 'cashflow' (Lưu chuyển TT)
+    """
+    try:
+        url = f"https://apipubaws.tcbs.com.vn/tcanalysis/v1/finance/{symbol}/{report_type}?yearly=0&isConsolidated=1"
+        headers = {'User-Agent': 'Mozilla/5.0'}
+        resp = requests.get(url, headers=headers, timeout=5)
+        data = resp.json()
+        
+        if data:
+            df = pd.DataFrame(data)
+            # Chọn các cột quan trọng và đổi tên (tùy vào dữ liệu trả về)
+            # Ở đây ta lấy đơn giản 5 quý gần nhất
+            df = df.iloc[:, :5] 
+            return df
+    except: pass
+    return pd.DataFrame()
+
+def get_stock_news(symbol):
+    """Lấy tin tức mới nhất liên quan mã CP"""
+    try:
+        url = f"https://apipubaws.tcbs.com.vn/tcanalysis/v1/ticker/{symbol}/news-event?page=0&size=10"
+        headers = {'User-Agent': 'Mozilla/5.0'}
+        resp = requests.get(url, headers=headers, timeout=5)
+        data = resp.json()
+        if 'list' in data:
+            return data['list'] # Trả về list các tin tức
+    except: pass
+    return []
+
+def get_company_profile(symbol):
+    """Lấy hồ sơ doanh nghiệp"""
+    try:
+        url = f"https://apipubaws.tcbs.com.vn/tcanalysis/v1/ticker/{symbol}/overview"
+        headers = {'User-Agent': 'Mozilla/5.0'}
+        resp = requests.get(url, headers=headers, timeout=5)
+        return resp.json()
+    except: pass
+    return {}
+
+def get_dividend_history(symbol):
+    """Lấy lịch sử trả cổ tức"""
+    try:
+        url = f"https://apipubaws.tcbs.com.vn/tcanalysis/v1/company/{symbol}/dividend-payment-histories?page=0&size=10"
+        headers = {'User-Agent': 'Mozilla/5.0'}
+        resp = requests.get(url, headers=headers, timeout=5)
+        data = resp.json()
+        if 'list' in data:
+            return pd.DataFrame(data['list'])
+    except: pass
+    return pd.DataFrame()
