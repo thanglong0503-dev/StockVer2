@@ -156,6 +156,7 @@ def render_market_overview(indices_data):
             st.markdown(html, unsafe_allow_html=True)
 
 # ==============================================================================
+# ==============================================================================
 # 4. CYBERPUNK DASHBOARD (TRUNG TÂM PHÂN TÍCH)
 # ==============================================================================
 def render_analysis_section(tech, fund):
@@ -166,6 +167,11 @@ def render_analysis_section(tech, fund):
         tech_color = tech['color']
         action_text = tech['action'].replace('💎','').replace('💪','').replace('⚠️','')
         gauge_svg = create_svg_gauge(tech['score'], tech_color)
+        
+        # [LOGIC MỚI] Kiểm tra nếu giá trị > 0 thì hiện số, ngược lại hiện ---
+        val_entry = f"{tech['entry']:,.0f}" if tech['entry'] > 0 else "<span style='color:#666'>---</span>"
+        val_target = f"{tech['target']:,.0f}" if tech['target'] > 0 else "<span style='color:#666'>---</span>"
+        val_stop = f"{tech['stop']:,.0f}" if tech['stop'] > 0 else "<span style='color:#666'>---</span>"
         
         signals_html = ""
         for p in tech['pros'][:3]:
@@ -183,9 +189,9 @@ def render_analysis_section(tech, fund):
             f'      <div>{gauge_svg}</div>'
             f'  </div>'
             f'  <div class="cyber-grid">'
-            f'      <div class="cyber-metric"><div class="cyber-label">ENTRY_ZONE</div><div class="cyber-val">{tech["entry"]:,.0f}</div></div>'
-            f'      <div class="cyber-metric"><div class="cyber-label">TARGET_LOCK</div><div class="cyber-val" style="color:#00ff41;">{tech["target"]:,.0f}</div></div>'
-            f'      <div class="cyber-metric"><div class="cyber-label">STOP_LOSS</div><div class="cyber-val" style="color:#ff0055;">{tech["stop"]:,.0f}</div></div>'
+            f'      <div class="cyber-metric"><div class="cyber-label">ENTRY_ZONE</div><div class="cyber-val">{val_entry}</div></div>'
+            f'      <div class="cyber-metric"><div class="cyber-label">TARGET_LOCK</div><div class="cyber-val" style="color:#00ff41;">{val_target}</div></div>'
+            f'      <div class="cyber-metric"><div class="cyber-label">STOP_LOSS</div><div class="cyber-val" style="color:#ff0055;">{val_stop}</div></div>'
             f'      <div class="cyber-metric"><div class="cyber-label">ATR_VOLTY</div><div class="cyber-val">{tech.get("atr", 0):,.0f}</div></div>'
             f'  </div>'
             f'  <div style="margin-top:15px; background:rgba(0,0,0,0.5); padding:10px; border-left:2px solid {tech_color}; font-family:monospace;">'
@@ -228,7 +234,6 @@ def render_analysis_section(tech, fund):
             f'</div>'
         )
         st.markdown(html_fund, unsafe_allow_html=True)
-
 # ==============================================================================
 # 5. ADVANCED CHARTING (INTERACTIVE ZOOM & PAN)
 # ==============================================================================
