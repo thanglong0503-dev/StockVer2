@@ -2,13 +2,10 @@
 ================================================================================
 MODULE: frontend/components.py
 THEME: ULTRA CYBERPUNK HUD INTERFACE
-VERSION: 36.2.0-HEAVY-DUTY
+VERSION: 36.3.0-INTERACTIVE-FIX
 DESCRIPTION: 
     Render complex HUD elements using embedded CSS animations and SVG generation.
-    Includes:
-    - Dynamic SVG Speedometers for scoring.
-    - Holographic cards with scanning effects.
-    - Neon-glowing market tickers.
+    UPDATED: Enabled Scroll Zoom & Pan Dragging for Charts (TradingView Style).
 ================================================================================
 """
 
@@ -23,10 +20,7 @@ import numpy as np
 # ==============================================================================
 def inject_cyber_effects():
     """
-    Tiêm vào trang web các hiệu ứng chuyển động phức tạp:
-    - Scanline (Quét ngang màn hình)
-    - Flicker (Nhấp nháy như đèn Neon hỏng)
-    - Glitch (Nhiễu sóng)
+    Tiêm vào trang web các hiệu ứng chuyển động phức tạp.
     """
     css = """
     <style>
@@ -115,26 +109,21 @@ def inject_cyber_effects():
 # ==============================================================================
 def create_svg_gauge(score, color):
     """
-    Tạo mã SVG để vẽ đồng hồ đo sức mạnh (Speedometer) trực tiếp.
-    Không cần ảnh ngoài, load siêu nhanh.
+    Tạo mã SVG để vẽ đồng hồ đo sức mạnh.
     """
-    # Tính toán góc quay (0-10 điểm tương ứng 0-180 độ)
     percentage = max(0, min(10, score)) / 10
     rotation = -90 + (percentage * 180)
     
     svg = f"""
     <svg width="120" height="70" viewBox="0 0 120 70">
         <path d="M 10 60 A 50 50 0 0 1 110 60" fill="none" stroke="#222" stroke-width="10" stroke-linecap="round"/>
-        
         <path d="M 10 60 A 50 50 0 0 1 110 60" fill="none" stroke="{color}" stroke-width="10" stroke-linecap="round" 
               stroke-dasharray="157" stroke-dashoffset="{157 * (1 - percentage)}" 
               style="transition: stroke-dashoffset 1s ease-out;"/>
-        
         <g transform="translate(60, 60) rotate({rotation})">
             <path d="M -5 0 L 0 -50 L 5 0 Z" fill="#fff" />
             <circle cx="0" cy="0" r="5" fill="#fff"/>
         </g>
-        
         <text x="60" y="50" text-anchor="middle" fill="#fff" font-family="Rajdhani" font-weight="bold" font-size="20">{score}</text>
     </svg>
     """
@@ -151,13 +140,12 @@ def render_market_overview(indices_data):
     
     for i, data in enumerate(indices_data):
         with cols[i]:
-            status_color = "#00f3ff" # Default Neon Blue
-            if data['Change'] >= 0: status_color = "#00ff41" # Matrix Green
-            else: status_color = "#ff0055" # Cyber Pink
+            status_color = "#00f3ff" 
+            if data['Change'] >= 0: status_color = "#00ff41" 
+            else: status_color = "#ff0055" 
             
             arrow = "▲" if data['Change'] >= 0 else "▼"
             
-            # HTML Card phức tạp
             html = (
                 f'<div style="background:linear-gradient(180deg, rgba(0,0,0,0), rgba(0,243,255,0.05)); border:1px solid #222; border-bottom: 2px solid {status_color}; padding:10px; text-align:center;">'
                 f'<div style="font-size:10px; color:#888; text-transform:uppercase; letter-spacing:2px;">{data["Name"]}</div>'
@@ -171,24 +159,18 @@ def render_market_overview(indices_data):
 # 4. CYBERPUNK DASHBOARD (TRUNG TÂM PHÂN TÍCH)
 # ==============================================================================
 def render_analysis_section(tech, fund):
-    """
-    Hiển thị 2 thẻ bài Hologram với hiệu ứng SVG và Grid.
-    """
     c1, c2 = st.columns(2)
     
-    # --- LEFT CARD: TECHNICAL SYSTEMS ---
+    # --- LEFT CARD: TECHNICAL ---
     with c1:
         tech_color = tech['color']
         action_text = tech['action'].replace('💎','').replace('💪','').replace('⚠️','')
-        
-        # Tạo SVG Gauge
         gauge_svg = create_svg_gauge(tech['score'], tech_color)
         
-        # Xử lý list Pros/Cons thành HTML string
         signals_html = ""
-        for p in tech['pros'][:3]: # Lấy tối đa 3 tin tốt
+        for p in tech['pros'][:3]:
             signals_html += f'<div style="color:#00ff41; font-size:12px; margin-bottom:2px;">[+] {p}</div>'
-        for c in tech['cons'][:2]: # Lấy tối đa 2 tin xấu
+        for c in tech['cons'][:2]:
             signals_html += f'<div style="color:#ff0055; font-size:12px; margin-bottom:2px;">[-] {c}</div>'
             
         html_tech = (
@@ -213,21 +195,14 @@ def render_analysis_section(tech, fund):
         )
         st.markdown(html_tech, unsafe_allow_html=True)
 
-    # --- RIGHT CARD: FUNDAMENTAL CORE ---
+    # --- RIGHT CARD: FUNDAMENTAL ---
     with c2:
         fund_color = fund['color']
         health_text = fund['health'].replace('💎','').replace('💪','').replace('⚠️','')
         
-        # Tạo thanh Bar giả lập (Fake Progress Bar)
-        bars_html = ""
-        score_val = 0
-        if "KIM" in health_text: score_val = 100
-        elif "VỮNG" in health_text: score_val = 70
-        else: score_val = 30
-        
+        score_val = 100 if "KIM" in health_text else (70 if "VỮNG" in health_text else 30)
         bars_html = f'<div style="width:100%; height:6px; background:#222; margin-top:10px; border-radius:3px;"><div style="width:{score_val}%; height:100%; background:{fund_color}; box-shadow:0 0 10px {fund_color};"></div></div>'
 
-        # Xử lý Financial Details
         fin_html = ""
         for d in fund['details']:
             color = "#ff0055" if any(x in d for x in ["cao", "Thấp", "giảm", "kém"]) else "#00ff41"
@@ -255,18 +230,16 @@ def render_analysis_section(tech, fund):
         st.markdown(html_fund, unsafe_allow_html=True)
 
 # ==============================================================================
-# 5. ADVANCED CHARTING (BIỂU ĐỒ CHUẨN TRADER)
+# 5. ADVANCED CHARTING (INTERACTIVE ZOOM & PAN)
 # ==============================================================================
 def render_interactive_chart(df, symbol):
     """
-    Vẽ biểu đồ nến với Theme tối tối ưu cho dân Trading.
-    Tắt lưới, tập trung vào hành động giá.
+    Vẽ biểu đồ với khả năng Zoom/Pan mượt mà như TradingView.
     """
     if df.empty:
         st.error("NO DATA SIGNAL RECEIVED.")
         return
 
-    # Tính toán Ichimoku nếu thiếu (Self-healing)
     try:
         if 'ITS_9' not in df.columns:
             ichi = ta.ichimoku(df['High'], df['Low'], df['Close'])
@@ -281,34 +254,24 @@ def render_interactive_chart(df, symbol):
         row_heights=[0.7, 0.3]
     )
     
-    # 1. Main Candlestick (Nến rỗng/đặc kiểu Nhật)
+    # 1. Main Candlestick
     fig.add_trace(go.Candlestick(
         x=df.index,
         open=df['Open'], high=df['High'], low=df['Low'], close=df['Close'],
         name='PRICE',
-        increasing_line_color='#00ff41', increasing_fillcolor='rgba(0,0,0,0)', # Nến tăng rỗng ruột (Pro style)
-        decreasing_line_color='#ff0055', decreasing_fillcolor='#ff0055', # Nến giảm đặc
+        increasing_line_color='#00ff41', increasing_fillcolor='rgba(0,0,0,0)',
+        decreasing_line_color='#ff0055', decreasing_fillcolor='#ff0055',
         line_width=1
     ), row=1, col=1)
     
-    # 2. Ichimoku Cloud (Hiệu ứng mây mờ)
+    # 2. Ichimoku Cloud
     if 'ISA_9' in df.columns and 'ISB_26' in df.columns:
-        # Tô màu mây
-        fig.add_trace(go.Scatter(
-            x=df.index, y=df['ISA_9'], 
-            line=dict(color='rgba(0,0,0,0)'), showlegend=False, hoverinfo='skip'
-        ), row=1, col=1)
-        fig.add_trace(go.Scatter(
-            x=df.index, y=df['ISB_26'], 
-            line=dict(color='rgba(0,0,0,0)'), 
-            fill='tonexty', # Tô vùng giữa 2 đường
-            fillcolor='rgba(0, 243, 255, 0.1)', # Mây xanh nhạt
-            showlegend=False, hoverinfo='skip'
-        ), row=1, col=1)
+        fig.add_trace(go.Scatter(x=df.index, y=df['ISA_9'], line=dict(color='rgba(0,0,0,0)'), showlegend=False, hoverinfo='skip'), row=1, col=1)
+        fig.add_trace(go.Scatter(x=df.index, y=df['ISB_26'], line=dict(color='rgba(0,0,0,0)'), fill='tonexty', fillcolor='rgba(0, 243, 255, 0.1)', showlegend=False, hoverinfo='skip'), row=1, col=1)
 
-    # 3. Volume Bar (Màu theo nến)
-    colors = ['#003300' if r['Open'] < r['Close'] else '#330000' for i, r in df.iterrows()] # Màu tối hơn cho volume
-    edge_colors = ['#00ff41' if r['Open'] < r['Close'] else '#ff0055' for i, r in df.iterrows()] # Viền sáng
+    # 3. Volume Bar
+    colors = ['#003300' if r['Open'] < r['Close'] else '#330000' for i, r in df.iterrows()]
+    edge_colors = ['#00ff41' if r['Open'] < r['Close'] else '#ff0055' for i, r in df.iterrows()]
     
     fig.add_trace(go.Bar(
         x=df.index, y=df['Volume'], 
@@ -316,22 +279,37 @@ def render_interactive_chart(df, symbol):
         name='VOL', opacity=0.8
     ), row=2, col=1)
 
-    # 4. Styling Ultimate Dark Mode
+    # 4. Styling & Interaction Config
     fig.update_layout(
         template="plotly_dark",
         height=650,
         margin=dict(l=0, r=50, t=30, b=0),
-        paper_bgcolor='rgba(0,0,0,0)', # Trong suốt để lộ nền Cyberpunk
+        paper_bgcolor='rgba(0,0,0,0)',
         plot_bgcolor='rgba(0,0,0,0)',
-        xaxis_rangeslider_visible=False,
+        xaxis_rangeslider_visible=False, # Tắt cái thanh trượt to đùng ở dưới
         hovermode="x unified",
         font=dict(family="Rajdhani", size=12, color="#aaa"),
-        showlegend=False
+        showlegend=False,
+        
+        # *** KEY CONFIGURATION FOR SMOOTH PAN/ZOOM ***
+        dragmode='pan', # Mặc định là bàn tay để kéo (Pan)
+        xaxis=dict(
+            fixedrange=False, # Cho phép zoom trục X
+            showgrid=True, gridwidth=1, gridcolor='rgba(0, 243, 255, 0.1)', zeroline=False
+        ),
+        yaxis=dict(
+            fixedrange=False, # Cho phép zoom trục Y
+            showgrid=True, gridwidth=1, gridcolor='rgba(0, 243, 255, 0.1)', zeroline=False, side='right'
+        )
     )
     
-    # Tinh chỉnh trục (Gridlines mờ ảo)
-    grid_style = dict(showgrid=True, gridwidth=1, gridcolor='rgba(0, 243, 255, 0.1)', zeroline=False)
-    fig.update_xaxes(**grid_style)
-    fig.update_yaxes(**grid_style, side='right') # Giá bên phải chuẩn Trader
+    # Config object cho Plotly (Quan trọng!)
+    config = {
+        'scrollZoom': True,        # Cho phép lăn chuột để Zoom
+        'displayModeBar': True,    # Hiện thanh công cụ nhỏ
+        'modeBarButtonsIfNeeded': False,
+        'displaylogo': False,      # Ẩn logo Plotly
+        'modeBarButtonsToRemove': ['select2d', 'lasso2d', 'autoScale2d'] # Bỏ mấy nút ko cần
+    }
     
-    st.plotly_chart(fig, use_container_width=True)
+    st.plotly_chart(fig, use_container_width=True, config=config)
