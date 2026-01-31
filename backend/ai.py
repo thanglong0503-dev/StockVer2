@@ -2,12 +2,10 @@
 ================================================================================
 MODULE: backend/ai.py
 PROJECT: THANG LONG TERMINAL (ENTERPRISE EDITION)
-VERSION: 36.3.1-AI-FIX
+VERSION: 36.3.2-PARTICLE-FX
 DESCRIPTION: 
     Artificial Intelligence & Statistical Modeling Engine.
-    FIXED: 
-    - Prophet: Removed daily_seasonality noise (Smoother lines).
-    - Charts: Enabled Pan/Zoom interactions.
+    UPDATED: Added Scatter Dots (Particles) to visualize raw data points.
 ================================================================================
 """
 
@@ -56,11 +54,22 @@ class MonteCarloSimulator:
             
         simulation_df = pd.DataFrame(price_paths)
         
-        # 3. Visualization - Line Chart (FIXED INTERACTION)
+        # 3. Visualization - Line Chart
         dates = [datetime.now() + timedelta(days=i) for i in range(self.days)]
         fig = go.Figure()
         
-        # Vẽ 50 đường mờ
+        # [NEW] Thêm các hạt giá lịch sử (30 ngày gần nhất) để tạo đà
+        recent_history = self.df.tail(30)
+        fig.add_trace(go.Scatter(
+            x=recent_history.index, y=recent_history['Close'],
+            mode='markers+lines', # Vừa đường vừa hạt
+            name='Lịch sử gần đây',
+            line=dict(color='#00f3ff', width=1),
+            marker=dict(color='#00f3ff', size=4, opacity=0.8), # Hạt Cyan
+            showlegend=False
+        ))
+
+        # Vẽ 50 đường mô phỏng mờ
         display_sims = min(50, self.simulations)
         for i in range(display_sims):
             fig.add_trace(go.Scatter(
@@ -72,11 +81,11 @@ class MonteCarloSimulator:
         # Vẽ đường trung bình
         fig.add_trace(go.Scatter(
             x=dates, y=simulation_df.mean(axis=1),
-            mode='lines', line=dict(color='#0ea5e9', width=3),
+            mode='lines', line=dict(color='#ff0055', width=3),
             name='Kỳ vọng (Mean)'
         ))
         
-        # Layout chuẩn TradingView (Zoom/Pan)
+        # Layout
         fig.update_layout(
             title=dict(text=f"🌌 MONTE CARLO: {self.simulations} KỊCH BẢN", font=dict(family="Rajdhani", size=18)),
             yaxis_title="Giá",
@@ -86,9 +95,9 @@ class MonteCarloSimulator:
             margin=dict(l=20, r=40, t=50, b=20),
             paper_bgcolor='rgba(0,0,0,0)',
             plot_bgcolor='rgba(0,0,0,0)',
-            dragmode='pan', # Cho phép kéo
-            xaxis=dict(showgrid=True, gridcolor='rgba(255,255,255,0.1)', fixedrange=False), # Cho phép Zoom X
-            yaxis=dict(showgrid=True, gridcolor='rgba(255,255,255,0.1)', fixedrange=False, side='right') # Cho phép Zoom Y
+            dragmode='pan',
+            xaxis=dict(showgrid=True, gridcolor='rgba(255,255,255,0.1)'),
+            yaxis=dict(showgrid=True, gridcolor='rgba(255,255,255,0.1)', side='right')
         )
         
         # 4. Stats
@@ -101,14 +110,14 @@ class MonteCarloSimulator:
         }
         
         # Histogram
-        fig_hist = px.histogram(final_prices, nbins=50, title="📊 PHÂN PHỐI XÁC SUẤT", color_discrete_sequence=['#10b981'])
-        fig_hist.add_vline(x=last_price, line_dash="dash", line_color="#ef4444")
+        fig_hist = px.histogram(final_prices, nbins=50, title="📊 PHÂN PHỐI XÁC SUẤT", color_discrete_sequence=['#00f3ff'])
+        fig_hist.add_vline(x=last_price, line_dash="dash", line_color="#ff0055", annotation_text="Hiện tại")
         fig_hist.update_layout(template="plotly_dark", paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)', margin=dict(l=20, r=20, t=50, b=20), showlegend=False)
         
         return fig, fig_hist, stats
 
 # ==============================================================================
-# 2. PROPHET FORECASTING ENGINE (FIXED SMOOTHNESS)
+# 2. PROPHET FORECASTING ENGINE
 # ==============================================================================
 
 class ProphetPredictor:
@@ -130,13 +139,11 @@ class ProphetPredictor:
         df_p.columns = ['ds', 'y']
         df_p['ds'] = df_p['ds'].dt.tz_localize(None)
         
-        # --- FIX QUAN TRỌNG: TẮT DAILY SEASONALITY ---
-        # daily_seasonality=False: Loại bỏ nhiễu dao động trong ngày (nguyên nhân gây hình voằng vèo)
-        # seasonality_mode='additive': Cộng dồn xu hướng, ổn định hơn cho chứng khoán VN
+        # Model
         m = Prophet(
-            daily_seasonality=False,  # <--- FIX CHÍNH
-            weekly_seasonality=True,  # Bắt sóng tuần
-            yearly_seasonality=True,  # Bắt sóng năm
+            daily_seasonality=False, # Tắt nhiễu
+            weekly_seasonality=True,
+            yearly_seasonality=True,
             changepoint_prior_scale=0.05,
             seasonality_mode='additive'
         )
@@ -148,56 +155,64 @@ class ProphetPredictor:
         # Plotting Custom
         fig = go.Figure()
         
-        # 1. Dữ liệu Lịch sử (Màu xám)
+        # --- 1. DỮ LIỆU THỰC TẾ (HẠT/DOTS) ---
+        # Đây là phần "Lão đại" yêu cầu: Các hạt chấm chấm thể hiện giá chạy
         fig.add_trace(go.Scatter(
             x=df_p['ds'], y=df_p['y'],
-            mode='lines', name='Lịch sử',
-            line=dict(color='#64748b', width=1.5)
+            mode='markers', # Chỉ vẽ hạt, không vẽ đường nối
+            name='Dữ liệu thực',
+            marker=dict(
+                color='#00f3ff', # Màu Cyan Cyberpunk
+                size=3,          # Kích thước hạt nhỏ vừa phải
+                opacity=0.6      # Hơi trong suốt để nhìn mượt
+            )
         ))
         
-        # 2. Dữ liệu Dự báo (Màu hồng Neon)
-        # Chỉ lấy phần tương lai để vẽ
+        # --- 2. ĐƯỜNG XU HƯỚNG LỊCH SỬ (LINE) ---
+        # Vẽ thêm đường mờ bên dưới để thấy flow
+        fig.add_trace(go.Scatter(
+            x=df_p['ds'], y=df_p['y'],
+            mode='lines', name='Trend Lịch sử',
+            line=dict(color='#00f3ff', width=1),
+            opacity=0.3,
+            showlegend=False
+        ))
+        
+        # --- 3. DỰ BÁO TƯƠNG LAI (LINE) ---
         future_data = forecast[forecast['ds'] > df_p['ds'].iloc[-1]]
         
         fig.add_trace(go.Scatter(
             x=future_data['ds'], y=future_data['yhat'],
-            mode='lines', name='AI Dự báo (Trend)',
-            line=dict(color='#ff0055', width=2) # Màu Neon Pink rõ ràng
+            mode='lines', name='AI Dự báo',
+            line=dict(color='#ff0055', width=3) # Màu Hồng Neon nổi bật
         ))
         
-        # 3. Vùng tin cậy (Mây mờ) - Làm mượt
+        # --- 4. BIÊN ĐỘ TIN CẬY (CLOUD) ---
         fig.add_trace(go.Scatter(
             x=pd.concat([future_data['ds'], future_data['ds'][::-1]]),
             y=pd.concat([future_data['yhat_upper'], future_data['yhat_lower'][::-1]]),
             fill='toself',
-            fillcolor='rgba(255, 0, 85, 0.1)', # Hồng nhạt trong suốt
-            line=dict(color='rgba(255,255,255,0)'), # Không viền
+            fillcolor='rgba(255, 0, 85, 0.15)',
+            line=dict(color='rgba(255,255,255,0)'),
             hoverinfo="skip",
-            name='Biên độ rủi ro'
+            name='Vùng rủi ro'
         ))
         
-        # Layout Chuẩn TradingView (Zoom/Pan enabled)
+        # Layout
         fig.update_layout(
             title=dict(text=f"🔮 AI PROPHET: DỰ BÁO {periods} NGÀY TỚI", font=dict(family="Rajdhani", size=18)),
             yaxis_title="Giá dự kiến",
             template="plotly_dark",
             height=500,
             hovermode="x unified",
+            margin=dict(l=20, r=40, t=50, b=20),
             paper_bgcolor='rgba(0,0,0,0)',
             plot_bgcolor='rgba(0,0,0,0)',
-            margin=dict(l=20, r=40, t=50, b=20),
             
-            # --- CẤU HÌNH TƯƠNG TÁC ---
-            dragmode='pan', # Mặc định là kéo
-            xaxis=dict(
-                fixedrange=False, # Cho phép Zoom
-                showgrid=True, gridcolor='rgba(255,255,255,0.1)'
-            ),
-            yaxis=dict(
-                fixedrange=False, # Cho phép Zoom
-                showgrid=True, gridcolor='rgba(255,255,255,0.1)', 
-                side='right' # Giá bên phải
-            )
+            # Zoom/Pan Config
+            dragmode='pan',
+            xaxis=dict(showgrid=True, gridcolor='rgba(255,255,255,0.1)'),
+            yaxis=dict(showgrid=True, gridcolor='rgba(255,255,255,0.1)', side='right')
         )
         
         return fig
