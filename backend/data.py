@@ -317,7 +317,7 @@ def get_pro_data(tickers: List[str]) -> pd.DataFrame:
     
     # 2. Tải dữ liệu hàng loạt (Batch Download)
     try:
-        data_batch = yf.download(clean_tickers, period="6mo", group_by='ticker', progress=False, threads=True)
+        data_batch = yf.download(clean_tickers, period="1y", group_by='ticker', progress=False, threads=True)
     except Exception as e:
         logger.error(f"Batch download error: {e}")
         return pd.DataFrame()
