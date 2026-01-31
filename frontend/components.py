@@ -247,91 +247,88 @@ def render_interactive_chart(df, symbol):
 # ==============================================================================
 def render_market_galaxy(df):
     """
-    Vẽ biểu đồ Galaxy đã được TỐI ƯU HÓA:
-    - Chỉ lấy TOP 20 mã có Vol_Ratio cao nhất (Bớt rối).
-    - Tắt Text tĩnh, chuyển sang Hover (Rê chuột xem).
-    - Bật chế độ Zoom/Pan mượt mà.
+    Vẽ biểu đồ Galaxy - ĐÃ FIX LỖI ZOOM/PAN.
+    - Added: fig.update_xaxes(fixedrange=False)
+    - Added: config scrollZoom = True
+    - Added: key='galaxy_chart' để tránh cache
     """
     if df.empty: return
 
-    # 1. XỬ LÝ DỮ LIỆU (DATA PREPROCESSING)
-    # Nếu chưa có cột Vol_Ratio, tạo mặc định
+    # 1. XỬ LÝ DỮ LIỆU
     if 'Vol_Ratio' not in df.columns: df['Vol_Ratio'] = 1.0
 
-    # [QUAN TRỌNG] Lọc lấy TOP 20 hành tinh bùng nổ nhất để vẽ cho thoáng
-    # Sắp xếp giảm dần theo Vol_Ratio -> Lấy 20 dòng đầu
+    # Lọc Top 20 và Copy ra dataframe mới để không ảnh hưởng dữ liệu gốc
     df_galaxy = df.sort_values(by='Vol_Ratio', ascending=False).head(20).copy()
     
-    # Tạo màu: Tăng (Xanh Neon) / Giảm (Đỏ Neon) / Tham chiếu (Vàng)
+    # Logic màu sắc
     def get_color(pct):
-        if pct > 0.5: return '#00ff41'  # Tăng mạnh
-        if pct < -0.5: return '#ff0055' # Giảm mạnh
-        return '#ffff00'                # Đi ngang
+        if pct > 0.5: return '#00ff41'  # Tăng
+        if pct < -0.5: return '#ff0055' # Giảm
+        return '#ffff00'                # Tham chiếu
     
     df_galaxy['Color'] = df_galaxy['Pct'].apply(get_color)
-
-    # Tạo nội dung Tooltip (Khi rê chuột vào) chuẩn HTML đẹp
+    
+    # Logic hiển thị thông tin khi rê chuột (Hover)
     df_galaxy['Hover_Info'] = df_galaxy.apply(lambda row: (
         f"<b>{row['Symbol']}</b><br>"
-        f"-----------------<br>"
-        f"💰 Giá: {row['Price']:.2f} K<br>"
-        f"📈 Biến động: {row['Pct']:.2f}%<br>"
-        f"🦈 Độ nổ Vol: <b>x{row['Vol_Ratio']:.1f} lần</b> TB"
+        f"💰 Giá: {row['Price']:.2f}<br>"
+        f"🦈 Vol Ratio: <b>{row['Vol_Ratio']:.1f}x</b>"
     ), axis=1)
 
-    # 2. VẼ BIỂU ĐỒ (PLOTTING)
+    # 2. VẼ BIỂU ĐỒ
     fig = px.scatter(
         df_galaxy,
         x="Price",
         y="Pct",
-        size="Vol_Ratio",       # Kích thước bóng bóng
-        color="Color",          # Màu sắc
-        hover_name="Hover_Info", # Nội dung khi rê chuột
+        size="Vol_Ratio",
+        color="Color",
+        hover_name="Hover_Info",
         color_discrete_map="identity",
-        size_max=50,            # Giới hạn độ to để không che hết màn hình
+        size_max=50,
         template="plotly_dark",
-        height=500
+        height=450 # Chiều cao vừa phải
     )
 
-    # 3. TINH CHỈNH GIAO DIỆN (STYLING)
-    fig.update_traces(
-        marker=dict(
-            line=dict(width=1, color='White'), # Viền trắng mỏng cho sang
-            opacity=0.85 # Hơi trong suốt để các bóng đè nhau vẫn nhìn thấy được
-        ),
-        selector=dict(mode='markers')
-    )
-
-    # 4. CẤU HÌNH TƯƠNG TÁC (INTERACTION)
+    # 3. CẤU HÌNH TƯƠNG TÁC (QUAN TRỌNG NHẤT)
     fig.update_layout(
         title=dict(
-            text="🌌 TOP 20 VOLUME EXPLOSION (ZOOMABLE)",
-            font=dict(family="Rajdhani", size=20, color="#00f3ff")
+            text="🌌 GALAXY SCAN (SCROLL TO ZOOM)",
+            font=dict(family="Rajdhani", size=18, color="#00f3ff")
         ),
         xaxis=dict(
-            title="GIÁ CỔ PHIẾU (K)",
-            gridcolor='rgba(255,255,255,0.1)', # Lưới mờ
-            zeroline=False
+            title="GIÁ (K)",
+            gridcolor='rgba(255,255,255,0.1)',
+            zeroline=False,
+            fixedrange=False # <--- MỞ KHÓA TRỤC X (Cho phép kéo)
         ),
         yaxis=dict(
-            title="% TĂNG / GIẢM",
+            title="% CHANGE",
             gridcolor='rgba(255,255,255,0.1)',
-            zeroline=True, zerolinecolor='#666'
+            zeroline=True, 
+            zerolinecolor='#666',
+            fixedrange=False # <--- MỞ KHÓA TRỤC Y (Cho phép kéo)
         ),
-        paper_bgcolor='rgba(0,0,0,0)', # Nền trong suốt
+        paper_bgcolor='rgba(0,0,0,0)',
         plot_bgcolor='rgba(0,0,0,0)',
         showlegend=False,
-        # Kích hoạt chế độ Kéo thả (Pan) và Zoom
-        dragmode='pan', 
+        dragmode='pan', # Mặc định chuột trái là KÉO (PAN)
         hovermode='closest'
     )
 
-    # 5. CẤU HÌNH THANH CÔNG CỤ (CONFIG BAR)
+    # Tinh chỉnh hiển thị hạt
+    fig.update_traces(
+        marker=dict(line=dict(width=1, color='White'), opacity=0.85),
+        textposition='top center' # Nếu có hiển thị text
+    )
+
+    # 4. CẤU HÌNH THANH CÔNG CỤ
     config = {
-        'scrollZoom': True,        # Cho phép lăn chuột để Zoom
-        'displayModeBar': True,    # Hiện thanh công cụ nhỏ ở góc
-        'modeBarButtonsToRemove': ['lasso2d', 'select2d'], # Bỏ mấy nút không cần thiết
-        'displaylogo': False
+        'scrollZoom': True,       # <--- BẮT BUỘC: Cho phép lăn chuột để Zoom
+        'displayModeBar': True,   # Hiện thanh công cụ
+        'displaylogo': False,
+        'modeBarButtonsToRemove': ['lasso2d', 'select2d'],
+        'responsive': True
     }
     
-    st.plotly_chart(fig, use_container_width=True, config=config)
+    # Thêm key="galaxy_chart_v2" để ép Streamlit vẽ lại cái mới
+    st.plotly_chart(fig, use_container_width=True, config=config, key="galaxy_chart_v2")
