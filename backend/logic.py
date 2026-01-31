@@ -83,142 +83,79 @@ class TechnicalAnalyzer:
         return self.df
 
     def analyze(self) -> Dict:
-        """
-        Hàm phân tích tổng hợp, chấm điểm và đưa ra khuyến nghị.
-        
-        Returns:
-            Dict chứa: score, action, pros, cons, levels (entry/stop/target).
-        """
         if not self.validate(): return {}
-        
-        # Đảm bảo chỉ báo đã được tính
-        if 'RSI_14' not in self.df.columns:
-            self.add_indicators()
+        if 'RSI_14' not in self.df.columns: self.add_indicators()
             
         score = 0
-        pros = [] # Điểm tích cực
-        cons = [] # Điểm tiêu cực
-        
+        pros = []
+        cons = []
         close = self.latest['Close']
         
-        # --- 1. TREND ANALYSIS (40% Trọng số) ---
-        
-        # SuperTrend Check
+        # --- 1. TÍNH ĐIỂM (SCORING) ---
+        # SuperTrend
         st_col = [c for c in self.df.columns if 'SUPERT' in c]
         if st_col:
-            st_val = self.latest[st_col[0]]
-            if close > st_val:
-                score += 2
-                pros.append("SuperTrend: Báo TĂNG (Uptrend)")
-            else:
-                score -= 2
-                cons.append("SuperTrend: Báo GIẢM (Downtrend)")
+            if close > self.latest[st_col[0]]: score += 2; pros.append("SuperTrend: Báo TĂNG (Uptrend)")
+            else: score -= 2; cons.append("SuperTrend: Báo GIẢM (Downtrend)")
                 
-        # EMA System Check (Golden Cross / Death Cross)
+        # EMA
         ema34 = self.latest.get('EMA_34', 0)
         ema89 = self.latest.get('EMA_89', 0)
-        ema200 = self.latest.get('EMA_200', 0)
-        
-        if close > ema34 > ema89:
-            score += 1
-            pros.append("EMA: Giá nằm trên các đường MA ngắn hạn (Xu hướng tốt)")
-        if close < ema200:
-            score -= 1
-            cons.append("EMA: Giá nằm dưới MA200 (Downtrend dài hạn)")
+        if close > ema34 > ema89: score += 1; pros.append("EMA: Giá trên MA ngắn hạn")
+        if close < self.latest.get('EMA_200', 0): score -= 1; cons.append("EMA: Dưới MA200 (Dài hạn xấu)")
             
-        # Ichimoku Check
-        tenkan = self.latest.get('ITS_9', 0)
-        kijun = self.latest.get('IKS_26', 0)
+        # Ichimoku
         span_a = self.latest.get('ISA_9', 0)
         span_b = self.latest.get('ISB_26', 0)
-        
-        if close > span_a and close > span_b:
-            score += 1
-            pros.append("Ichimoku: Giá nằm trên Mây (Thế mây tăng)")
-        if tenkan > kijun:
-            pros.append("Ichimoku: Tenkan cắt lên Kijun")
+        if close > span_a and close > span_b: score += 1; pros.append("Ichimoku: Giá nằm trên Mây")
             
-        # --- 2. MOMENTUM ANALYSIS (30% Trọng số) ---
-        
-        # RSI Check
+        # RSI
         rsi = self.latest.get('RSI_14', 50)
-        if 50 <= rsi <= 70:
-            score += 1
-            pros.append(f"RSI ({rsi:.0f}): Động lượng tăng mạnh")
-        elif rsi < 30:
-            score += 1.5
-            pros.append(f"RSI ({rsi:.0f}): Quá bán (Oversold) -> Dễ có nhịp hồi")
-        elif rsi > 75:
-            score -= 1
-            cons.append(f"RSI ({rsi:.0f}): Quá mua (Overbought) -> Cẩn trọng chỉnh")
+        if 50 <= rsi <= 70: score += 1
+        elif rsi < 30: score += 1.5; pros.append("RSI: Quá bán (Dễ hồi phục)")
+        elif rsi > 75: score -= 1; cons.append("RSI: Quá mua (Cẩn trọng)")
             
-        # MACD Check
-        macd = self.latest.get('MACD_12_26_9', 0)
-        macd_signal = self.latest.get('MACDs_12_26_9', 0)
-        if macd > macd_signal:
-            score += 1
-            # Check giao cắt mới
-            if self.prev.get('MACD_12_26_9', 0) <= self.prev.get('MACDs_12_26_9', 0):
-                pros.append("MACD: Golden Cross (Mới cắt lên)")
-                score += 0.5
-        else:
-            score -= 1
-            
-        # --- 3. VOLATILITY & VOLUME (30% Trọng số) ---
-        
-        # Bollinger Bands Squeeze
+        # Bollinger
         bb_upper = self.latest.get('BBU_20_2.0', 0)
-        bb_lower = self.latest.get('BBL_20_2.0', 0)
-        bb_mid = self.latest.get('BBM_20_2.0', close)
-        
-        bandwidth = (bb_upper - bb_lower) / bb_mid if bb_mid > 0 else 0
-        if bandwidth < 0.15:
-            pros.append("Bollinger: Nút thắt cổ chai (Sắp biến động mạnh)")
-            if close > bb_upper:
-                score += 2
-                pros.append("=> BREAKOUT: Phá dải trên BB (Mua mạnh)")
-                
-        # Volume Analysis
-        vol_sma = self.df['Volume'].rolling(20).mean().iloc[-1]
-        if self.latest['Volume'] > 1.5 * vol_sma and close > self.prev['Close']:
-            score += 1
-            pros.append("Volume: Nổ Vôn (Dòng tiền vào mạnh)")
+        if close > bb_upper: score += 2; pros.append("Bollinger: Breakout dải trên")
             
-        # --- 4. SIGNAL GENERATION ---
+        # --- 2. TỔNG HỢP KẾT QUẢ ---
+        final_score = max(0, min(10, 5 + score))
         
-        # Chuẩn hóa điểm (Base 5, Max 10, Min 0)
-        final_score = 5 + score
-        final_score = max(0, min(10, final_score))
-        
-        # Phân loại hành động
+        # Mặc định tính toán Entry/Stop/Target
+        atr = self.latest.get('ATRr_14', close * 0.02)
+        entry_price = close
+        stop_loss = close - (2 * atr)
+        take_profit = close + (4 * atr)
+
+        # Mặc định là QUAN SÁT
         action = "QUAN SÁT"
-        color = "#f59e0b" # Vàng
-        
+        color = "#fcee0a" 
+
+        # Phân loại tín hiệu
         if final_score >= 8:
             action = "MUA MẠNH 💎"
-            color = "#10b981" # Xanh
+            color = "#00ff41"
         elif final_score >= 6:
             action = "MUA (BUY)"
-            color = "#3b82f6" # Blue
-        elif final_score <= 3:
+            color = "#00f3ff"
+        elif final_score <= 4:
+            # === [ĐOẠN QUAN TRỌNG NHẤT] ===
             action = "BÁN / CẮT LỖ"
-            color = "#ef4444" # Đỏ
-            # [THÊM ĐOẠN NÀY]: Reset về 0 khi báo Bán
+            color = "#ff0055"
+            # ÉP VỀ 0 ĐỂ FRONTEND ẨN ĐI
             entry_price = 0
             stop_loss = 0
             take_profit = 0
-        # Tính toán Entry/Stop/Target dựa trên ATR (Khoa học hơn % cố định)
-        atr = self.latest.get('ATRr_14', close * 0.02)
-        stop_loss = close - (2 * atr)  # SL = 2 ATR
-        take_profit = close + (4 * atr) # TP = 4 ATR (R:R = 1:2)
-        
+            # ===============================
+            
         return {
             "score": final_score,
             "action": action,
             "color": color,
             "pros": pros,
             "cons": cons,
-            "entry": close,
+            "entry": entry_price,
             "stop": stop_loss,
             "target": take_profit,
             "atr": atr
