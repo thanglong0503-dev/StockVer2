@@ -237,13 +237,15 @@ with col_analyst:
             </div>
             """, height=560)
 
-        # TAB 3: PROPHET FORECAST
+       # TAB 3: PROPHET FORECAST
         with t3:
             st.markdown("### 🔮 NEURAL NETWORK FORECAST (60 DAYS)")
             if st.button("INITIATE AI MODEL", type="primary"):
                 with st.spinner("TRAINING MODELS..."):
                     fig_ai = run_prophet_ai(hist_df)
-                    if fig_ai: st.plotly_chart(fig_ai, use_container_width=True)
+                    if fig_ai: 
+                        # Thêm config scrollZoom=True ở đây
+                        st.plotly_chart(fig_ai, use_container_width=True, config={'scrollZoom': True, 'displayModeBar': True})
                     else: st.error("DATA INSUFFICIENT FOR PREDICTION.")
 
         # TAB 4: MONTE CARLO
