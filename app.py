@@ -200,7 +200,78 @@ with st.sidebar:
 with st.spinner("UPDATING MARKET FEED..."):
     indices = get_market_indices()
     render_market_overview(indices)
+# ... (Phần code cũ: render_market_overview(indices))
 
+    # === [NEW] CYBER TICKER: DÒNG CHẢY DỮ LIỆU ===
+    if indices:
+        # 1. Tạo chuỗi HTML từ dữ liệu Indices
+        ticker_items = []
+        for i in indices:
+            color = "#00ff41" if i['Change'] >= 0 else "#ff0055"
+            arrow = "▲" if i['Change'] >= 0 else "▼"
+            # Format từng mục: TÊN MÃ: GIÁ (TĂNG/GIẢM%)
+            item_html = f"""
+            <span style="margin: 0 15px; font-family: 'Rajdhani', sans-serif;">
+                <span style="color: #00f3ff; font-weight: 800;">{i['Name']}</span> 
+                <span style="color: #fff; font-weight: 600;">{i['Price']:,.2f}</span>
+                <span style="color: {color}; font-size: 14px;">{arrow} {abs(i['Pct']):.2f}%</span>
+            </span>
+            <span style="color: #333;">//</span>
+            """
+            ticker_items.append(item_html)
+        
+        # Nối lại thành 1 chuỗi dài
+        ticker_content = "".join(ticker_items) * 3 # Nhân 3 lên để chuỗi dài chạy cho mượt
+
+        # 2. Render CSS Animation (Chữ chạy Marquee)
+        st.markdown(f"""
+        <style>
+            .ticker-wrap {{
+                width: 100%;
+                overflow: hidden;
+                background: #000;
+                border-top: 1px solid #333;
+                border-bottom: 1px solid #333;
+                white-space: nowrap;
+                box-sizing: border-box;
+                height: 40px;
+                display: flex;
+                align-items: center;
+                margin-bottom: 10px;
+            }}
+            .ticker-move {{
+                display: inline-block;
+                white-space: nowrap;
+                animation: ticker-scroll 30s linear infinite; /* Tốc độ chạy */
+            }}
+            .ticker-move:hover {{
+                animation-play-state: paused; /* Rê chuột vào thì dừng lại để xem */
+            }}
+            @keyframes ticker-scroll {{
+                0% {{ transform: translate3d(0, 0, 0); }}
+                100% {{ transform: translate3d(-50%, 0, 0); }} /* Chạy sang trái */
+            }}
+            /* Hiệu ứng bóng mờ 2 bên để cảm giác vô tận */
+            .ticker-overlay {{
+                position: absolute;
+                top: 0; left: 0; width: 100%; height: 100%;
+                background: linear-gradient(90deg, #0e1117 0%, transparent 5%, transparent 95%, #0e1117 100%);
+                pointer-events: none;
+                z-index: 2;
+            }}
+        </style>
+        
+        <div style="position: relative;">
+            <div class="ticker-wrap">
+                <div class="ticker-move">
+                    {ticker_content}
+                </div>
+            </div>
+            <div class="ticker-overlay"></div>
+        </div>
+        """, unsafe_allow_html=True)
+
+# ... (Tiếp tục code cũ: st.markdown("<div style='height:20px'></div>"...))
 st.markdown("<div style='height:20px'></div>", unsafe_allow_html=True)
 
 col_radar, col_analyst = st.columns([1.5, 2.5])
