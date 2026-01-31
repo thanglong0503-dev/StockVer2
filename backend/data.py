@@ -4,20 +4,21 @@ import pandas_ta as ta
 
 def get_market_indices():
     """
-    Lấy chỉ số thị trường (Luôn trả về kết quả kể cả khi API lỗi)
+    Lấy chỉ số thị trường.
+    Mẹo: Dùng E1VFVN30.VN làm tham chiếu cho VN-Index vì Yahoo luôn có data mã này.
     """
     targets = [
-        {"name": "VN-INDEX", "symbol": "^VNINDEX"},
-        {"name": "HNX-INDEX", "symbol": "^HASTC"},
+        {"name": "VN30 (ETF)", "symbol": "E1VFVN30.VN"}, # Dùng ETF thay thế Index để luôn LIVE
         {"name": "DOW JONES", "symbol": "^DJI"},
-        {"name": "NASDAQ", "symbol": "^IXIC"}
+        {"name": "NASDAQ", "symbol": "^IXIC"},
+        {"name": "S&P 500", "symbol": "^GSPC"} # Đổi HNX thành S&P 500 cho chuẩn quốc tế
     ]
     
     results = []
     
     for item in targets:
         try:
-            # Tải data
+            # Tải data (dùng period 5d để chắc chắn có nến)
             ticker = yf.Ticker(item["symbol"])
             hist = ticker.history(period="5d")
             
@@ -27,9 +28,14 @@ def get_market_indices():
                 change = now - prev
                 pct = (change / prev) * 100
                 
+                # Format giá cho đẹp (Nếu là Dow Jones thì để nguyên, VN thì chia 1000 nếu cần)
+                price = now
+                if item["name"] == "VN30 (ETF)":
+                    price = price # Giữ nguyên giá ETF
+                
                 results.append({
                     "Name": item["name"],
-                    "Price": now,
+                    "Price": price,
                     "Change": change,
                     "Pct": pct,
                     "Color": "#10b981" if change >= 0 else "#ef4444",
@@ -39,20 +45,17 @@ def get_market_indices():
                 raise Exception("No Data")
                 
         except:
-            # TRƯỜNG HỢP LỖI: Vẫn thêm vào list nhưng để giá trị 0
+            # Fallback nếu vẫn lỗi
             results.append({
                 "Name": item["name"],
-                "Price": 0.0,
-                "Change": 0.0,
-                "Pct": 0.0,
-                "Color": "#64748b", # Màu xám (Offline)
-                "Status": "OFFLINE"
+                "Price": 0.0, "Change": 0.0, "Pct": 0.0,
+                "Color": "#64748b", "Status": "OFFLINE"
             })
             
     return results
 
 def get_pro_data(tickers):
-    # (Giữ nguyên logic cũ của hàm này - Code 1000 dòng ở câu trả lời trước)
+    # (Giữ nguyên logic Radar 1000 dòng của bạn ở đây)
     symbols = [f"{t}.VN" for t in tickers]
     try:
         data = yf.download(symbols, period="1y", interval="1d", group_by='ticker', progress=False)
