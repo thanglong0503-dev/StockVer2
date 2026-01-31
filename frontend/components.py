@@ -60,3 +60,34 @@ def render_interactive_chart(df, symbol):
         dragmode="pan" # Mặc định là chế độ Kéo thả
     )
     st.plotly_chart(fig, use_container_width=True)
+def render_market_overview(indices_data):
+    """Vẽ thanh chỉ số thị trường (Market Overview Bar)"""
+    if not indices_data: return
+
+    # Chia cột đều nhau
+    cols = st.columns(len(indices_data))
+    
+    for i, data in enumerate(indices_data):
+        with cols[i]:
+            arrow = "▲" if data['Change'] >= 0 else "▼"
+            # CSS Card Style
+            st.markdown(f"""
+            <div style="
+                background-color: #111827; 
+                border: 1px solid #374151; 
+                border-radius: 8px; 
+                padding: 15px; 
+                margin-bottom: 10px;
+                transition: transform 0.2s;
+            ">
+                <div style="font-family: 'Rajdhani', sans-serif; color: #9ca3af; font-size: 0.9rem; font-weight: 700; letter-spacing: 1px;">
+                    {data['Name']}
+                </div>
+                <div style="font-family: 'Rajdhani', sans-serif; font-size: 1.5rem; font-weight: 800; color: {data['Color']}; margin: 5px 0;">
+                    {data['Price']:,.2f}
+                </div>
+                <div style="font-family: 'Inter', sans-serif; font-size: 0.85rem; color: {data['Color']}; font-weight: 600;">
+                    {arrow} {data['Change']:,.2f} ({data['Pct']:+.2f}%)
+                </div>
+            </div>
+            """, unsafe_allow_html=True)
