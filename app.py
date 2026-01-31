@@ -17,7 +17,7 @@ import os
 import time
 import pandas as pd
 import streamlit.components.v1 as components
-
+from frontend.components import render_market_galaxy
 # ==============================================================================
 # 1. SYSTEM CONFIGURATION
 # ==============================================================================
@@ -291,9 +291,19 @@ with col_radar:
             },
             hide_index=True,
             use_container_width=True,
-            height=680
+            height=400 # [GỢI Ý] Giảm chiều cao bảng xuống chút để nhường chỗ cho Galaxy
         )
+
+        # ========================================================
+        # 👉 DÁN ĐOẠN VŨ TRỤ DÒNG TIỀN VÀO ĐÂY (Ngay dưới bảng)
+        # ========================================================
+        st.markdown("---") # Đường kẻ ngang ngăn cách
+        
+        # Gọi hàm vẽ Galaxy (Truyền toàn bộ dữ liệu radar vào)
+        render_market_galaxy(df_radar)
+        
     else:
+        # Nếu chưa có dữ liệu
         st.info("AWAITING SCAN COMMAND...")
         st.caption("Please click 'EXECUTE SCAN' on the sidebar.")
         
