@@ -1,3 +1,6 @@
+# Tìm dòng import backend/frontend và thêm vào:
+from backend.data import get_pro_data, get_history_df, get_market_indices # <--- Thêm get_market_indices
+from frontend.components import render_score_card_v36, render_interactive_chart, render_market_overview # <--- Thêm render_market_overview
 import streamlit as st
 import sys
 import os
