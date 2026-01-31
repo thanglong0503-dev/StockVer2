@@ -301,86 +301,70 @@ def get_stock_data_full(symbol: str) -> Tuple[Dict, pd.DataFrame, pd.DataFrame, 
 # 4. RADAR SCANNER ENGINE (BỘ QUÉT - ĐÃ ĐỒNG BỘ LOGIC)
 # ==============================================================================
 
+# ==============================================================================
+# FILE: backend/data.py -> Hàm get_pro_data
+# ==============================================================================
+
 def get_pro_data(tickers: List[str]) -> pd.DataFrame:
     """
-    Bộ quét Radar: Sử dụng logic 'analyze_smart_v36' để chấm điểm.
-    Đảm bảo kết quả đồng bộ 100% với màn hình Deep Dive.
-    
-
-[Image of Radar Chart]
-
+    Bộ quét Radar: Đã FIX lỗi thiếu Vol_Ratio.
     """
     rows = []
-    
-    # 1. Chuẩn hóa danh sách mã
     clean_tickers = [_format_ticker(t) for t in tickers]
     
-    # 2. Tải dữ liệu hàng loạt (Batch Download)
     try:
+        # Tải dữ liệu 1 năm để đủ tính MA200 và Volume TB 20 phiên
         data_batch = yf.download(clean_tickers, period="1y", group_by='ticker', progress=False, threads=True)
     except Exception as e:
-        logger.error(f"Batch download error: {e}")
         return pd.DataFrame()
 
-    # 3. Xử lý từng mã
     for symbol in clean_tickers:
         try:
-            # Trích xuất DF con
-            if len(clean_tickers) > 1:
-                df = data_batch[symbol].copy()
-            else:
-                df = data_batch.copy()
+            if len(clean_tickers) > 1: df = data_batch[symbol].copy()
+            else: df = data_batch.copy()
             
-            # Làm sạch: Bỏ hàng NaN
             df = df.dropna(subset=['Close'])
             if df.empty or len(df) < 50: continue
             
-            # --- [SYNC LOGIC HERE] ---
-            # Gọi trực tiếp bộ não phân tích V36
-            # Điều này đảm bảo Radar thấy 'MUA' thì Deep Dive cũng thấy 'MUA'
+            # 1. Gọi bộ não phân tích
             analysis = analyze_smart_v36(df)
-            
             if not analysis: continue
 
-            # Mapping kết quả từ Logic sang bảng Radar
+            # 2. Mapping dữ liệu cơ bản
             score = analysis['score']
             raw_action = analysis['action']
-            
-            # Chuyển đổi ngôn ngữ Action sang tiếng Anh ngắn gọn cho Radar
             signal = "WAIT"
             if "MUA MẠNH" in raw_action: signal = "STRONG BUY"
             elif "MUA" in raw_action: signal = "BUY"
             elif "BÁN" in raw_action: signal = "SELL"
             
-            # Trend Line (Sparkline Data) - 30 phiên gần nhất
+            # 3. Trend Line
             trend_data = df['Close'].tail(30).tolist()
             
-            # Tính % thay đổi
+            # 4. Tính toán thay đổi giá
             close = df['Close'].iloc[-1]
             prev_close = df['Close'].iloc[-2]
-            pct_change = (close - prev_close) / prev_close
+            pct_change = (close - prev_close) / prev_close * 100
             
-            # ... (Phần code tính toán bên trên giữ nguyên)
-            
-            # [LOGIC MỚI] Tính độ nổ Volume (Volume Ratio)
+            # === [QUAN TRỌNG] TÍNH TOÁN VOL_RATIO ===
             vol_now = df['Volume'].iloc[-1]
-            vol_avg = df['Volume'].rolling(window=20).mean().iloc[-1] # Trung bình 20 phiên
+            # Tính trung bình volume 20 phiên gần nhất
+            vol_avg = df['Volume'].rolling(window=20).mean().iloc[-1] 
             
-            # Tránh chia cho 0
+            # Tránh lỗi chia cho 0
             vol_ratio = 1.0
             if vol_avg > 0:
-                vol_ratio = vol_now / vol_avg
+                vol_ratio = float(vol_now) / float(vol_avg)
             
-            # [CẬP NHẬT] Thêm Volume và Vol_Ratio vào kết quả trả về
             rows.append({
                 "Symbol": symbol.replace(".VN", ""),
                 "Price": close / 1000.0, 
-                "Pct": pct_change * 100, # Đổi sang % luôn (ví dụ 1.5 thay vì 0.015)
+                "Pct": pct_change,
                 "Signal": signal,
                 "Score": int(score),
                 "Trend": trend_data,
-                "Volume": vol_now,      # <--- MỚI
-                "Vol_Ratio": vol_ratio  # <--- MỚI (Độ to của hành tinh)
+                "Volume": vol_now,      
+                "Vol_Ratio": vol_ratio  # <--- CHÌA KHÓA ĐỂ VẼ GALAXY LÀ ĐÂY
             })
             
         except Exception as e:
