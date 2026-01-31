@@ -2,16 +2,18 @@
 ================================================================================
 MODULE: frontend/components.py
 THEME: ULTRA CYBERPUNK HUD INTERFACE
-VERSION: 40.2.0-ULTIMATE-MERGE
+VERSION: 40.6.0-GALAXY-ULTIMATE
 DESCRIPTION: 
     - Visuals: Cyberpunk CSS, SVG Gauges, Neon Effects.
     - Logic: Smart Analysis Display (Hide Entry on Sell, 9 Fundamental Metrics).
     - Charts: Interactive Zoom/Pan + Neon Crosshair (Spikelines).
+    - Galaxy: 3D Market Visualization based on Volume Explosion.
 ================================================================================
 """
 
 import streamlit as st
 import plotly.graph_objects as go
+import plotly.express as px  # Cần cái này để vẽ Galaxy
 from plotly.subplots import make_subplots
 import pandas_ta as ta
 import numpy as np
@@ -29,58 +31,41 @@ def inject_cyber_effects():
         ::-webkit-scrollbar { width: 6px; background: #000; }
         ::-webkit-scrollbar-thumb { background: #00f3ff; border-radius: 0px; }
 
-        /* 2. HUD CARD CONTAINER */
+        /* 2. HUD CARD CONTAINER (3D HOLOGRAPHIC EFFECT) */
         .hud-card {
-            background: rgba(5, 10, 15, 0.9);
-            border: 1px solid #333;
-            border-left: 2px solid #00f3ff;
-            border-right: 2px solid #ff0055;
+            background: rgba(10, 15, 20, 0.85);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 12px;
             position: relative;
-            padding: 20px;
-            margin-bottom: 20px;
-            box-shadow: 0 0 20px rgba(0, 243, 255, 0.1);
-            overflow: hidden;
-            transition: all 0.3s ease;
+            padding: 25px;
+            margin-bottom: 25px;
+            backdrop-filter: blur(10px);
+            -webkit-backdrop-filter: blur(10px);
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5), 0 0 0 1px rgba(255, 255, 255, 0.05);
+            transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
         }
         .hud-card:hover {
-            box-shadow: 0 0 30px rgba(0, 243, 255, 0.2);
-            border-color: #fff;
+            transform: translateY(-5px) scale(1.02);
+            border-color: rgba(0, 243, 255, 0.5);
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.6), 0 0 20px rgba(0, 243, 255, 0.2), inset 0 0 0 1px rgba(0, 243, 255, 0.1);
+        }
+        .hud-card::after {
+            content: ""; position: absolute; top: 10px; bottom: 10px; left: 0; width: 3px;
+            background: linear-gradient(to bottom, #00f3ff, transparent);
+            border-radius: 0 4px 4px 0; opacity: 0.7;
         }
 
         /* 3. TEXT GLITCH EFFECT */
-        .glitch-text {
-            color: #fff;
-            font-family: 'Rajdhani', sans-serif;
-            font-weight: 800;
-            position: relative;
-            text-transform: uppercase;
-        }
+        .glitch-text { color: #fff; font-family: 'Rajdhani', sans-serif; font-weight: 800; position: relative; text-transform: uppercase; }
         
         /* 4. METRIC GRID */
-        .cyber-grid {
-            display: grid;
-            grid-template-columns: repeat(2, 1fr);
-            gap: 10px;
-            margin-top: 15px;
-            border-top: 1px solid #333;
-            padding-top: 15px;
-        }
-        .cyber-metric {
-            background: #0a0f14;
-            padding: 8px;
-            border: 1px solid #222;
-        }
+        .cyber-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; margin-top: 15px; border-top: 1px solid #333; padding-top: 15px; }
+        .cyber-metric { background: #0a0f14; padding: 8px; border: 1px solid #222; }
         .cyber-label { font-size: 10px; color: #00f3ff; text-transform: uppercase; letter-spacing: 1px; }
         .cyber-val { font-size: 16px; color: #fff; font-weight: 700; font-family: 'Rajdhani'; }
 
         /* 5. STATUS INDICATORS */
-        .status-dot {
-            height: 8px; width: 8px;
-            border-radius: 50%;
-            display: inline-block;
-            margin-right: 5px;
-            box-shadow: 0 0 5px currentColor;
-        }
+        .status-dot { height: 8px; width: 8px; border-radius: 50%; display: inline-block; margin-right: 5px; box-shadow: 0 0 5px currentColor; }
     </style>
     """
     st.markdown(css, unsafe_allow_html=True)
@@ -121,7 +106,6 @@ def render_market_overview(indices_data):
             status_color = "#00f3ff" 
             if data['Change'] >= 0: status_color = "#00ff41" 
             else: status_color = "#ff0055" 
-            
             arrow = "▲" if data['Change'] >= 0 else "▼"
             
             html = (
@@ -134,7 +118,7 @@ def render_market_overview(indices_data):
             st.markdown(html, unsafe_allow_html=True)
 
 # ==============================================================================
-# 4. CYBERPUNK DASHBOARD (TRUNG TÂM PHÂN TÍCH - ĐÃ FIX HTML & LOGIC)
+# 4. CYBERPUNK DASHBOARD (TRUNG TÂM PHÂN TÍCH)
 # ==============================================================================
 def render_analysis_section(tech, fund):
     c1, c2 = st.columns(2)
@@ -160,34 +144,13 @@ def render_analysis_section(tech, fund):
             style_stop = "color:#666;"
         
         signals_html = ""
-        for p in tech['pros'][:3]:
-            signals_html += f'<div style="color:#00ff41; font-size:12px; margin-bottom:2px;">[+] {p}</div>'
-        for c in tech['cons'][:2]:
-            signals_html += f'<div style="color:#ff0055; font-size:12px; margin-bottom:2px;">[-] {c}</div>'
+        for p in tech['pros'][:3]: signals_html += f'<div style="color:#00ff41; font-size:12px; margin-bottom:2px;">[+] {p}</div>'
+        for c in tech['cons'][:2]: signals_html += f'<div style="color:#ff0055; font-size:12px; margin-bottom:2px;">[-] {c}</div>'
             
-        html_tech = (
-            f'<div class="hud-card">'
-            f'  <div style="display:flex; justify-content:space-between; align-items:center;">'
-            f'      <div>'
-            f'          <div class="glitch-text" style="font-size:14px; letter-spacing:2px; color:{tech_color};">TECHNICAL_SYS_V36</div>'
-            f'          <div style="font-size:32px; font-weight:900; color:#fff; font-family:Rajdhani; text-shadow:0 0 15px {tech_color};">{action_text}</div>'
-            f'      </div>'
-            f'      <div>{gauge_svg}</div>'
-            f'  </div>'
-            f'  <div class="cyber-grid">'
-            f'      <div class="cyber-metric"><div class="cyber-label">ENTRY_ZONE</div><div class="cyber-val">{val_entry}</div></div>'
-            f'      <div class="cyber-metric"><div class="cyber-label">TARGET_LOCK</div><div class="cyber-val" style="{style_target}">{val_target}</div></div>'
-            f'      <div class="cyber-metric"><div class="cyber-label">STOP_LOSS</div><div class="cyber-val" style="{style_stop}">{val_stop}</div></div>'
-            f'      <div class="cyber-metric"><div class="cyber-label">ATR_VOLTY</div><div class="cyber-val">{tech.get("atr", 0):,.0f}</div></div>'
-            f'  </div>'
-            f'  <div style="margin-top:15px; background:rgba(0,0,0,0.5); padding:10px; border-left:2px solid {tech_color}; font-family:monospace;">'
-            f'      {signals_html}'
-            f'  </div>'
-            f'</div>'
-        )
+        html_tech = (f'<div class="hud-card"><div style="display:flex; justify-content:space-between; align-items:center;"><div><div class="glitch-text" style="font-size:14px; letter-spacing:2px; color:{tech_color};">TECHNICAL_SYS_V36</div><div style="font-size:32px; font-weight:900; color:#fff; font-family:Rajdhani; text-shadow:0 0 15px {tech_color};">{action_text}</div></div><div>{gauge_svg}</div></div><div class="cyber-grid"><div class="cyber-metric"><div class="cyber-label">ENTRY_ZONE</div><div class="cyber-val">{val_entry}</div></div><div class="cyber-metric"><div class="cyber-label">TARGET_LOCK</div><div class="cyber-val" style="{style_target}">{val_target}</div></div><div class="cyber-metric"><div class="cyber-label">STOP_LOSS</div><div class="cyber-val" style="{style_stop}">{val_stop}</div></div><div class="cyber-metric"><div class="cyber-label">ATR_VOLTY</div><div class="cyber-val">{tech.get("atr", 0):,.0f}</div></div></div><div style="margin-top:15px; background:rgba(0,0,0,0.5); padding:10px; border-left:2px solid {tech_color}; font-family:monospace;">{signals_html}</div></div>')
         st.markdown(html_tech, unsafe_allow_html=True)
 
-    # --- RIGHT CARD: FUNDAMENTAL (HIỂN THỊ 9 CHỈ SỐ - ĐÃ FIX LỖI HTML) ---
+    # --- RIGHT CARD: FUNDAMENTAL ---
     with c2:
         fund_color = fund['color']
         health_text = fund['health'].replace('💎','').replace('💪','').replace('⚠️','')
@@ -210,8 +173,7 @@ def render_analysis_section(tech, fund):
             color_val = "#fff"
             if "Growth" in key: color_val = "#00ff41" if "-" not in str(val) else "#ff0055"
             if "OCF" in key: color_val = "#00ff41" if "-" not in str(val) else "#ff0055"
-            
-            # [FIX QUAN TRỌNG]: HTML string trên 1 dòng để tránh lỗi f-string
+            # [FIXED HTML]
             metrics_html += f'<div style="background:rgba(255,255,255,0.05); padding:5px; border-radius:4px; text-align:center;"><div style="font-size:9px; color:#888;">{label}</div><div style="font-size:12px; font-weight:bold; color:{color_val}; font-family:Rajdhani;">{val}</div></div>'
             
         metrics_html += "</div>"
@@ -221,25 +183,7 @@ def render_analysis_section(tech, fund):
             color = "#ff0055" if any(x in d for x in ["cao", "Thấp", "giảm", "kém", "Âm"]) else "#00ff41"
             fin_html += f'<div style="display:flex; align-items:center; margin-bottom:2px;"><div class="status-dot" style="background:{color}; box-shadow:0 0 5px {color};"></div><div style="font-size:11px; color:#ddd;">{d}</div></div>'
 
-        html_fund = (
-            f'<div class="hud-card" style="border-right:2px solid {fund_color}; border-left:1px solid #333;">'
-            f'  <div style="display:flex; justify-content:space-between; align-items:end;">'
-            f'      <div>'
-            f'          <div class="glitch-text" style="font-size:14px; letter-spacing:2px; color:{fund_color};">FUNDAMENTAL_CORE</div>'
-            f'          <div style="font-size:28px; font-weight:900; color:#fff; font-family:Rajdhani;">{health_text}</div>'
-            f'      </div>'
-            f'      <div style="text-align:right;">'
-            f'          <div class="cyber-label">MARKET_CAP</div>'
-            f'          <div style="font-size:18px; font-weight:700; color:#fff; font-family:Rajdhani;">{fund["market_cap"]/1e9:,.0f} B</div>'
-            f'      </div>'
-            f'  </div>'
-            f'  {bars_html}'
-            f'  {metrics_html}'
-            f'  <div style="margin-top:15px; border-top:1px solid #333; padding-top:10px;">'
-            f'      {fin_html}'
-            f'  </div>'
-            f'</div>'
-        )
+        html_fund = (f'<div class="hud-card" style="border-right:2px solid {fund_color}; border-left:1px solid #333;"><div style="display:flex; justify-content:space-between; align-items:end;"><div><div class="glitch-text" style="font-size:14px; letter-spacing:2px; color:{fund_color};">FUNDAMENTAL_CORE</div><div style="font-size:28px; font-weight:900; color:#fff; font-family:Rajdhani;">{health_text}</div></div><div style="text-align:right;"><div class="cyber-label">MARKET_CAP</div><div style="font-size:18px; font-weight:700; color:#fff; font-family:Rajdhani;">{fund["market_cap"]/1e9:,.0f} B</div></div></div>{bars_html}{metrics_html}<div style="margin-top:15px; border-top:1px solid #333; padding-top:10px;">{fin_html}</div></div>')
         st.markdown(html_fund, unsafe_allow_html=True)
 
 # ==============================================================================
@@ -260,21 +204,13 @@ def render_interactive_chart(df, symbol):
     except: pass
 
     # Layout: Giá (70%) + Volume (30%)
-    fig = make_subplots(
-        rows=2, cols=1, 
-        shared_xaxes=True, 
-        vertical_spacing=0.03, 
-        row_heights=[0.7, 0.3]
-    )
+    fig = make_subplots(rows=2, cols=1, shared_xaxes=True, vertical_spacing=0.03, row_heights=[0.7, 0.3])
     
     # 1. Main Candlestick
     fig.add_trace(go.Candlestick(
-        x=df.index,
-        open=df['Open'], high=df['High'], low=df['Low'], close=df['Close'],
-        name='PRICE',
-        increasing_line_color='#00ff41', increasing_fillcolor='rgba(0,0,0,0)',
-        decreasing_line_color='#ff0055', decreasing_fillcolor='#ff0055',
-        line_width=1
+        x=df.index, open=df['Open'], high=df['High'], low=df['Low'], close=df['Close'],
+        name='PRICE', increasing_line_color='#00ff41', increasing_fillcolor='rgba(0,0,0,0)',
+        decreasing_line_color='#ff0055', decreasing_fillcolor='#ff0055', line_width=1
     ), row=1, col=1)
     
     # 2. Ichimoku Cloud
@@ -287,69 +223,35 @@ def render_interactive_chart(df, symbol):
     edge_colors = ['#00ff41' if r['Open'] < r['Close'] else '#ff0055' for i, r in df.iterrows()]
     
     fig.add_trace(go.Bar(
-        x=df.index, y=df['Volume'], 
-        marker_color=colors, marker_line_color=edge_colors, marker_line_width=1,
-        name='VOL', opacity=0.8
+        x=df.index, y=df['Volume'], marker_color=colors, marker_line_color=edge_colors, 
+        marker_line_width=1, name='VOL', opacity=0.8
     ), row=2, col=1)
 
     # 4. Styling & Interaction Config (FULL OPTION)
     fig.update_layout(
-        template="plotly_dark",
-        height=650,
-        margin=dict(l=0, r=50, t=30, b=0),
-        paper_bgcolor='rgba(0,0,0,0)',
-        plot_bgcolor='rgba(0,0,0,0)',
-        xaxis_rangeslider_visible=False,
-        hovermode="x unified",
-        font=dict(family="Rajdhani", size=12, color="#aaa"),
-        showlegend=False,
-        
-        # *** DRAG & ZOOM ***
+        template="plotly_dark", height=650, margin=dict(l=0, r=50, t=30, b=0),
+        paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)',
+        xaxis_rangeslider_visible=False, hovermode="x unified",
+        font=dict(family="Rajdhani", size=12, color="#aaa"), showlegend=False,
         dragmode='pan', 
-        
-        # *** NEON CROSSHAIR (SPIKELINES) ***
-        xaxis=dict(
-            fixedrange=False, showgrid=True, gridwidth=1, gridcolor='rgba(0, 243, 255, 0.1)', zeroline=False,
-            showspikes=True, spikemode='across', spikesnap='cursor', 
-            showline=False, spikedash='solid', 
-            spikecolor='#00f3ff', spikethickness=1 # Neon Cyan
-        ),
-        yaxis=dict(
-            fixedrange=False, showgrid=True, gridwidth=1, gridcolor='rgba(0, 243, 255, 0.1)', zeroline=False, side='right',
-            showspikes=True, spikemode='across', spikesnap='cursor', 
-            showline=False, spikedash='dot',
-            spikecolor='#ff0055', spikethickness=1 # Neon Pink
-        )
+        # *** NEON CROSSHAIR ***
+        xaxis=dict(fixedrange=False, showgrid=True, gridwidth=1, gridcolor='rgba(0, 243, 255, 0.1)', zeroline=False, showspikes=True, spikemode='across', spikesnap='cursor', showline=False, spikedash='solid', spikecolor='#00f3ff', spikethickness=1),
+        yaxis=dict(fixedrange=False, showgrid=True, gridwidth=1, gridcolor='rgba(0, 243, 255, 0.1)', zeroline=False, side='right', showspikes=True, spikemode='across', spikesnap='cursor', showline=False, spikedash='dot', spikecolor='#ff0055', spikethickness=1)
     )
     
-    config = {
-        'scrollZoom': True,       
-        'displayModeBar': True,   
-        'modeBarButtonsIfNeeded': False,
-        'displaylogo': False,      
-        'modeBarButtonsToRemove': ['select2d', 'lasso2d', 'autoScale2d']
-    }
-    
+    config = {'scrollZoom': True, 'displayModeBar': True, 'modeBarButtonsIfNeeded': False, 'displaylogo': False, 'modeBarButtonsToRemove': ['select2d', 'lasso2d', 'autoScale2d']}
     st.plotly_chart(fig, use_container_width=True, config=config)
-# ... (Các hàm cũ giữ nguyên)
 
 # ==============================================================================
 # 6. MARKET GALAXY (VŨ TRỤ DÒNG TIỀN - VOLUME EXPLOSION)
 # ==============================================================================
-import plotly.express as px
-
 def render_market_galaxy(df):
     """
     Vẽ biểu đồ Bubble Chart mô phỏng vũ trụ.
-    - Trục X: Giá cổ phiếu.
-    - Trục Y: % Tăng/Giảm giá.
-    - Kích thước (Size): Mức độ bùng nổ Volume (Vol_Ratio).
-    - Màu sắc: Xanh (Tăng) / Đỏ (Giảm).
     """
     if df.empty: return
 
     # Tạo màu sắc dựa trên % Tăng giảm
-    # Nếu Tăng: Màu Xanh Neon (#00ff41), Nếu Giảm: Màu Đỏ (#ff0055)
     df['Color_Type'] = df['Pct'].apply(lambda x: '#00ff41' if x >= 0 else '#ff0055')
     
     # Tạo text hiển thị khi rê chuột
@@ -357,32 +259,15 @@ def render_market_galaxy(df):
 
     # Vẽ Galaxy bằng Plotly Express
     fig = px.scatter(
-        df, 
-        x="Price", 
-        y="Pct", 
-        size="Vol_Ratio",      # <--- MẤU CHỐT: To nhỏ tùy độ nổ Volume
-        color="Color_Type",    # Màu theo Tăng/Giảm
-        text="Symbol",         # Hiện tên mã
-        color_discrete_map="identity", # Giữ nguyên mã màu Hex mình đặt
-        hover_name="Hover_Text",
-        size_max=60,           # Kích thước tối đa của hành tinh (cho VCB nổ to đùng)
-        template="plotly_dark",
-        height=500
+        df, x="Price", y="Pct", size="Vol_Ratio", color="Color_Type", text="Symbol",
+        color_discrete_map="identity", hover_name="Hover_Text",
+        size_max=60, template="plotly_dark", height=500
     )
 
-    # Trang trí cho giống vũ trụ
-    fig.update_traces(
-        textposition='top center',
-        marker=dict(
-            line=dict(width=2, color='White'), # Viền trắng phát sáng
-            opacity=0.9
-        )
-    )
+    fig.update_traces(textposition='top center', marker=dict(line=dict(width=2, color='White'), opacity=0.9))
 
     fig.update_layout(
-        paper_bgcolor='rgba(0,0,0,0)',
-        plot_bgcolor='rgba(0,0,0,0)',
-        showlegend=False,
+        paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)', showlegend=False,
         title=dict(text="🌌 MARKET GALAXY (SIZE = VOLUME EXPLOSION)", font=dict(family="Rajdhani", size=20, color="#00f3ff")),
         xaxis=dict(title="PRICE (K)", showgrid=False, zeroline=False, color="#888"),
         yaxis=dict(title="% CHANGE", showgrid=True, gridcolor='#333', zeroline=True, zerolinecolor='#666'),
