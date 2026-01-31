@@ -4,6 +4,4 @@ pandas
 pandas_ta
 plotly
 prophet
-streamlit-option-menu
 feedparser
-requests
