@@ -36,17 +36,17 @@ st.set_page_config(
     }
 )
 
-# 2. MODULE IMPORT (Kèm xử lý lỗi)
+# 2. MODULE IMPORT (Thêm stock_list vào import)
 try:
     from backend.data import get_pro_data, get_history_df, get_stock_news_google, get_stock_data_full, get_market_indices
     from backend.ai import run_monte_carlo, run_prophet_ai
     from backend.logic import analyze_smart_v36, analyze_fundamental
+    from backend.stock_list import get_full_market_list # <--- NEW IMPORT
     from frontend.ui import load_hardcore_css, render_header
     from frontend.components import render_interactive_chart, render_market_overview, render_analysis_section
 except ImportError as e:
     st.error(f"❌ SYSTEM CRITICAL ERROR: MISSING MODULES. {e}")
     st.stop()
-
 # ==============================================================================
 # 3. SECURE LOGIN LAYER (Màn hình đăng nhập Cyberpunk)
 # ==============================================================================
@@ -124,11 +124,52 @@ with st.sidebar:
     """, unsafe_allow_html=True)
     
     st.markdown("### 📡 TARGET SCANNER")
-    default_list = "HPG, SSI, FPT, MWG, VCB, STB, DIG, NVL, PDR, VIX, DGC, VND"
-    user_tickers = st.text_area("WATCHLIST INPUT", value=default_list, height=100, help="Enter symbols separated by comma")
     
+    # --- BỘ LỌC SÀN (NEW) ---
+    st.caption("SELECT EXCHANGE DATABASE:")
+    c_hose, c_hnx, c_upcom = st.columns(3)
+    
+    # Logic nút bấm để nạp list
+    if 'scan_list' not in st.session_state: 
+        st.session_state['scan_list'] = "HPG, SSI, FPT, MWG, VCB, STB, DIG, NVL, PDR, VIX, DGC, VND"
+        
+    if c_hose.button("HOSE", use_container_width=True):
+        st.session_state['scan_list'] = ", ".join(get_full_market_list("HOSE"))
+    if c_hnx.button("HNX", use_container_width=True):
+        st.session_state['scan_list'] = ", ".join(get_full_market_list("HNX"))
+    if c_upcom.button("UPCOM", use_container_width=True):
+        st.session_state['scan_list'] = ", ".join(get_full_market_list("UPCOM"))
+        
+    # Text Area để hiện list đã chọn (Cho phép user sửa tay thêm bớt)
+    user_tickers = st.text_area("WATCHLIST INPUT", value=st.session_state['scan_list'], height=150)
+    
+    # Cảnh báo nếu list quá dài
+    count = len(user_tickers.split(','))
+    st.caption(f"TARGETS LOCKED: {count} SYMBOLS")
+    if count > 50:
+        st.warning("⚠️ High load! Scanning > 50 symbols may be slow.")
+
     if st.button("EXECUTE SCAN", type="primary", use_container_width=True):
         st.cache_data.clear()
+        st.rerun()
+        
+    st.divider()
+    
+    # System Log Simulation
+    with st.expander("SYSTEM LOGS", expanded=True):
+        st.markdown("""
+        <div style="font-family:monospace; font-size:10px; color:#555; height:150px; overflow-y:auto;">
+            > SYS_INIT... OK<br>
+            > DATABASE LOADED... OK<br>
+            > EXCHANGE FILTER: READY<br>
+            > DECRYPTING STREAM... OK<br>
+            > READY FOR INPUT_<br>
+            <span style="color:#00f3ff; animation: blink 1s infinite;">_</span>
+        </div>
+        """, unsafe_allow_html=True)
+
+    if st.button("TERMINATE SESSION"):
+        st.session_state['logged_in'] = False
         st.rerun()
         
     st.divider()
