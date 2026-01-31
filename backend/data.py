@@ -81,3 +81,49 @@ def get_pro_data(tickers):
 def get_history_df(symbol):
     """Hàm lấy lịch sử để chạy AI"""
     return yf.Ticker(f"{symbol}.VN").history(period="2y")
+
+def get_market_indices():
+    """
+    Lấy dữ liệu chỉ số thị trường quốc tế và Việt Nam
+    Tickers: ^VNINDEX (VNI), ^HASTC (HNX), ^DJI (Dow Jones), ^IXIC (Nasdaq)
+    """
+    indices = {
+        "VN-INDEX": "^VNINDEX",
+        "HNX-INDEX": "^HASTC", 
+        "DOW JONES": "^DJI",
+        "NASDAQ": "^IXIC"
+    }
+    
+    data_list = []
+    
+    try:
+        # Tải data batch cho nhanh
+        tickers_list = list(indices.values())
+        df = yf.download(tickers_list, period="5d", interval="1d", progress=False)['Close']
+        
+        for name, ticker in indices.items():
+            try:
+                # Xử lý data
+                if len(tickers_list) > 1:
+                    series = df[ticker].dropna()
+                else:
+                    series = df.dropna()
+                
+                if len(series) >= 2:
+                    now = series.iloc[-1]
+                    prev = series.iloc[-2]
+                    change = now - prev
+                    pct = (change / prev) * 100
+                    
+                    data_list.append({
+                        "Name": name,
+                        "Price": now,
+                        "Change": change,
+                        "Pct": pct,
+                        "Color": "#10b981" if change >= 0 else "#ef4444" # Xanh/Đỏ
+                    })
+            except: continue
+            
+        return data_list
+    except:
+        return []
