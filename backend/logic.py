@@ -2,59 +2,81 @@ import pandas_ta as ta
 import pandas as pd
 
 def analyze_smart_v36(df):
-    """Logic chấm điểm cũ của V36.1"""
+    """Logic chấm điểm V36.1: SuperTrend + RSI + EMA"""
     if df.empty or len(df) < 50: return None
+    
+    # 1. TÍNH CHỈ BÁO
+    # Supertrend (Quan trọng nhất)
+    sti = ta.supertrend(df['High'], df['Low'], df['Close'], length=10, multiplier=3)
+    # Nếu thư viện trả về kết quả, nối vào DF
+    if sti is not None: df = df.join(sti)
+    
+    # RSI & EMA
+    df.ta.rsi(length=14, append=True)
+    df.ta.ema(length=34, append=True)
+    
+    # Lấy nến mới nhất
     now = df.iloc[-1]
     close = now['Close']
     
-    # Tính toán lại chỉ báo nếu chưa có
-    if 'RSI_14' not in df.columns: df.ta.rsi(length=14, append=True)
-    if 'EMA_34' not in df.columns: df.ta.ema(length=34, append=True)
+    # Tìm tên cột Supertrend (Vì nó sinh tên động dạng SUPERT_10_3.0)
+    st_cols = [c for c in df.columns if 'SUPERT' in c]
+    if not st_cols: return None # Phòng hờ lỗi
+    supertrend = now[st_cols[0]]
     
-    # Supertrend
-    sti = ta.supertrend(df['High'], df['Low'], df['Close'], length=10, multiplier=3)
-    df = df.join(sti)
-    st_col = [c for c in df.columns if 'SUPERT' in c][0]
-    supertrend = df[st_col].iloc[-1]
-
-    # Logic chấm điểm
-    score = 0
+    # 2. CHẤM ĐIỂM
+    score = 5 # Điểm gốc
     pros, cons = [], []
     
-    # 1. Trend
-    if close > supertrend: score += 2; pros.append("SuperTrend: BÁO TĂNG")
-    else: score -= 2; cons.append("SuperTrend: BÁO GIẢM")
+    # Rule 1: SuperTrend
+    if close > supertrend: 
+        score += 2
+        pros.append("SuperTrend: BÁO TĂNG (Bullish)")
+    else: 
+        score -= 2
+        cons.append("SuperTrend: BÁO GIẢM (Bearish)")
     
-    # 2. RSI
-    rsi = df['RSI_14'].iloc[-1]
-    if rsi < 30: score += 1; pros.append(f"RSI ({rsi:.0f}): Quá bán")
-    elif rsi > 70: score -= 1; cons.append(f"RSI ({rsi:.0f}): Quá mua")
+    # Rule 2: RSI
+    rsi = now.get('RSI_14', 50)
+    if rsi < 30: 
+        score += 1
+        pros.append(f"RSI ({rsi:.0f}): Quá bán -> Dễ hồi phục")
+    elif rsi > 70: 
+        score -= 1
+        cons.append(f"RSI ({rsi:.0f}): Quá mua -> Cẩn thận chỉnh")
     
-    # 3. EMA
-    ema34 = df['EMA_34'].iloc[-1]
-    if close > ema34: score += 1; pros.append("Giá trên EMA34 (Xu hướng ngắn hạn Tốt)")
+    # Rule 3: EMA34 (Xu hướng trung hạn)
+    ema34 = now.get('EMA_34', 0)
+    if close > ema34: 
+        score += 1
+        pros.append("Giá nằm trên EMA34")
     
-    final_score = max(0, min(10, 5 + score)) # Điểm gốc là 5
+    # Tổng kết
+    final_score = max(0, min(10, score))
     
-    # Phân loại
-    action, color = "QUAN SÁT", "#f59e0b"
-    if final_score >= 8: action, color = "MUA MẠNH", "#10b981"
-    elif final_score >= 6: action, color = "MUA THĂM DÒ", "#3b82f6"
-    elif final_score <= 3: action, color = "BÁN / CẮT LỖ", "#ef4444"
+    # Phân loại màu sắc & hành động
+    action = "QUAN SÁT"
+    color = "#f59e0b" # Vàng (Neutral)
+    
+    if final_score >= 8: action, color = "MUA MẠNH", "#10b981" # Xanh (Buy)
+    elif final_score <= 3: action, color = "BÁN / CẮT LỖ", "#ef4444" # Đỏ (Sell)
     
     return {
-        "score": final_score, "action": action, "color": color,
-        "pros": pros, "cons": cons,
-        "stop_loss": close * 0.93, "take_profit": close * 1.1
+        "score": final_score, 
+        "action": action, 
+        "color": color,
+        "pros": pros, 
+        "cons": cons,
+        "stop_loss": close * 0.93,   # Cắt lỗ 7%
+        "take_profit": close * 1.15  # Chốt lời 15%
     }
 
 def analyze_fundamental_fake(symbol):
-    """Giả lập phân tích cơ bản (Vì API free không lấy được BCTC chi tiết)"""
-    # Logic này mô phỏng lại cái bảng xanh/đỏ trong ảnh bạn gửi
+    """Giả lập số liệu cơ bản để hiển thị cho đẹp"""
     return {
-        "pe": "15.2x (Khá cao)", "pe_color": "warning",
-        "roe": "12.1% (Ổn định)", "roe_color": "success",
-        "cap": "205,703 tỷ", "cap_color": "success",
-        "growth": "LN Tăng trưởng 27.3%", "growth_color": "success",
-        "health": "VỮNG MẠNH 💪", "health_color": "#3b82f6"
+        "health": "VỮNG MẠNH 💪", 
+        "health_color": "#3b82f6", # Xanh dương
+        "pe": "14.5x", 
+        "roe": "18.2%", 
+        "growth": "25%"
     }
