@@ -1,34 +1,40 @@
-import numpy as np
+# backend/ai.py
 import pandas as pd
-from datetime import datetime, timedelta
-# Import Prophet ở đây (đặt trong try/except nếu sợ lỗi)
-try:
-    from prophet import Prophet
-    PROPHET_AVAILABLE = True
-except: 
-    PROPHET_AVAILABLE = False
+import numpy as np
+from prophet import Prophet
+import plotly.graph_objects as go
 
-def run_monte_carlo_sim(df, days=30, simulations=1000):
-    # (Copy logic tính toán Monte Carlo cũ vào đây)
-    # Lưu ý: Chỉ trả về DataFrame kết quả, KHÔNG vẽ biểu đồ ở đây
+def run_prophet_engine(df, days=30):
+    """Chạy AI dự báo giá"""
     if df.empty: return None
-    data = df['Close']
-    returns = data.pct_change().dropna()
-    mu = returns.mean(); sigma = returns.std(); last_price = data.iloc[-1]
-    drift = mu - 0.5 * sigma**2
-    Z = np.random.normal(0, 1, (days, simulations))
-    daily_returns = np.exp(drift + sigma * Z)
-    price_paths = np.zeros_like(daily_returns); price_paths[0] = last_price
-    for t in range(1, days): price_paths[t] = price_paths[t-1] * daily_returns[t]
-    return pd.DataFrame(price_paths)
-
-def run_prophet_ai(df, periods=30):
-    if not PROPHET_AVAILABLE: return None
-    # (Copy logic Prophet cũ vào đây)
-    df_p = df.reset_index()[['Date', 'Close']].rename(columns={'Date': 'ds', 'Close': 'y'})
+    
+    # Format data cho Prophet
+    df_p = df.reset_index()[['Date', 'Close']]
+    df_p.columns = ['ds', 'y']
     df_p['ds'] = df_p['ds'].dt.tz_localize(None)
+    
+    # Train Model
     m = Prophet(daily_seasonality=True)
     m.fit(df_p)
-    future = m.make_future_dataframe(periods=periods)
+    future = m.make_future_dataframe(periods=days)
     forecast = m.predict(future)
-    return m, forecast # Trả về model và data dự báo
+    
+    return forecast
+
+def run_monte_carlo_engine(df, days=30, sims=100):
+    """Chạy mô phỏng Đa vũ trụ"""
+    data = df['Close']
+    returns = data.pct_change().dropna()
+    mu = returns.mean()
+    sigma = returns.std()
+    last_price = data.iloc[-1]
+    
+    # Mô phỏng
+    simulation_df = pd.DataFrame()
+    for x in range(sims):
+        price_list = [last_price]
+        for _ in range(days):
+            price_list.append(price_list[-1] * np.exp((mu - 0.5 * sigma**2) + sigma * np.random.normal()))
+        simulation_df[f"Sim {x}"] = price_list
+        
+    return simulation_df
