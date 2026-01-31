@@ -2,12 +2,12 @@
 ================================================================================
 MODULE: backend/data.py
 PROJECT: THANG LONG TERMINAL (ENTERPRISE EDITION)
-VERSION: 36.1.0-STABLE
+VERSION: 36.9.0-FULL-SYNCED
 AUTHOR: THANG LONG TEAM
 DESCRIPTION: 
     Core data fetching engine. Handles connections to Yahoo Finance, 
     Google News, and internal data processing.
-    Includes robust error handling, caching mechanisms, and data normalization.
+    UPDATED: Integrated 'backend.logic.analyze_smart_v36' for synchronized Radar.
 ================================================================================
 """
 
@@ -22,6 +22,9 @@ import logging
 from datetime import datetime, timedelta
 from typing import List, Dict, Union, Optional, Tuple
 import streamlit as st
+
+# [NEW] Import Logic để đồng bộ thuật toán
+from backend.logic import analyze_smart_v36 
 
 # ==============================================================================
 # 1. SYSTEM CONFIGURATION & CONSTANTS
@@ -95,9 +98,6 @@ def get_market_indices() -> List[Dict]:
     """
     Lấy dữ liệu các chỉ số thị trường (Indices/Commodities/Crypto).
     Sử dụng cơ chế Batch Processing để tải nhanh.
-    
-    Returns:
-        List[Dict]: Danh sách các chỉ số kèm giá và % thay đổi.
     """
     results = []
     
@@ -194,7 +194,6 @@ def get_stock_news_google(symbol: str) -> List[Dict]:
                 # Format ngày tháng
                 published = entry.get('published', '')
                 try:
-                    # Cố gắng parse ngày tháng sang dạng chuẩn
                     dt = datetime(*entry.published_parsed[:6])
                     published_str = dt.strftime("%H:%M %d/%m/%Y")
                 except:
@@ -237,18 +236,12 @@ def get_history_df(symbol: str, period: str = "2y", interval: str = "1d") -> pd.
             
         df.index.name = "Date"
         
-        # --- PRE-CALCULATE BASIC INDICATORS (Tối ưu hiệu năng) ---
-        # Chỉ tính những cái cơ bản để vẽ chart, logic sâu hơn sẽ ở module logic.py
-        
-        # 1. Moving Averages
+        # --- PRE-CALCULATE BASIC INDICATORS ---
         df['SMA_20'] = ta.sma(df['Close'], length=20)
         df['SMA_50'] = ta.sma(df['Close'], length=50)
         df['SMA_200'] = ta.sma(df['Close'], length=200)
-        
-        # 2. Volume MA
         df['Vol_SMA_20'] = ta.sma(df['Volume'], length=20)
         
-        # 3. Bollinger Bands
         bb = ta.bbands(df['Close'], length=20, std=2)
         if bb is not None:
             df = pd.concat([df, bb], axis=1)
@@ -263,10 +256,6 @@ def get_history_df(symbol: str, period: str = "2y", interval: str = "1d") -> pd.
 def get_stock_data_full(symbol: str) -> Tuple[Dict, pd.DataFrame, pd.DataFrame, pd.DataFrame, pd.Series, pd.Series]:
     """
     Lấy toàn bộ dữ liệu cơ bản (Fundamental Data).
-    Đây là hàm 'Hạng Nặng', lấy rất nhiều dữ liệu từ API.
-    
-    Returns:
-        Info (Dict), Financials (DF), BalanceSheet (DF), Cashflow (DF), Dividends (Series), Splits (Series)
     """
     ticker_sym = _format_ticker(symbol)
     t = yf.Ticker(ticker_sym)
@@ -280,12 +269,11 @@ def get_stock_data_full(symbol: str) -> Tuple[Dict, pd.DataFrame, pd.DataFrame, 
             hist_now = t.history(period="1d")
             if not hist_now.empty:
                 info['currentPrice'] = hist_now['Close'].iloc[-1]
-                info['previousClose'] = hist_now['Open'].iloc[-1] # Tạm dùng Open làm tham chiếu
+                info['previousClose'] = hist_now['Open'].iloc[-1]
             else:
                 info['currentPrice'] = 0.0
 
         # 2. Financial Statements (Báo cáo tài chính)
-        # Lấy theo Quý (Quarterly)
         fin = t.quarterly_income_stmt
         bal = t.quarterly_balance_sheet
         cash = t.quarterly_cashflow
@@ -307,27 +295,29 @@ def get_stock_data_full(symbol: str) -> Tuple[Dict, pd.DataFrame, pd.DataFrame, 
         
     except Exception as e:
         logger.error(f"Fundamental data fetch error for {ticker_sym}: {e}")
-        # Trả về objects rỗng để không crash UI
         return {}, pd.DataFrame(), pd.DataFrame(), pd.DataFrame(), pd.Series(), pd.Series()
 
 # ==============================================================================
-# 4. RADAR SCANNER ENGINE (BỘ QUÉT)
+# 4. RADAR SCANNER ENGINE (BỘ QUÉT - ĐÃ ĐỒNG BỘ LOGIC)
 # ==============================================================================
 
 def get_pro_data(tickers: List[str]) -> pd.DataFrame:
     """
-    Bộ quét Radar: Tính toán kỹ thuật nhanh cho danh sách nhiều mã.
-    Hàm này cần tối ưu để chạy nhanh nhất có thể.
+    Bộ quét Radar: Sử dụng logic 'analyze_smart_v36' để chấm điểm.
+    Đảm bảo kết quả đồng bộ 100% với màn hình Deep Dive.
+    
+
+[Image of Radar Chart]
+
     """
     rows = []
     
     # 1. Chuẩn hóa danh sách mã
     clean_tickers = [_format_ticker(t) for t in tickers]
     
-    # 2. Tải dữ liệu hàng loạt (Batch Download) - Tăng tốc độ gấp 10 lần so với loop
-    # Tải 1 năm để đủ dữ liệu tính EMA, RSI
+    # 2. Tải dữ liệu hàng loạt (Batch Download)
     try:
-        data_batch = yf.download(clean_tickers, period="1y", group_by='ticker', progress=False, threads=True)
+        data_batch = yf.download(clean_tickers, period="6mo", group_by='ticker', progress=False, threads=True)
     except Exception as e:
         logger.error(f"Batch download error: {e}")
         return pd.DataFrame()
@@ -337,71 +327,51 @@ def get_pro_data(tickers: List[str]) -> pd.DataFrame:
         try:
             # Trích xuất DF con
             if len(clean_tickers) > 1:
-                df = data_batch[symbol]
+                df = data_batch[symbol].copy()
             else:
-                df = data_batch
+                df = data_batch.copy()
             
             # Làm sạch: Bỏ hàng NaN
             df = df.dropna(subset=['Close'])
             if df.empty or len(df) < 50: continue
             
-            # --- TÍNH TOÁN CHỈ BÁO (LIGHTWEIGHT) ---
+            # --- [SYNC LOGIC HERE] ---
+            # Gọi trực tiếp bộ não phân tích V36
+            # Điều này đảm bảo Radar thấy 'MUA' thì Deep Dive cũng thấy 'MUA'
+            analysis = analyze_smart_v36(df)
             
-            # A. SuperTrend (10, 3)
-            sti = ta.supertrend(df['High'], df['Low'], df['Close'], length=10, multiplier=3)
-            if sti is not None: df = df.join(sti)
+            if not analysis: continue
+
+            # Mapping kết quả từ Logic sang bảng Radar
+            score = analysis['score']
+            raw_action = analysis['action']
             
-            # B. EMA & RSI
-            df.ta.ema(length=34, append=True)
-            df.ta.rsi(length=14, append=True)
-            
-            # Lấy nến hiện tại
-            now = df.iloc[-1]
-            close = now['Close']
-            
-            # --- SCORING LOGIC (SƠ BỘ) ---
-            # Logic này để hiển thị nhanh trên bảng Radar. 
-            # Logic chi tiết hơn sẽ nằm ở backend/logic.py
-            
-            score = 5
-            # 1. Trend
-            st_cols = [c for c in df.columns if 'SUPERT' in c]
-            supertrend_val = now[st_cols[0]] if st_cols else close
-            
-            if close > supertrend_val: score += 2
-            else: score -= 2
-            
-            # 2. Momentum
-            rsi_val = now.get('RSI_14', 50)
-            if rsi_val < 30: score += 1.5      # Oversold
-            elif rsi_val > 70: score -= 1.0    # Overbought
-            
-            # 3. Moving Average
-            ema34_val = now.get('EMA_34', 0)
-            if close > ema34_val: score += 1
-            
-            final_score = max(0, min(10, score))
-            
-            # Signal Text
-            signal = "NEUTRAL"
-            if final_score >= 8: signal = "STRONG BUY"
-            elif final_score >= 6: signal = "BUY"
-            elif final_score <= 3: signal = "SELL"
+            # Chuyển đổi ngôn ngữ Action sang tiếng Anh ngắn gọn cho Radar
+            signal = "WAIT"
+            if "MUA MẠNH" in raw_action: signal = "STRONG BUY"
+            elif "MUA" in raw_action: signal = "BUY"
+            elif "BÁN" in raw_action: signal = "SELL"
             
             # Trend Line (Sparkline Data) - 30 phiên gần nhất
             trend_data = df['Close'].tail(30).tolist()
             
             # Tính % thay đổi
+            close = df['Close'].iloc[-1]
             prev_close = df['Close'].iloc[-2]
             pct_change = (close - prev_close) / prev_close
             
             rows.append({
-                "Symbol": symbol.replace(".VN", ""), # Hiển thị bỏ đuôi .VN cho đẹp
-                "Price": close / 1000.0, # Đổi sang đơn vị Nghìn đồng
+                "Symbol": symbol.replace(".VN", ""),
+                "Price": close / 1000.0, # Đơn vị: Nghìn đồng
+                "PX (K)": close,
+                "Change": close - prev_close,
                 "Pct": pct_change,
                 "Signal": signal,
-                "Score": int(final_score),
-                "Trend": trend_data
+                "ALGO": signal, # Thêm cột ALGO cho tương thích app.py
+                "Score": int(score),
+                "STR": score,   # Thêm cột STR cho tương thích app.py
+                "Trend": trend_data,
+                "TREND": trend_data # Thêm cột TREND viết hoa
             })
             
         except Exception as e:
