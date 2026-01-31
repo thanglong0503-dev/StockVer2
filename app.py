@@ -1,112 +1,93 @@
 # app.py
 import streamlit as st
-import pandas as pd
 import sys
 import os
+import plotly.express as px
 
-# --- 1. SETUP HỆ THỐNG ---
-st.set_page_config(layout="wide", page_title="ThangLong Terminal", page_icon="🐲")
-
-# Import modules
+# Setup
+st.set_page_config(layout="wide", page_title="Thang Long Terminal V2", page_icon="🐲")
 sys.path.append(os.path.abspath(os.path.dirname(__file__)))
-from backend.data import get_market_data
+
+from backend.data import get_pro_data, get_history_df
+from backend.ai import run_prophet_engine, run_monte_carlo_engine
 from frontend.ui import load_custom_css, render_header, render_kpi_card
 
-# Load CSS ngay lập tức
 load_custom_css()
-
-# --- 2. HEADER & KPI ---
 render_header()
 
-# Giả lập KPI thị trường (Thực tế nên lấy từ API index)
-c1, c2, c3, c4 = st.columns(4)
-with c1: render_kpi_card("VN-INDEX", "1,254.30", "+12.5 (0.8%)", True)
-with c2: render_kpi_card("VN30", "1,280.10", "+8.2 (0.6%)", True)
-with c3: render_kpi_card("HNX", "230.50", "-1.2 (-0.5%)", False)
-with c4: render_kpi_card("THANH KHOẢN", "18.5K Tỷ", "Cao", True)
+# --- INPUT ---
+watchlist = ["HPG", "SSI", "FPT", "MWG", "VCB", "STB", "DIG", "NVL"]
 
-# --- 3. MAIN DASHBOARD ---
-st.markdown("<br>", unsafe_allow_html=True)
-col_table, col_ai = st.columns([3, 1]) # Tỉ lệ 3:1 chuẩn Pro
-
-# --- DANH SÁCH MÃ ---
-watchlist = ["HPG", "SSI", "FPT", "MWG", "VCB", "STB", "VND", "DIG", "NVL", "ACB", "MBB", "TCB"]
+# --- LAYOUT CHÍNH ---
+col_table, col_cmd = st.columns([2, 1]) # Chia 2:1 để bên phải rộng hơn cho AI
 
 with col_table:
-    st.markdown('<div class="glass-box" style="padding: 10px 20px;">', unsafe_allow_html=True)
+    st.markdown('<div class="glass-box"><h3>📡 RADAR THỊ TRƯỜNG</h3>', unsafe_allow_html=True)
+    with st.spinner("Đang quét tín hiệu vệ tinh..."):
+        df = get_pro_data(watchlist)
     
-    # Filter giả lập
-    f1, f2, f3 = st.columns([4, 1, 1])
-    with f1: st.markdown("### 🔥 MARKET WATCHLIST")
-    with f2: st.button("HOSE", use_container_width=True)
-    with f3: st.button("VN30", use_container_width=True, type="primary")
-
-    # LOAD DATA
-    with st.spinner("⚡ Initializing Uplink..."):
-        df = get_market_data(watchlist)
-
     if not df.empty:
-        # BẢNG GIÁ PRO
         st.dataframe(
             df,
             column_config={
-                "Symbol": st.column_config.TextColumn("Mã CK", width="small"),
-                "Price": st.column_config.NumberColumn("Giá (K)", format="%.2f", width="small"),
-                "Change": st.column_config.NumberColumn("+/-", format="%.2f", width="small"),
-                "Pct": st.column_config.NumberColumn("%", format="%.2f %%", width="small"),
-                "Volume": st.column_config.NumberColumn("KL", format="%.0f", width="medium"),
-                "Trend": st.column_config.LineChartColumn(
-                    "Trend (20D)", 
-                    width="large",
-                    y_min=None, y_max=None # Để None để chart tự scale theo biên độ giá
-                )
+                "Symbol": st.column_config.TextColumn("Mã", width="small"),
+                "Price": st.column_config.NumberColumn("Giá (K)", format="%.2f"),
+                "Pct": st.column_config.NumberColumn("%", format="%.2f %%"),
+                "Signal": st.column_config.TextColumn("Tín hiệu", width="medium"),
+                "Score": st.column_config.ProgressColumn("Sức mạnh", min_value=0, max_value=10, format="%d/10"),
+                "Trend": st.column_config.LineChartColumn("Trend 30D")
             },
-            hide_index=True,
-            use_container_width=True,
-            height=600
+            hide_index=True, use_container_width=True, height=600
         )
-    else:
-        st.error("⚠️ Mất kết nối dữ liệu. Vui lòng kiểm tra API.")
-    
     st.markdown('</div>', unsafe_allow_html=True)
 
-# --- CỘT PHẢI: AI COMMANDER ---
-with col_ai:
-    # Khung AI Thông Minh
-    st.markdown("""
-    <div class="glass-box" style="border: 1px solid #38bdf8;">
-        <div style="display:flex; align-items:center; gap:10px; margin-bottom:15px;">
-            <div style="width:10px; height:10px; background:#38bdf8; border-radius:50%; box-shadow: 0 0 10px #38bdf8;"></div>
-            <div style="font-family:'Rajdhani'; font-weight:700; font-size:1.2rem; color:#fff;">AI COMMANDER</div>
-        </div>
-        <div style="font-size:0.9rem; color:#cbd5e1; line-height:1.6; border-left: 2px solid #38bdf8; padding-left: 10px;">
-            Thị trường đang trong pha <b>Tăng Giá</b>. Dòng tiền tập trung mạnh vào nhóm <b>Công nghệ (FPT)</b> và <b>Thép (HPG)</b>.
-            <br><br>
-            Khuyến nghị: <span style="color:#22c55e; font-weight:bold;">CANH MUA</span> khi có nhịp chỉnh.
-        </div>
-    </div>
-    """, unsafe_allow_html=True)
-
-    # Chi tiết mã (Interactive)
+with col_cmd:
     if not df.empty:
-        selected_code = st.selectbox("Phân tích nhanh:", df['Symbol'])
-        row = df[df['Symbol'] == selected_code].iloc[0]
+        # Chọn mã để phân tích sâu
+        selected = st.selectbox("🎯 CHỌN MỤC TIÊU PHÂN TÍCH:", df['Symbol'])
         
-        is_bullish = row['Pct'] >= 0
-        color = "#22c55e" if is_bullish else "#ef4444"
+        # Lấy data lịch sử cho AI
+        history_df = get_history_df(selected)
         
-        st.markdown(f"""
-        <div class="glass-box" style="text-align:center;">
-            <h1 style="margin:0; font-size:3rem; color:{color}; font-family:'Rajdhani'">{row['Symbol']}</h1>
-            <h2 style="margin:0; color:white;">{row['Price']:.2f}</h2>
-            <div style="color:{color}; font-weight:bold; font-size:1.2rem; margin-top:5px;">
-                {row['Pct']:.2f}%
-            </div>
-            <div style="margin-top:20px; text-align:left;">
-                <p style="color:#94a3b8; font-size:0.8rem;">KLGD: <span style="color:white">{row['Volume']:,.0f}</span></p>
-                <button style="width:100%; padding:10px; background:{color}; color:black; font-weight:bold; border:none; border-radius:4px; cursor:pointer;">
-                    {'ĐẶT LỆNH MUA' if is_bullish else 'CẮT LỖ NGAY'}
-                </button>
-            </div>
-        </div>
-        """, unsafe_allow_html=True)
+        # TABS CHỨC NĂNG CAO CẤP
+        t1, t2, t3 = st.tabs(["🔮 PROPHET AI", "🌌 MONTE CARLO", "📊 TRADINGVIEW"])
+        
+        with t1:
+            st.markdown('<div class="glass-box">', unsafe_allow_html=True)
+            if st.button("Kích hoạt Prophet AI", key="btn_ai", use_container_width=True):
+                with st.spinner("AI đang tính toán..."):
+                    forecast = run_prophet_engine(history_df)
+                    fig = px.line(forecast, x='ds', y=['yhat', 'yhat_lower', 'yhat_upper'], 
+                                  color_discrete_sequence=['#22d3ee', '#334155', '#334155'])
+                    fig.update_layout(template="plotly_dark", height=300, showlegend=False)
+                    st.plotly_chart(fig, use_container_width=True)
+                    st.success(f"Dự báo giá {selected} 30 ngày tới hoàn tất.")
+            else:
+                st.info("Nhấn nút để chạy mô hình dự báo.")
+            st.markdown('</div>', unsafe_allow_html=True)
+            
+        with t2:
+            st.markdown('<div class="glass-box">', unsafe_allow_html=True)
+            if st.button("Mở cổng Đa Vũ Trụ", key="btn_mc", use_container_width=True):
+                with st.spinner("Đang mô phỏng 100 kịch bản..."):
+                    mc_df = run_monte_carlo_engine(history_df)
+                    fig = px.line(mc_df, color_discrete_sequence=['rgba(34, 197, 94, 0.1)']) # Màu xanh mờ
+                    fig.update_layout(template="plotly_dark", height=300, showlegend=False)
+                    st.plotly_chart(fig, use_container_width=True)
+            st.markdown('</div>', unsafe_allow_html=True)
+
+        with t3:
+             st.components.v1.html(f"""
+                <div class="tradingview-widget-container">
+                  <div id="tv_mini"></div>
+                  <script type="text/javascript" src="https://s3.tradingview.com/tv.js"></script>
+                  <script type="text/javascript">
+                  new TradingView.widget({{
+                      "width": "100%", "height": 350, "symbol": "HOSE:{selected}",
+                      "interval": "D", "timezone": "Asia/Ho_Chi_Minh", "theme": "dark",
+                      "style": "1", "toolbar_bg": "#f1f3f6", "hide_top_toolbar": true,
+                      "container_id": "tv_mini"
+                  }});
+                  </script>
+                </div>
+            """, height=350)
