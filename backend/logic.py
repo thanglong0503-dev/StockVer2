@@ -203,7 +203,10 @@ class TechnicalAnalyzer:
         elif final_score <= 3:
             action = "BÁN / CẮT LỖ"
             color = "#ef4444" # Đỏ
-            
+            # [THÊM ĐOẠN NÀY]: Reset về 0 khi báo Bán
+            entry_price = 0
+            stop_loss = 0
+            take_profit = 0
         # Tính toán Entry/Stop/Target dựa trên ATR (Khoa học hơn % cố định)
         atr = self.latest.get('ATRr_14', close * 0.02)
         stop_loss = close - (2 * atr)  # SL = 2 ATR
