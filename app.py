@@ -166,25 +166,56 @@ col_radar, col_analyst = st.columns([1.5, 2.5])
 with col_radar:
     st.markdown('<div class="glass-box"><h4>📡 MARKET RADAR</h4>', unsafe_allow_html=True)
     
-    # Lấy dữ liệu từ Session State
     df_radar = st.session_state['radar_data']
     
     if not df_radar.empty:
+        # CHỈ LẤY NHỮNG CỘT CẦN THIẾT (Lọc bỏ rác ngay tại đây)
+        # Sắp xếp lại thứ tự luôn cho đẹp
+        df_display = df_radar[["Symbol", "Price", "Pct", "Signal", "Score", "Trend"]]
+
         st.dataframe(
-            df_radar,
+            df_display,
             column_config={
-                "Symbol": st.column_config.TextColumn("SYM", width="small"),
-                "Price": st.column_config.NumberColumn("PX (K)", format="%.2f"),
-                "Pct": st.column_config.NumberColumn("% CHG", format="%.2f %%"),
-                "Signal": st.column_config.TextColumn("ALGO"),
-                "Score": st.column_config.ProgressColumn("STR", format="%d", min_value=0, max_value=10),
-                "Trend": st.column_config.LineChartColumn("TREND"),
+                "Symbol": st.column_config.TextColumn("SYM", width="small", help="Mã cổ phiếu"),
+                
+                "Price": st.column_config.NumberColumn(
+                    "PRICE", 
+                    format="%.2f", # Hiển thị 2 số thập phân
+                    width="small"
+                ),
+                
+                "Pct": st.column_config.NumberColumn(
+                    "%", 
+                    format="%.2f %%", # Thêm dấu %
+                    width="small"
+                ),
+                
+                "Signal": st.column_config.TextColumn(
+                    "ACTION", 
+                    width="medium"
+                ),
+                
+                "Score": st.column_config.ProgressColumn(
+                    "POWER", 
+                    format="%d/10", 
+                    min_value=0, 
+                    max_value=10,
+                    width="medium"
+                ),
+                
+                "Trend": st.column_config.LineChartColumn(
+                    "MINI CHART",
+                    width="large",
+                    y_min=0 # Tự động scale biểu đồ cho đẹp
+                )
             },
-            hide_index=True, use_container_width=True, height=680
+            hide_index=True,       # Ẩn cột số thứ tự 0,1,2...
+            use_container_width=True,
+            height=680
         )
     else:
         st.info("AWAITING SCAN COMMAND...")
-        st.caption("Please click 'EXECUTE SCAN' on the sidebar to populate data.")
+        st.caption("Please click 'EXECUTE SCAN' on the sidebar.")
         
     st.markdown('</div>', unsafe_allow_html=True)
 
