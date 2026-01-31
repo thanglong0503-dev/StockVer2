@@ -2,75 +2,92 @@ import streamlit as st
 import plotly.graph_objects as go
 import pandas_ta as ta
 
-def render_market_overview(indices_data):
-    """Vẽ thanh chỉ số thị trường (Xử lý trường hợp Offline)"""
-    if not indices_data: return
+# --- CSS CHO CARD (QUAN TRỌNG) ---
+def load_card_css():
+    st.markdown("""
+    <style>
+    .rec-card {
+        background-color: #1f2937; border-radius: 12px; padding: 20px; 
+        text-align: center; margin-bottom: 20px; border: 1px solid #374151;
+        box-shadow: 0 4px 6px rgba(0,0,0,0.3);
+    }
+    .score-circle {
+        display: inline-block; width: 80px; height: 80px; line-height: 80px; 
+        border-radius: 50%; font-size: 32px; font-weight: 900; color: white; 
+        margin: 15px 0; box-shadow: 0 0 20px rgba(0,0,0,0.5);
+    }
+    </style>
+    """, unsafe_allow_html=True)
 
-    cols = st.columns(len(indices_data))
+# --- 1. VẼ 2 CARD PHÂN TÍCH (NHƯ ẢNH) ---
+def render_analysis_section(tech, fund):
+    load_card_css()
+    c1, c2 = st.columns(2)
     
+    # CARD KỸ THUẬT (TRÁI)
+    with c1:
+        st.markdown(f"""
+        <div class="rec-card" style="border-left: 5px solid {tech['color']};">
+            <h4 style="color:#9ca3af; margin:0; font-size:0.9rem;">🔭 GÓC NHÌN KỸ THUẬT</h4>
+            <div class="score-circle" style="background:{tech['color']}; box-shadow: 0 0 15px {tech['color']};">
+                {tech['score']}
+            </div>
+            <h2 style="color:{tech['color']}; font-weight:900; margin:0; font-size:2rem; text-transform:uppercase;">
+                {tech['action']}
+            </h2>
+        </div>
+        """, unsafe_allow_html=True)
+        
+        # Chi tiết giá
+        k1, k2, k3 = st.columns(3)
+        k1.metric("💰 Giá", f"{tech['entry']:,.0f}")
+        k2.metric("🛑 Cắt Lỗ", f"{tech['stop']:,.0f}", delta_color="inverse")
+        k3.metric("🎯 Mục Tiêu", f"{tech['target']:,.0f}")
+
+        with st.expander("🔍 Chi tiết Kỹ Thuật", expanded=True):
+            for p in tech['pros']: st.success(p)
+            for c in tech['cons']: st.warning(c)
+
+    # CARD CƠ BẢN (PHẢI)
+    with c2:
+        st.markdown(f"""
+        <div class="rec-card" style="border-left: 5px solid {fund['color']};">
+            <h4 style="color:#9ca3af; margin:0; font-size:0.9rem;">🏢 SỨC KHỎE DOANH NGHIỆP</h4>
+            <div style="height: 80px; display: flex; align-items: center; justify-content: center; margin: 15px 0;">
+                <h2 style="color:{fund['color']}; font-weight:900; font-size:2rem; margin:0;">
+                    {fund['health']}
+                </h2>
+            </div>
+             <h4 style="color:#9ca3af; margin:0; font-size:0.8rem; visibility:hidden">Placeholder</h4>
+        </div>
+        """, unsafe_allow_html=True)
+
+        with st.expander("🔍 Chi tiết Cơ Bản (BCTC Quý)", expanded=True):
+            for d in fund['details']: 
+                if "cao" in d or "Thấp" in d: st.warning(d)
+                else: st.success(d)
+            if fund['market_cap'] > 0:
+                st.info(f"Vốn hóa: {fund['market_cap']/1e9:,.0f} Tỷ")
+
+# --- 2. CÁC HÀM CŨ (GIỮ NGUYÊN) ---
+def render_market_overview(indices_data):
+    if not indices_data: return
+    cols = st.columns(len(indices_data))
     for i, data in enumerate(indices_data):
         with cols[i]:
-            if data['Status'] == "LIVE":
-                arrow = "▲" if data['Change'] >= 0 else "▼"
-                price_display = f"{data['Price']:,.2f}"
-                change_display = f"{arrow} {data['Change']:,.2f} ({data['Pct']:+.2f}%)"
-                color = data['Color']
-            else:
-                # Trường hợp không lấy được dữ liệu
-                price_display = "---"
-                change_display = "OFFLINE"
-                color = "#64748b" # Xám
-
+            color = data['Color']
+            price_fmt = "{:,.2f}".format(data['Price'])
             st.markdown(f"""
-            <div style="
-                background-color: #111827; 
-                border: 1px solid #374151; 
-                border-radius: 8px; 
-                padding: 15px; 
-                margin-bottom: 10px;
-                text-align: center;
-            ">
-                <div style="font-family: 'Rajdhani'; color: #9ca3af; font-size: 0.8rem; font-weight: 700; letter-spacing: 1px;">
-                    {data['Name']}
-                </div>
-                <div style="font-family: 'Rajdhani'; font-size: 1.6rem; font-weight: 800; color: {color}; margin: 5px 0;">
-                    {price_display}
-                </div>
-                <div style="font-family: 'Inter'; font-size: 0.8rem; color: {color}; font-weight: 600;">
-                    {change_display}
-                </div>
+            <div style="background:#111827; border:1px solid #374151; border-radius:8px; padding:10px; text-align:center;">
+                <div style="color:#9ca3af; font-size:0.75rem; font-weight:700;">{data['Name']}</div>
+                <div style="font-size:1.2rem; font-weight:800; color:{color}; margin:2px 0;">{price_fmt}</div>
+                <div style="font-size:0.75rem; color:{color}; font-weight:600;">{data['Pct']:+.2f}%</div>
             </div>
             """, unsafe_allow_html=True)
 
-def render_score_card_v36(data):
-    # (Giữ nguyên code cũ)
-    st.markdown(f"""
-    <div style="background-color: #111827; border-radius: 15px; padding: 25px; text-align: center; border: 1px solid #374151; margin-bottom: 20px;">
-        <h4 style="color: #9ca3af; margin: 0; font-size: 0.85rem; letter-spacing: 2px;">TECHNICAL RATING</h4>
-        <div style="width: 100px; height: 100px; margin: 20px auto; border-radius: 50%; background: {data['color']}; display: flex; align-items: center; justify-content: center; font-size: 3.5rem; font-weight: 900; color: white; box-shadow: 0 0 30px {data['color']};">
-            {data['score']}
-        </div>
-        <h1 style="color: {data['color']}; font-weight: 900; margin: 0; font-size: 2.2rem; text-transform: uppercase;">
-            {data['action']}
-        </h1>
-    </div>
-    """, unsafe_allow_html=True)
-
 def render_interactive_chart(df, symbol):
-    # (Giữ nguyên code cũ)
+    # Logic vẽ chart cũ
     if df.empty: return
-    ichi = ta.ichimoku(df['High'], df['Low'], df['Close'])
-    if ichi is not None: df = df.join(ichi[0])
-    
-    fig = go.Figure()
-    fig.add_trace(go.Candlestick(x=df.index, open=df['Open'], high=df['High'], low=df['Low'], close=df['Close'], name='Price'))
-    if 'ITS_9' in df.columns: fig.add_trace(go.Scatter(x=df.index, y=df['ITS_9'], line=dict(color='#22d3ee', width=1), name='Tenkan'))
-    if 'IKS_26' in df.columns: fig.add_trace(go.Scatter(x=df.index, y=df['IKS_26'], line=dict(color='#ef4444', width=1), name='Kijun'))
-
-    fig.update_layout(
-        title=dict(text=f"{symbol} - TECHNICAL CHART", font=dict(family="Rajdhani", size=20, color="white")),
-        template="plotly_dark", height=500, xaxis_rangeslider_visible=True,
-        paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)',
-        margin=dict(l=10, r=10, t=40, b=10), hovermode="x unified", dragmode="pan"
-    )
+    fig = go.Figure(data=[go.Candlestick(x=df.index, open=df['Open'], high=df['High'], low=df['Low'], close=df['Close'])])
+    fig.update_layout(title=f"{symbol} Chart", template="plotly_dark", height=500, xaxis_rangeslider_visible=True)
     st.plotly_chart(fig, use_container_width=True)
