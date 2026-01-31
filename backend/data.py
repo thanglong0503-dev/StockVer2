@@ -3,95 +3,118 @@ import pandas as pd
 import pandas_ta as ta
 import requests
 import time
-from datetime import datetime, timedelta
+import random
 
-def get_index_from_dnse(symbol):
+def get_index_realtime_vietnam(symbol_dnse, symbol_ssi, name):
     """
-    Hàm Hacker: Lấy dữ liệu trực tiếp từ API của DNSE (Entrade)
-    Nguồn này cực nhanh, realtime và không bị chặn IP như Yahoo.
-    Symbol: 'VNINDEX', 'HNX', 'VN30'
+    Hàm lấy chỉ số Việt Nam đa nguồn (Multi-Source):
+    1. Thử SSI (iBoard) - Nguồn xịn nhất.
+    2. Nếu tạch, thử DNSE (Entrade).
+    3. Nếu tạch tiếp, thử Yahoo.
     """
+    # Header giả lập trình duyệt Chrome (Quan trọng để không bị chặn)
+    headers = {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+        'Referer': 'https://iboard.ssi.com.vn/',
+        'Accept': 'application/json'
+    }
+    
+    current_time = int(time.time())
+    start_time = current_time - (7 * 24 * 60 * 60) # 7 ngày trước
+
+    # --- NGUỒN 1: SSI (iBoard) ---
     try:
-        # Tính timestamp cho 5 ngày gần nhất
-        end_time = int(time.time())
-        start_time = int(end_time - 5 * 24 * 60 * 60) # 5 ngày trước
+        # SSI dùng mã: VNINDEX, VN30, HNXIndex
+        url_ssi = f"https://iboard.ssi.com.vn/dchart/api/history?resolution=D&symbol={symbol_ssi}&from={start_time}&to={current_time}"
+        res = requests.get(url_ssi, headers=headers, timeout=5)
+        data = res.json()
         
-        # API Endpoint của DNSE (Công khai)
-        url = f"https://services.entrade.com.vn/chart-api/v2/ohlcs/index?symbol={symbol}&resolution=1D&from={start_time}&to={end_time}"
-        
-        response = requests.get(url, timeout=5)
-        data = response.json()
-        
-        if data and 't' in data and len(data['t']) >= 2:
-            # Lấy 2 cây nến cuối cùng
-            now = data['c'][-1]      # Giá đóng cửa mới nhất
-            prev = data['c'][-2]     # Giá đóng cửa phiên trước
+        if data and 'c' in data and len(data['c']) >= 2:
+            now = float(data['c'][-1])
+            prev = float(data['c'][-2])
             change = now - prev
             pct = (change / prev) * 100
             
-            # Đổi tên hiển thị cho đẹp
-            display_name = symbol
-            if symbol == "VNINDEX": display_name = "VN-INDEX"
-            if symbol == "HNX": display_name = "HNX-INDEX"
+            return {
+                "Name": name, "Price": now, "Change": change, "Pct": pct,
+                "Color": "#10b981" if change >= 0 else "#ef4444", "Status": "LIVE (SSI)"
+            }
+    except:
+        pass # Lỗi thì lẳng lặng qua nguồn 2
+
+    # --- NGUỒN 2: DNSE ---
+    try:
+        url_dnse = f"https://services.entrade.com.vn/chart-api/v2/ohlcs/index?symbol={symbol_dnse}&resolution=1D&from={start_time}&to={current_time}"
+        res = requests.get(url_dnse, headers=headers, timeout=5)
+        data = res.json()
+        
+        if data and 'c' in data and len(data['c']) >= 2:
+            now = float(data['c'][-1])
+            prev = float(data['c'][-2])
+            change = now - prev
+            pct = (change / prev) * 100
             
             return {
-                "Name": display_name,
-                "Price": float(now),
-                "Change": float(change),
-                "Pct": float(pct),
-                "Color": "#10b981" if change >= 0 else "#ef4444",
-                "Status": "LIVE ⚡" # Đánh dấu nguồn xịn
+                "Name": name, "Price": now, "Change": change, "Pct": pct,
+                "Color": "#10b981" if change >= 0 else "#ef4444", "Status": "LIVE (DNSE)"
             }
-    except Exception as e:
-        print(f"Lỗi lấy {symbol} từ DNSE: {e}")
-        return None
-    return None
+    except:
+        pass
 
-def get_market_indices():
-    """Tổng hợp chỉ số: VN lấy từ DNSE, Quốc tế lấy từ Yahoo"""
-    results = []
-    
-    # 1. LẤY HÀNG VIỆT NAM (Dùng nguồn DNSE bao uy tín)
-    vn_targets = ["VNINDEX", "VN30", "HNX"]
-    
-    for sym in vn_targets:
-        res = get_index_from_dnse(sym)
-        if res:
-            results.append(res)
-        else:
-            # Fallback: Nếu DNSE sập (hiếm), trả về Offline
-            results.append({
-                "Name": sym, "Price": 0.0, "Change": 0.0, "Pct": 0.0,
-                "Color": "#64748b", "Status": "OFFLINE"
-            })
-
-    # 2. LẤY HÀNG QUỐC TẾ (Dùng Yahoo vẫn ngon cho hàng Mỹ)
-    us_targets = [
-        {"name": "DOW JONES", "symbol": "^DJI"},
-        {"name": "NASDAQ", "symbol": "^IXIC"}
-    ]
-    
-    for item in us_targets:
+    # --- NGUỒN 3: YAHOO (ETF DỰ PHÒNG) ---
+    if name == "VN30" or name == "VN-INDEX":
         try:
-            ticker = yf.Ticker(item["symbol"])
+            ticker = yf.Ticker("E1VFVN30.VN")
             hist = ticker.history(period="5d")
             if len(hist) >= 2:
                 now = hist['Close'].iloc[-1]
                 prev = hist['Close'].iloc[-2]
                 change = now - prev
                 pct = (change / prev) * 100
-                results.append({
-                    "Name": item["name"], "Price": now, "Change": change, "Pct": pct,
-                    "Color": "#10b981" if change >= 0 else "#ef4444", "Status": "LIVE"
-                })
-        except:
-            pass # Bỏ qua nếu lỗi
-            
+                return {
+                    "Name": name, "Price": now, "Change": change, "Pct": pct,
+                    "Color": "#10b981" if change >= 0 else "#ef4444", "Status": "LIVE (ETF)"
+                }
+        except: pass
+
+    # --- THẤT BẠI TOÀN TẬP ---
+    return {
+        "Name": name, "Price": 0.0, "Change": 0.0, "Pct": 0.0,
+        "Color": "#64748b", "Status": "OFFLINE"
+    }
+
+def get_market_indices():
+    """Tổng hợp chỉ số"""
+    results = []
+    
+    # 1. VN-INDEX (SSI: VNINDEX | DNSE: VNINDEX)
+    results.append(get_index_realtime_vietnam("VNINDEX", "VNINDEX", "VN-INDEX"))
+    
+    # 2. VN30 (SSI: VN30 | DNSE: VN30)
+    results.append(get_index_realtime_vietnam("VN30", "VN30", "VN30"))
+    
+    # 3. HNX (SSI: HNXIndex | DNSE: HNX) -> Lưu ý mã SSI khác chút
+    results.append(get_index_realtime_vietnam("HNX", "HNXIndex", "HNX-INDEX"))
+    
+    # 4. QUỐC TẾ (Yahoo vẫn ngon)
+    try:
+        dj = yf.Ticker("^DJI").history(period="5d")
+        if len(dj) >= 2:
+            now = dj['Close'].iloc[-1]
+            prev = dj['Close'].iloc[-2]
+            chg = now - prev
+            pct = (chg/prev)*100
+            results.append({"Name": "DOW JONES", "Price": now, "Change": chg, "Pct": pct, "Color": "#10b981" if chg>=0 else "#ef4444", "Status": "LIVE"})
+        else:
+            raise Exception("No Data")
+    except:
+        results.append({"Name": "DOW JONES", "Price": 0.0, "Change": 0.0, "Pct": 0.0, "Color": "#64748b", "Status": "OFFLINE"})
+
     return results
 
-# --- CÁC HÀM CŨ GIỮ NGUYÊN ---
+# --- GIỮ NGUYÊN CODE CŨ CỦA CÁC HÀM KHÁC ---
 def get_pro_data(tickers):
-    # Logic Radar (Giữ nguyên code 1000 dòng ở câu trước)
+    # Logic Radar 1000 dòng giữ nguyên...
     symbols = [f"{t}.VN" for t in tickers]
     try:
         data = yf.download(symbols, period="1y", interval="1d", group_by='ticker', progress=False)
@@ -102,7 +125,6 @@ def get_pro_data(tickers):
                 df = data[sym] if len(tickers) > 1 else data
                 if df.empty or len(df) < 50: continue
                 
-                # Indicator
                 sti = ta.supertrend(df['High'], df['Low'], df['Close'], length=10, multiplier=3)
                 if sti is not None: df = df.join(sti)
                 df.ta.rsi(length=14, append=True)
