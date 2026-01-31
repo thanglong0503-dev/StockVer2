@@ -2,10 +2,9 @@
 ================================================================================
 MODULE: frontend/components.py
 PROJECT: THANG LONG TERMINAL (ENTERPRISE EDITION)
-VERSION: 36.1.0-STABLE
+VERSION: 36.1.1-FIX (HTML RENDER PATCH)
 DESCRIPTION: 
-    Reusable UI Components.
-    Renders Charts, Metric Cards, and Dashboards with High-Fidelity styling.
+    Fixed HTML indentation issue preventing UI from rendering correctly.
 ================================================================================
 """
 
@@ -20,27 +19,27 @@ import pandas_ta as ta
 def render_market_overview(indices_data):
     if not indices_data: return
 
-    # CSS cục bộ cho Ticker
+    # CSS viết sát lề để không bị hiểu nhầm là code block
     st.markdown("""
-    <style>
-    .ticker-item {
-        background-color: #0d1117;
-        border: 1px solid #30363d;
-        border-radius: 4px;
-        padding: 10px 12px;
-        display: flex;
-        flex-direction: column;
-        justify-content: center;
-        height: 70px;
-    }
-    .t-name { color: #8b949e; font-size: 11px; font-weight: 600; text-transform: uppercase; margin-bottom: 4px; }
-    .t-val-row { display: flex; justify-content: space-between; align-items: baseline; }
-    .t-price { color: #e6edf3; font-size: 16px; font-weight: 700; font-variant-numeric: tabular-nums; }
-    .t-change { font-size: 12px; font-weight: 500; margin-left: 8px; font-variant-numeric: tabular-nums; }
-    .up { color: #238636; }
-    .down { color: #da3633; }
-    </style>
-    """, unsafe_allow_html=True)
+<style>
+.ticker-item {
+    background-color: #0d1117;
+    border: 1px solid #30363d;
+    border-radius: 4px;
+    padding: 10px 12px;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    height: 70px;
+}
+.t-name { color: #8b949e; font-size: 11px; font-weight: 600; text-transform: uppercase; margin-bottom: 4px; }
+.t-val-row { display: flex; justify-content: space-between; align-items: baseline; }
+.t-price { color: #e6edf3; font-size: 16px; font-weight: 700; font-variant-numeric: tabular-nums; }
+.t-change { font-size: 12px; font-weight: 500; margin-left: 8px; font-variant-numeric: tabular-nums; }
+.up { color: #238636; }
+.down { color: #da3633; }
+</style>
+""", unsafe_allow_html=True)
 
     cols = st.columns(len(indices_data))
     
@@ -50,7 +49,7 @@ def render_market_overview(indices_data):
                 color_class = "up" if data['Change'] >= 0 else "down"
                 sign = "+" if data['Change'] >= 0 else ""
                 
-                # Render HTML sát lề để tránh lỗi indentation
+                # QUAN TRỌNG: HTML phải sát lề trái
                 st.markdown(f"""
 <div class="ticker-item">
     <div class="t-name">{data['Name']}</div>
@@ -75,17 +74,14 @@ def render_market_overview(indices_data):
 # 2. ANALYSIS DASHBOARD (Bảng phân tích chuyên sâu)
 # ==============================================================================
 def render_analysis_section(tech, fund):
-    """
-    Hiển thị kết quả phân tích dưới dạng Dashboard.
-    Không dùng icon trẻ con. Dùng Text Label chuyên nghiệp.
-    """
     c1, c2 = st.columns(2)
     
-    # --- TECHNICAL CARD ---
+    # --- TECHNICAL CARD (KỸ THUẬT) ---
     with c1:
         # Màu sắc dựa trên Action
         score_color = "#238636" if tech['score'] >= 7 else "#da3633" if tech['score'] <= 3 else "#d29922"
         
+        # HTML sát lề trái tuyệt đối
         st.markdown(f"""
 <div class="pro-card" style="height: 100%; border-left: 4px solid {score_color};">
     <div style="display: flex; justify-content: space-between; align-items: start; margin-bottom: 20px;">
@@ -120,13 +116,14 @@ def render_analysis_section(tech, fund):
 """, unsafe_allow_html=True)
         
         with st.expander("View Technical Factors", expanded=False):
-            for p in tech['pros']: st.success(p, icon="✅")
-            for c in tech['cons']: st.warning(c, icon="⚠️")
+            for p in tech['pros']: st.success(p)
+            for c in tech['cons']: st.warning(c)
 
-    # --- FUNDAMENTAL CARD ---
+    # --- FUNDAMENTAL CARD (CƠ BẢN) ---
     with c2:
         health_color = fund['color']
         
+        # HTML sát lề trái tuyệt đối
         st.markdown(f"""
 <div class="pro-card" style="height: 100%; border-left: 4px solid {health_color};">
     <div style="display: flex; justify-content: space-between; align-items: start; margin-bottom: 20px;">
@@ -145,7 +142,7 @@ def render_analysis_section(tech, fund):
     <div style="margin-top: 10px;">
         <div style="font-size: 13px; color: #8b949e; margin-bottom: 5px;">Analysis Summary</div>
         <div style="font-size: 13px; color: #e6edf3; line-height: 1.5;">
-            Financial health based on P/E, ROE, and recent Growth metrics.
+            Financial health evaluation based on Valuation (P/E), Profitability (ROE), and recent Growth metrics.
         </div>
     </div>
 </div>
@@ -153,7 +150,7 @@ def render_analysis_section(tech, fund):
         
         with st.expander("View Financial Metrics", expanded=True):
             for d in fund['details']:
-                if "cao" in d or "Thấp" in d or "giảm" in d or "kém" in d:
+                if "cao" in d or "Thấp" in d or "giảm" in d or "kém" in d or "Kém" in d:
                     st.markdown(f"<span style='color:#da3633'>• {d}</span>", unsafe_allow_html=True)
                 else:
                     st.markdown(f"<span style='color:#238636'>• {d}</span>", unsafe_allow_html=True)
