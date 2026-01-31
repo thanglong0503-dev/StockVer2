@@ -152,7 +152,50 @@ with st.sidebar:
     if st.button("TERMINATE SESSION", key="btn_logout"):
         st.session_state['logged_in'] = False
         st.rerun()
+# ... (Code cũ của nút TERMINATE SESSION)
 
+    st.divider()
+    
+    # === NEW: LIVE TERMINAL LOG ===
+    st.markdown("### 📟 SYSTEM TERMINAL")
+    
+    # Tạo nội dung Log giả lập ngẫu nhiên cho ngầu
+    import random
+    
+    logs = [
+        "[SYSTEM] Establishing secure uplink...",
+        "[DATA] Fetching realtime ticks from HOSE...",
+        "[AI] Neural Network V40 loaded.",
+        "[ALERT] Volatility detected in Banking Sector.",
+        "[SCAN] Searching for Shark footprints...",
+        "[INFO] Latency: 12ms | Packet Loss: 0%",
+        "[CRYPTO] Bitcoin correlation check: NEGATIVE",
+        "[UPDATE] Financial Reports Q4 synced."
+    ]
+    
+    # Chọn ngẫu nhiên 4 dòng để hiển thị
+    active_logs = random.sample(logs, 4)
+    log_html = "".join([f"<div style='margin-bottom:2px;'>{l}</div>" for l in active_logs])
+    
+    st.markdown(f"""
+    <div style="
+        background-color: #000;
+        border: 1px solid #333;
+        border-left: 3px solid #00ff41;
+        padding: 10px;
+        font-family: 'Courier New', monospace;
+        font-size: 10px;
+        color: #00ff41;
+        height: 120px;
+        overflow-y: hidden;
+        text-shadow: 0 0 5px #00ff41;
+        opacity: 0.8;
+    ">
+        <div style="border-bottom: 1px dashed #333; margin-bottom: 5px; color: #fff;">ROOT@THANGLONG:~# tail -f /var/log/syslog</div>
+        {log_html}
+        <div style="animation: blink 1s infinite;">_</div>
+    </div>
+    """, unsafe_allow_html=True)
 # --- MARKET OVERVIEW ---
 with st.spinner("UPDATING MARKET FEED..."):
     indices = get_market_indices()
