@@ -274,29 +274,39 @@ with col_analyst:
 
 st.markdown('<div style="text-align:center; color:#444; font-size:10px; margin-top:50px;">THANG LONG TERMINAL SYSTEM V36.6 // ENCRYPTED</div>', unsafe_allow_html=True)
 # ==============================================================================
-# 5. FOOTER (ĐÁNH DẤU CHỦ QUYỀN)
+# 5. FOOTER (THANH TRẠNG THÁI NGANG - CYBER COMMANDER STYLE)
 # ==============================================================================
 st.markdown("""
-<div style="text-align:center; font-family: 'Rajdhani', sans-serif; margin-top:80px; margin-bottom: 20px; opacity: 0.8;">
-    <div style="color:#444; font-size:10px;">THANG LONG TERMINAL SYSTEM V36.6 // ENCRYPTED CONNECTION</div>
-    <div style="
-        color: #00f3ff; 
-        font-size: 16px; 
-        font-weight: 800; 
-        letter-spacing: 4px; 
-        margin-top: 8px; 
-        text-transform: uppercase;
-        text-shadow: 0 0 10px #00f3ff, 0 0 20px #00f3ff;
-        animation: pulse 2s infinite;
-    ">
-        ⚡ DEV BY THANGLONG ⚡
-    </div>
-</div>
 <style>
-    @keyframes pulse {
-        0% { opacity: 0.8; text-shadow: 0 0 10px #00f3ff; }
-        50% { opacity: 1; text-shadow: 0 0 20px #00f3ff, 0 0 30px #00f3ff; }
-        100% { opacity: 0.8; text-shadow: 0 0 10px #00f3ff; }
+    /* 1. Ẩn footer mặc định của Streamlit */
+    footer {visibility: hidden;}
+
+    /* 2. Tạo thanh footer mới cố định ở đáy */
+    .cyber-footer {
+        position: fixed;
+        left: 0;
+        bottom: 0;
+        width: 100%;
+        background-color: #0a0a0a; /* Nền đen tối */
+        color: #888;               /* Màu chữ xám mặc định */
+        text-align: center;
+        padding: 10px 0;
+        font-family: 'Rajdhani', sans-serif;
+        font-size: 14px;
+        letter-spacing: 1px;
+        border-top: 1px solid #333; /* Viền trên nhẹ */
+        z-index: 9999; /* Đảm bảo luôn nổi lên trên cùng */
+    }
+
+    /* 3. Hiệu ứng Neon cho chữ THANGLONG */
+    .neon-green {
+        color: #00ff41; /* Xanh lá neon */
+        font-weight: 700;
+        text-shadow: 0 0 5px #00ff41, 0 0 10px #00ff41; /* Hiệu ứng phát sáng */
     }
 </style>
+
+<div class="cyber-footer">
+    🚀 CYBER COMMANDER V42 | DEVELOPED BY <span class="neon-green">THANGLONG</span> | © 2026
+</div>
 """, unsafe_allow_html=True)
