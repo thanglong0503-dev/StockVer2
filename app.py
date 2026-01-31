@@ -22,7 +22,20 @@ except ImportError:
 # MAIN UI
 load_hardcore_css()
 render_header()
+# ... code cũ ...
+load_hardcore_css()
+render_header()
 
+# --- KHU VỰC CHỈ SỐ THỊ TRƯỜNG (NEW) ---
+with st.spinner("Updating Global Indices..."):
+    market_data = get_market_indices()
+    render_market_overview(market_data)
+
+st.markdown("---") # Đường kẻ ngang phân cách cho đẹp
+
+# --- INPUT ---
+WATCHLIST = ...
+# ... code cũ ...
 WATCHLIST = ["HPG", "SSI", "FPT", "MWG", "VCB", "STB", "DIG", "NVL", "PDR", "VIX"]
 
 col_left, col_right = st.columns([1.8, 2.2])
