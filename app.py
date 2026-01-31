@@ -1,166 +1,176 @@
 import streamlit as st
 import sys
 import os
-import plotly.express as px
+import plotly.graph_objects as go
+import pandas as pd
 
-# 1. SETUP
+# CONFIG
 sys.path.append(os.path.abspath(os.path.dirname(__file__)))
-st.set_page_config(layout="wide", page_title="Thang Long Terminal", page_icon="🐲")
+st.set_page_config(layout="wide", page_title="Thang Long Ultimate", page_icon="🐲")
 
-# 2. IMPORT
+# IMPORT
 try:
-    from backend.data import get_pro_data, get_history_df, get_market_indices, get_financial_report, get_stock_news, get_company_profile, get_dividend_history
-    from backend.ai import run_monte_carlo_sim
+    from backend.data import get_pro_data, get_history_df, get_stock_news_google, get_stock_data_full
+    from backend.ai import run_monte_carlo, run_prophet_ai
     from backend.logic import analyze_smart_v36
     from frontend.ui import load_hardcore_css, render_header
     from frontend.components import render_score_card_v36, render_interactive_chart, render_market_overview
-except ImportError as e:
-    st.error(f"System Error: {e}")
+except ImportError:
+    st.error("Lỗi hệ thống: Vui lòng kiểm tra lại file backend.")
     st.stop()
 
-# 3. UI LOAD
+# ==========================================
+# 🔐 1. HỆ THỐNG ĐĂNG NHẬP (KHÔI PHỤC)
+# ==========================================
+USERS = {"admin": "admin123", "stock": "stock123", "guest": "123456"}
+
+if 'logged_in' not in st.session_state: st.session_state['logged_in'] = False
+
+def login_ui():
+    st.markdown("<h1 style='text-align: center; color: #0ea5e9;'>🐲 STOCK THANG LONG LOGIN</h1>", unsafe_allow_html=True)
+    c1, c2, c3 = st.columns([1,1,1])
+    with c2:
+        user = st.text_input("Username")
+        pwd = st.text_input("Password", type="password")
+        if st.button("Đăng Nhập", type="primary", use_container_width=True):
+            if user in USERS and USERS[user] == pwd:
+                st.session_state['logged_in'] = True
+                st.rerun()
+            else:
+                st.error("Sai tài khoản hoặc mật khẩu!")
+
+if not st.session_state['logged_in']:
+    login_ui()
+    st.stop()
+
+# ==========================================
+# 🚀 2. GIAO DIỆN CHÍNH
+# ==========================================
 load_hardcore_css()
-render_header() 
+render_header()
 
-# 4. MARKET BAR
-with st.spinner("Connecting Global Markets..."):
-    market_data = get_market_indices()
-    render_market_overview(market_data)
+# SIDEBAR
+with st.sidebar:
+    st.success("✅ Đã đăng nhập")
+    if st.button("Đăng Xuất"):
+        st.session_state['logged_in'] = False
+        st.rerun()
+    st.markdown("---")
+    st.write("Triết lý: Dòng tiền thông minh + Tăng trưởng")
 
+# 1. THANH CHỈ SỐ
+# (Code rút gọn lấy ETF cho nhanh - giống bài trước)
+import yfinance as yf
+indices = []
+for item in [{"n":"VN30 ETF","s":"E1VFVN30.VN"}, {"n":"DOW JONES","s":"^DJI"}]:
+    try:
+        h = yf.Ticker(item['s']).history(period="5d")
+        now = h['Close'].iloc[-1]; chg = now - h['Close'].iloc[-2]
+        indices.append({"Name": item['n'], "Price": now, "Change": chg, "Pct": chg/h['Close'].iloc[-2]*100, "Color": "#10b981" if chg>=0 else "#ef4444", "Status": "LIVE"})
+    except: pass
+render_market_overview(indices)
 st.markdown("---")
 
-# 5. MAIN
-WATCHLIST = ["HPG", "SSI", "FPT", "MWG", "VCB", "STB", "DIG", "NVL", "PDR", "VIX"]
+# 2. CHIA CỘT
 col_radar, col_analyst = st.columns([1.5, 2.5])
 
-# --- LEFT: RADAR ---
 with col_radar:
-    st.markdown('<div class="glass-box">', unsafe_allow_html=True)
-    st.markdown('<h3 style="font-family:Rajdhani; margin-top:0;">📡 MARKET RADAR</h3>', unsafe_allow_html=True)
-    
-    with st.spinner("Scanning..."):
-        df_radar = get_pro_data(WATCHLIST)
-        
+    st.markdown('<div class="glass-box"><h3>📡 RADAR</h3>', unsafe_allow_html=True)
+    df_radar = get_pro_data(["HPG","SSI","FPT","MWG","VCB","STB","DIG","NVL"])
     if not df_radar.empty:
-        st.dataframe(
-            df_radar,
-            column_config={
-                "Symbol": st.column_config.TextColumn("Ticker"),
-                "Price": st.column_config.NumberColumn("Price (K)", format="%.2f"),
-                "Pct": st.column_config.NumberColumn("%", format="%.2f %%"),
-                "Signal": st.column_config.TextColumn("Signal"),
-                "Score": st.column_config.ProgressColumn("Power", format="%d/10", min_value=0, max_value=10),
-                "Trend": st.column_config.LineChartColumn("Trend"),
-            },
-            hide_index=True, use_container_width=True, height=600
-        )
+        st.dataframe(df_radar, hide_index=True, use_container_width=True, height=600)
     st.markdown('</div>', unsafe_allow_html=True)
 
-# --- RIGHT: ANALYST CENTER ---
 with col_analyst:
     st.markdown('<div class="glass-box">', unsafe_allow_html=True)
-    
     if not df_radar.empty:
-        # Chọn mã
-        selected = st.selectbox("SELECT ASSET:", df_radar['Symbol'], label_visibility="collapsed")
-        st.markdown(f"<h1 style='font-family:Rajdhani; color:#06b6d4; margin-top:-10px;'>{selected} - ANALYST CENTER</h1>", unsafe_allow_html=True)
+        selected = st.selectbox("CHỌN MÃ:", df_radar['Symbol'])
         
-        # Lấy data
+        # TẢI DỮ LIỆU FULL
         hist_df = get_history_df(selected)
-        
-        # TABS CHỨC NĂNG
-        tab1, tab2, tab3, tab4, tab5, tab6 = st.tabs([
-            "📊 BIỂU ĐỒ & SĂN NẾN", "🌌 ĐA VŨ TRỤ", "💰 TÀI CHÍNH", "📰 TIN TỨC", "🏢 HỒ SƠ", "🎁 CỔ TỨC"
+        info, fin, bal, cash, divs, splits = get_stock_data_full(selected)
+        news_list = get_stock_news_google(selected)
+
+        # 3. HỆ THỐNG TABS (Y HỆT ẢNH)
+        t1, t2, t3, t4, t5, t6, t7 = st.tabs([
+            "📊 Biểu Đồ", "📉 TradingView", "🔮 AI Prophet", 
+            "🌌 Đa Vũ Trụ", "📰 Tin Tức", "💰 Tài Chính", "🏢 Hồ Sơ"
         ])
         
-        # TAB 1: BIỂU ĐỒ (LOGIC CŨ)
-        with tab1:
-            tech_result = analyze_smart_v36(hist_df)
-            if tech_result:
-                c1, c2 = st.columns([1, 1.5])
-                with c1: render_score_card_v36(tech_result)
-                with c2:
-                    st.success(f"✅ POSITIVE: {', '.join(tech_result['pros'])}")
-                    if tech_result['cons']: st.error(f"⚠️ WARNING: {', '.join(tech_result['cons'])}")
-                render_interactive_chart(hist_df, selected)
+        # TAB 1: BIỂU ĐỒ
+        with t1:
+            render_interactive_chart(hist_df, selected)
+        
+        # TAB 2: TRADINGVIEW
+        with t2:
+            st.components.v1.html(f"""
+            <div class="tradingview-widget-container">
+              <div id="tradingview_widget"></div>
+              <script type="text/javascript" src="https://s3.tradingview.com/tv.js"></script>
+              <script type="text/javascript">
+              new TradingView.widget({{"width": "100%","height": 500,"symbol": "HOSE:{selected}","interval": "D","theme": "dark","locale": "vi_VN","container_id": "tradingview_widget"}});
+              </script>
+            </div>
+            """, height=500)
 
-        # TAB 2: MONTE CARLO
-        with tab2:
-            st.markdown("### 🔮 DỰ BÁO ĐA VŨ TRỤ (100 KỊCH BẢN)")
-            if st.button("CHẠY GIẢ LẬP", type="primary"):
-                mc_df = run_monte_carlo_sim(hist_df)
-                if mc_df is not None:
-                    fig = px.line(mc_df, title=f"Monte Carlo Simulation: {selected} (30 Days)", template="plotly_dark")
-                    fig.update_traces(line=dict(width=1), opacity=0.3) # Làm mờ các đường
-                    fig.update_layout(showlegend=False, paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)')
-                    st.plotly_chart(fig, use_container_width=True)
+        # TAB 3: AI PROPHET
+        with t3:
+            fig_ai = run_prophet_ai(hist_df)
+            if fig_ai: st.plotly_chart(fig_ai, use_container_width=True)
+            else: st.warning("Cần cài đặt thư viện Prophet")
 
-        # TAB 3: TÀI CHÍNH (NEW)
-        with tab3:
-            st.markdown("### 📜 BÁO CÁO TÀI CHÍNH (QUÝ)")
-            type_report = st.radio("Loại báo cáo:", ["Kết Quả Kinh Doanh", "Cân Đối Kế Toán", "Lưu Chuyển Tiền Tệ"], horizontal=True)
-            
-            map_type = {
-                "Kết Quả Kinh Doanh": "incomestatement",
-                "Cân Đối Kế Toán": "balancesheet",
-                "Lưu Chuyển Tiền Tệ": "cashflow"
-            }
-            
-            with st.spinner("Đang tải dữ liệu từ TCBS..."):
-                df_fin = get_financial_report(selected, map_type[type_report])
-                if not df_fin.empty:
-                    st.dataframe(df_fin, use_container_width=True)
+        # TAB 4: ĐA VŨ TRỤ (MONTE CARLO)
+        with t4:
+            st.markdown("### 🌌 Mô Phỏng Tương Lai (Monte Carlo)")
+            if st.button("Chạy Giả Lập 1000 Kịch Bản"):
+                fig_mc, fig_hist, stats = run_monte_carlo(hist_df)
+                if fig_mc:
+                    st.plotly_chart(fig_mc, use_container_width=True)
+                    c1, c2, c3 = st.columns(3)
+                    c1.metric("Trung Bình", f"{stats['mean']:,.0f}")
+                    c2.metric("Kịch Bản Tốt", f"{stats['top_5']:,.0f}")
+                    c3.metric("Xác Suất Tăng", f"{stats['prob_up']:.1f}%")
+                    st.plotly_chart(fig_hist, use_container_width=True)
+
+        # TAB 5: TIN TỨC (Dùng code cũ Feedparser)
+        with t5:
+            st.markdown(f"### 📰 Tin tức: {selected}")
+            for n in news_list:
+                st.markdown(f"""
+                <div style="background:#1f2937; padding:10px; border-radius:5px; margin-bottom:10px; border-left: 3px solid #0ea5e9;">
+                    <a href="{n['link']}" target="_blank" style="color:white; font-weight:bold; text-decoration:none;">{n['title']}</a>
+                    <div style="color:#9ca3af; font-size:0.8rem; margin-top:5px;">🕒 {n['published']}</div>
+                </div>
+                """, unsafe_allow_html=True)
+
+        # TAB 6: TÀI CHÍNH (Format đẹp như ảnh)
+        with t6:
+            st.markdown("### 💰 Báo Cáo Tài Chính (Quý)")
+            if not fin.empty:
+                st.subheader("Kết Quả Kinh Doanh")
+                st.dataframe(fin.iloc[:, :4], use_container_width=True) # Lấy 4 quý gần nhất
+            if not bal.empty:
+                st.subheader("Cân Đối Kế Toán")
+                st.dataframe(bal.iloc[:, :4], use_container_width=True)
+
+        # TAB 7: HỒ SƠ & CỔ TỨC
+        with t7:
+            c_left, c_right = st.columns(2)
+            with c_left:
+                st.markdown("### 🏢 Hồ Sơ")
+                st.info(f"Ngành: {info.get('sector', 'N/A')}")
+                st.write(info.get('longBusinessSummary', 'Chưa có mô tả'))
+            with c_right:
+                st.markdown("### 🎁 Lịch Sử Cổ Tức")
+                if not divs.empty:
+                    # Vẽ biểu đồ cổ tức
+                    div_data = divs.reset_index()
+                    div_data.columns = ['Ngày', 'Giá Trị']
+                    fig_div = go.Figure(go.Bar(x=div_data['Ngày'], y=div_data['Giá Trị'], marker_color='#10b981'))
+                    fig_div.update_layout(title="Cổ tức tiền mặt", template="plotly_dark", height=300)
+                    st.plotly_chart(fig_div, use_container_width=True)
+                    st.dataframe(div_data.sort_values('Ngày', ascending=False).head(5), use_container_width=True)
                 else:
-                    st.warning("Chưa có dữ liệu báo cáo.")
-
-        # TAB 4: TIN TỨC (NEW)
-        with tab4:
-            st.markdown("### 📰 TIN TỨC MỚI NHẤT")
-            news_list = get_stock_news(selected)
-            if news_list:
-                for news in news_list:
-                    # Render tin tức đẹp
-                    title = news.get('title', 'No Title')
-                    date = news.get('publishDate', '')[:10]
-                    link = f"https://tcinvest.tcbs.com.vn/tc-price/symbol-info/{selected}?t=news" # Link tạm về TCBS
-                    st.markdown(f"""
-                    <div style="background:#111827; padding:10px; border-radius:8px; margin-bottom:8px; border-left: 3px solid #06b6d4;">
-                        <a href="{link}" target="_blank" style="text-decoration:none; color:white; font-weight:bold;">{title}</a>
-                        <div style="color:#94a3b8; font-size:0.8rem;">📅 {date}</div>
-                    </div>
-                    """, unsafe_allow_html=True)
-            else:
-                st.info("Không có tin tức mới.")
-
-        # TAB 5: HỒ SƠ (NEW)
-        with tab5:
-            profile = get_company_profile(selected)
-            if profile:
-                st.markdown(f"### {profile.get('shortName', selected)}")
-                st.info(f"**Ngành:** {profile.get('industryName', 'N/A')}")
-                st.write(profile.get('overview', 'Chưa có mô tả.'))
-                
-                c1, c2, c3 = st.columns(3)
-                c1.metric("Vốn hóa", f"{profile.get('marketCap', 0)/1e9:,.0f} Tỷ")
-                c2.metric("P/E", f"{profile.get('pe', 0):.2f}")
-                c3.metric("P/B", f"{profile.get('pb', 0):.2f}")
-
-        # TAB 6: CỔ TỨC (NEW)
-        with tab6:
-            st.markdown("### 🎁 LỊCH SỬ CỔ TỨC")
-            df_div = get_dividend_history(selected)
-            if not df_div.empty:
-                # Chọn cột cần hiển thị
-                cols_show = ['exerciseDate', 'cashYear', 'cashDividendPercentage', 'issueMethod']
-                # Đổi tên cho đẹp
-                df_div = df_div.rename(columns={
-                    'exerciseDate': 'Ngày GDKHQ', 
-                    'cashYear': 'Năm', 
-                    'cashDividendPercentage': 'Tỉ lệ (%)',
-                    'issueMethod': 'Loại'
-                })
-                st.dataframe(df_div[['Ngày GDKHQ', 'Năm', 'Tỉ lệ (%)', 'Loại']], use_container_width=True)
-            else:
-                st.info("Chưa có dữ liệu cổ tức.")
+                    st.info("Không có dữ liệu cổ tức gần đây.")
 
     st.markdown('</div>', unsafe_allow_html=True)
