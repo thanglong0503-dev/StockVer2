@@ -2,15 +2,13 @@
 ================================================================================
 MODULE: app.py
 PROJECT: THANG LONG TERMINAL (ENTERPRISE EDITION)
-VERSION: 36.2.0-CORE-ONLINE
+VERSION: 36.5.0-FULL-STABLE
 THEME: CYBERPUNK HUD
 DESCRIPTION: 
-    Main entry point. Orchestrates Data, Logic, AI, and UI components.
-    Features:
-    - Secure Access Layer (Login)
-    - Real-time System Logs
-    - Modular Tab Architecture
-    - Embedded TradingView & Plotly Engines
+    Main Command Center.
+    - Full Integration: Data, Logic, AI, UI.
+    - Fixed: StreamlitDuplicateElementId error (Unique keys added).
+    - Features: Secure Login, Exchange Filter, Advanced Charting, AI Forecast.
 ================================================================================
 """
 
@@ -21,39 +19,45 @@ import time
 import pandas as pd
 import streamlit.components.v1 as components
 
-# 1. SYSTEM BOOTSTRAP (Cấu hình khởi động)
+# ==============================================================================
+# 1. SYSTEM CONFIGURATION
+# ==============================================================================
+# Thêm đường dẫn gốc để import module
 sys.path.append(os.path.abspath(os.path.dirname(__file__)))
 
+# Cấu hình trang Streamlit
 st.set_page_config(
     layout="wide", 
-    page_title="TL-TERMINAL V36.2", 
+    page_title="TL-TERMINAL V36.5", 
     page_icon="💠",
     initial_sidebar_state="expanded",
     menu_items={
         'Get Help': None,
         'Report a bug': None,
-        'About': "Thang Long Terminal - Advanced Market Intelligence"
+        'About': "Thang Long Terminal - Advanced Market Intelligence System"
     }
 )
 
-# 2. MODULE IMPORT (Thêm stock_list vào import)
+# Import Modules (Kèm xử lý lỗi nếu thiếu file)
 try:
     from backend.data import get_pro_data, get_history_df, get_stock_news_google, get_stock_data_full, get_market_indices
     from backend.ai import run_monte_carlo, run_prophet_ai
     from backend.logic import analyze_smart_v36, analyze_fundamental
-    from backend.stock_list import get_full_market_list # <--- NEW IMPORT
+    from backend.stock_list import get_full_market_list # Import danh sách sàn
     from frontend.ui import load_hardcore_css, render_header
     from frontend.components import render_interactive_chart, render_market_overview, render_analysis_section
 except ImportError as e:
-    st.error(f"❌ SYSTEM CRITICAL ERROR: MISSING MODULES. {e}")
+    st.error(f"❌ SYSTEM CRITICAL ERROR: MISSING MODULES. \nDetails: {e}")
     st.stop()
+
 # ==============================================================================
-# 3. SECURE LOGIN LAYER (Màn hình đăng nhập Cyberpunk)
+# 2. SECURE LOGIN LAYER (Màn hình đăng nhập)
 # ==============================================================================
 if 'logged_in' not in st.session_state: st.session_state['logged_in'] = False
 
 def render_secure_login():
-    # Inject CSS riêng cho trang Login
+    """Hiển thị màn hình đăng nhập phong cách Hacker."""
+    # CSS cục bộ cho trang Login
     st.markdown("""
     <style>
         .login-box {
@@ -88,10 +92,10 @@ def render_secure_login():
             user = st.text_input("IDENTITY", placeholder="USER_ID")
             pwd = st.text_input("KEY_PHRASE", type="password", placeholder="ACCESS_CODE")
             
+            # Nút Submit Login
             if st.form_submit_button("INITIATE UPLINK", type="primary", use_container_width=True):
-                # Fake loading effect
                 with st.spinner("VERIFYING BIOMETRICS..."):
-                    time.sleep(1)
+                    time.sleep(0.5) # Giả lập độ trễ bảo mật
                 
                 if (user == "admin" and pwd == "admin123") or (user == "stock" and pwd == "stock123"):
                     st.session_state['logged_in'] = True
@@ -99,16 +103,17 @@ def render_secure_login():
                 else:
                     st.error("⛔ ACCESS DENIED: INVALID CREDENTIALS")
 
+# Nếu chưa đăng nhập thì hiện form login và dừng chương trình
 if not st.session_state['logged_in']:
-    load_hardcore_css() # Load font cho trang login
+    load_hardcore_css() # Load font
     render_secure_login()
     st.stop()
 
 # ==============================================================================
-# 4. MAIN COMMAND CENTER (Giao diện chính)
+# 3. MAIN COMMAND CENTER (Giao diện chính)
 # ==============================================================================
 
-# Khởi động giao diện
+# Khởi động CSS và Header
 load_hardcore_css()
 render_header()
 
@@ -125,51 +130,36 @@ with st.sidebar:
     
     st.markdown("### 📡 TARGET SCANNER")
     
-    # --- BỘ LỌC SÀN (NEW) ---
+    # --- BỘ LỌC SÀN (EXCHANGE FILTER) ---
     st.caption("SELECT EXCHANGE DATABASE:")
     c_hose, c_hnx, c_upcom = st.columns(3)
     
-    # Logic nút bấm để nạp list
+    # Khởi tạo list mặc định
     if 'scan_list' not in st.session_state: 
         st.session_state['scan_list'] = "HPG, SSI, FPT, MWG, VCB, STB, DIG, NVL, PDR, VIX, DGC, VND"
-        
-    if c_hose.button("HOSE", use_container_width=True):
+    
+    # Các nút chọn sàn (QUAN TRỌNG: CÓ KEY ĐỂ TRÁNH LỖI DUPLICATE ID)
+    if c_hose.button("HOSE", key="btn_hose", use_container_width=True):
         st.session_state['scan_list'] = ", ".join(get_full_market_list("HOSE"))
-    if c_hnx.button("HNX", use_container_width=True):
+        
+    if c_hnx.button("HNX", key="btn_hnx", use_container_width=True):
         st.session_state['scan_list'] = ", ".join(get_full_market_list("HNX"))
-    if c_upcom.button("UPCOM", use_container_width=True):
+        
+    if c_upcom.button("UPCOM", key="btn_upcom", use_container_width=True):
         st.session_state['scan_list'] = ", ".join(get_full_market_list("UPCOM"))
         
-    # Text Area để hiện list đã chọn (Cho phép user sửa tay thêm bớt)
-    user_tickers = st.text_area("WATCHLIST INPUT", value=st.session_state['scan_list'], height=150)
+    # Text Area để user sửa tay
+    user_tickers = st.text_area("WATCHLIST INPUT", value=st.session_state['scan_list'], height=150, help="Enter symbols separated by comma")
     
-    # Cảnh báo nếu list quá dài
-    count = len(user_tickers.split(','))
+    # Đếm số lượng mã
+    count = len([x for x in user_tickers.split(',') if x.strip()])
     st.caption(f"TARGETS LOCKED: {count} SYMBOLS")
     if count > 50:
         st.warning("⚠️ High load! Scanning > 50 symbols may be slow.")
 
-    if st.button("EXECUTE SCAN", type="primary", use_container_width=True):
-        st.cache_data.clear()
-        st.rerun()
-        
-    st.divider()
-    
-    # System Log Simulation
-    with st.expander("SYSTEM LOGS", expanded=True):
-        st.markdown("""
-        <div style="font-family:monospace; font-size:10px; color:#555; height:150px; overflow-y:auto;">
-            > SYS_INIT... OK<br>
-            > DATABASE LOADED... OK<br>
-            > EXCHANGE FILTER: READY<br>
-            > DECRYPTING STREAM... OK<br>
-            > READY FOR INPUT_<br>
-            <span style="color:#00f3ff; animation: blink 1s infinite;">_</span>
-        </div>
-        """, unsafe_allow_html=True)
-
-    if st.button("TERMINATE SESSION"):
-        st.session_state['logged_in'] = False
+    # Nút chạy Scan (KEY UNIQUE)
+    if st.button("EXECUTE SCAN", key="btn_scan", type="primary", use_container_width=True):
+        st.cache_data.clear() # Xóa cache cũ để lấy dữ liệu mới
         st.rerun()
         
     st.divider()
@@ -187,21 +177,22 @@ with st.sidebar:
         </div>
         """, unsafe_allow_html=True)
 
-    if st.button("TERMINATE SESSION"):
+    # Nút đăng xuất (KEY UNIQUE)
+    if st.button("TERMINATE SESSION", key="btn_logout"):
         st.session_state['logged_in'] = False
         st.rerun()
 
-# --- MARKET TAPE ---
+# --- MARKET TAPE (Thanh chỉ số trên cùng) ---
 with st.spinner("ESTABLISHING DATA LINK..."):
     indices = get_market_indices()
     render_market_overview(indices)
 
 st.markdown("<div style='height:20px'></div>", unsafe_allow_html=True)
 
-# --- DUAL PANE LAYOUT ---
+# --- DUAL PANE LAYOUT (Chia màn hình 1.5 : 2.5) ---
 col_radar, col_analyst = st.columns([1.5, 2.5])
 
-# === LEFT PANE: RADAR ===
+# === LEFT PANE: RADAR (Bảng quét) ===
 with col_radar:
     st.markdown('<div class="glass-box"><h4>📡 MARKET RADAR</h4>', unsafe_allow_html=True)
     
@@ -224,37 +215,39 @@ with col_radar:
             hide_index=True, use_container_width=True, height=680
         )
     else:
-        st.warning("NO TARGETS FOUND.")
+        st.warning("NO TARGETS FOUND. CHECK INPUT.")
     st.markdown('</div>', unsafe_allow_html=True)
 
-# === RIGHT PANE: ANALYST CENTER ===
+# === RIGHT PANE: ANALYST CENTER (Phân tích chi tiết) ===
 with col_analyst:
     st.markdown('<div class="glass-box">', unsafe_allow_html=True)
     
     if not df_radar.empty:
+        # Selectbox chọn mã
         selected = st.selectbox("SELECT TARGET", df_radar['Symbol'])
         
         st.markdown(f"<h1 style='color:#00f3ff; margin-top:-10px; font-family:Rajdhani; text-shadow:0 0 10px #00f3ff;'>{selected} // DEEP DIVE</h1>", unsafe_allow_html=True)
         
-        # Load Data
+        # Load Data Chi tiết
         hist_df = get_history_df(selected)
         info, fin, bal, cash, divs, splits = get_stock_data_full(selected)
         
-        # Analyze
+        # Chạy thuật toán phân tích
         tech_res = analyze_smart_v36(hist_df)
         fund_res = analyze_fundamental(info, fin)
 
+        # Hiển thị HUD Cards
         if tech_res and fund_res:
             render_analysis_section(tech_res, fund_res)
         
         st.markdown("---")
 
-        # TABS
+        # TABS CHỨC NĂNG
         t1, t2, t3, t4, t5, t6, t7 = st.tabs([
             "CHART", "TRADINGVIEW", "AI_PROPHET", "MONTE_CARLO", "NEWS_FEED", "FINANCIALS", "PROFILE"
         ])
         
-        # TAB 1: INTERACTIVE CHART (ZOOM/PAN)
+        # TAB 1: INTERACTIVE CHART (ZOOM/PAN/CROSSHAIR)
         with t1:
             render_interactive_chart(hist_df, selected)
 
@@ -278,21 +271,23 @@ with col_analyst:
             </div>
             """, height=560)
 
-       # TAB 3: PROPHET FORECAST
+        # TAB 3: PROPHET FORECAST
         with t3:
             st.markdown("### 🔮 NEURAL NETWORK FORECAST (60 DAYS)")
-            if st.button("INITIATE AI MODEL", type="primary"):
+            # Nút AI (KEY UNIQUE)
+            if st.button("INITIATE AI MODEL", key="btn_ai", type="primary"):
                 with st.spinner("TRAINING MODELS..."):
                     fig_ai = run_prophet_ai(hist_df)
                     if fig_ai: 
-                        # Thêm config scrollZoom=True ở đây
+                        # Bật scrollZoom cho chart AI
                         st.plotly_chart(fig_ai, use_container_width=True, config={'scrollZoom': True, 'displayModeBar': True})
                     else: st.error("DATA INSUFFICIENT FOR PREDICTION.")
 
         # TAB 4: MONTE CARLO
         with t4:
             st.markdown("### 🌌 MULTIVERSE SIMULATION (1000 PATHS)")
-            if st.button("RUN SIMULATION"):
+            # Nút Monte Carlo (KEY UNIQUE)
+            if st.button("RUN SIMULATION", key="btn_mc"):
                 fig_mc, fig_hist, stats = run_monte_carlo(hist_df)
                 if fig_mc:
                     st.plotly_chart(fig_mc, use_container_width=True)
@@ -314,13 +309,18 @@ with col_analyst:
                         <div style="color:#666; font-size:12px; margin-top:5px; text-transform:uppercase;">SOURCE: {n.get('source', 'UNKNOWN')} | {n['published']}</div>
                     </div>
                     """, unsafe_allow_html=True)
+            else:
+                st.info("NO RECENT NEWS FOUND.")
 
         # TAB 6: FINANCIALS
         with t6:
             if not fin.empty:
                 st.subheader("INCOME STATEMENT (BILLION VND)")
+                # Chia cho 1 tỷ để dễ đọc
                 fin_display = fin.iloc[:, :4].apply(lambda x: x / 1e9 if pd.api.types.is_numeric_dtype(x) else x)
                 st.dataframe(fin_display.style.format("{:,.1f}"), use_container_width=True)
+            else:
+                st.warning("FINANCIAL DATA UNAVAILABLE.")
 
         # TAB 7: PROFILE
         with t7:
@@ -335,12 +335,14 @@ with col_analyst:
                     div_data = divs.reset_index()
                     div_data.columns = ['DATE', 'VALUE']
                     st.bar_chart(div_data.set_index('DATE').head(10))
+                else:
+                    st.info("NO DIVIDEND HISTORY.")
 
     st.markdown('</div>', unsafe_allow_html=True)
 
 # 5. FOOTER
 st.markdown("""
 <div style="text-align:center; color:#444; font-size:10px; margin-top:50px; font-family:monospace;">
-    THANG LONG TERMINAL SYSTEM V36.2 // ENCRYPTED CONNECTION ESTABLISHED
+    THANG LONG TERMINAL SYSTEM V36.5 // ENCRYPTED CONNECTION ESTABLISHED
 </div>
 """, unsafe_allow_html=True)
