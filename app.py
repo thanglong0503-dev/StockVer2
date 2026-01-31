@@ -1,24 +1,42 @@
+"""
+================================================================================
+MODULE: app.py
+PROJECT: THANG LONG TERMINAL (ENTERPRISE EDITION)
+VERSION: 36.2.0-CORE-ONLINE
+THEME: CYBERPUNK HUD
+DESCRIPTION: 
+    Main entry point. Orchestrates Data, Logic, AI, and UI components.
+    Features:
+    - Secure Access Layer (Login)
+    - Real-time System Logs
+    - Modular Tab Architecture
+    - Embedded TradingView & Plotly Engines
+================================================================================
+"""
+
 import streamlit as st
 import sys
 import os
-import streamlit.components.v1 as components
+import time
 import pandas as pd
+import streamlit.components.v1 as components
 
-# ==============================================================================
-# 1. CẤU HÌNH & IMPORT
-# ==============================================================================
-# Thêm đường dẫn để Python tìm thấy các module trong thư mục con
+# 1. SYSTEM BOOTSTRAP (Cấu hình khởi động)
 sys.path.append(os.path.abspath(os.path.dirname(__file__)))
 
-# Cấu hình trang (Phải đặt đầu tiên)
 st.set_page_config(
     layout="wide", 
-    page_title="Thang Long Terminal V36.1", 
-    page_icon="🐲",
-    initial_sidebar_state="expanded"
+    page_title="TL-TERMINAL V36.2", 
+    page_icon="💠",
+    initial_sidebar_state="expanded",
+    menu_items={
+        'Get Help': None,
+        'Report a bug': None,
+        'About': "Thang Long Terminal - Advanced Market Intelligence"
+    }
 )
 
-# Import Module (Có bắt lỗi để dễ debug)
+# 2. MODULE IMPORT (Kèm xử lý lỗi)
 try:
     from backend.data import get_pro_data, get_history_df, get_stock_news_google, get_stock_data_full, get_market_indices
     from backend.ai import run_monte_carlo, run_prophet_ai
@@ -26,133 +44,162 @@ try:
     from frontend.ui import load_hardcore_css, render_header
     from frontend.components import render_interactive_chart, render_market_overview, render_analysis_section
 except ImportError as e:
-    st.error(f"❌ LỖI HỆ THỐNG: {e}")
-    st.info("💡 Gợi ý: Hãy kiểm tra xem bạn đã tạo đủ các file trong thư mục 'backend' và 'frontend' chưa.")
+    st.error(f"❌ SYSTEM CRITICAL ERROR: MISSING MODULES. {e}")
     st.stop()
 
 # ==============================================================================
-# 2. HỆ THỐNG ĐĂNG NHẬP (LOGIN SYSTEM)
+# 3. SECURE LOGIN LAYER (Màn hình đăng nhập Cyberpunk)
 # ==============================================================================
-if 'logged_in' not in st.session_state: 
-    st.session_state['logged_in'] = False
+if 'logged_in' not in st.session_state: st.session_state['logged_in'] = False
 
-def render_login():
+def render_secure_login():
+    # Inject CSS riêng cho trang Login
     st.markdown("""
-        <style>
-        .stTextInput input {text-align: center;} 
-        </style>
-        <br><br><br>
-        <h1 style='text-align: center; color: #0ea5e9; font-family: Rajdhani; font-size: 3rem;'>
-            🐲 THANG LONG TERMINAL
-        </h1>
-        <p style='text-align: center; color: #64748b; letter-spacing: 2px;'>RESTRICTED ACCESS AREA</p>
+    <style>
+        .login-box {
+            max-width: 400px; margin: 100px auto; padding: 40px;
+            background: rgba(0, 0, 0, 0.8);
+            border: 1px solid #00f3ff;
+            box-shadow: 0 0 50px rgba(0, 243, 255, 0.2);
+            text-align: center;
+            border-radius: 10px;
+            position: relative;
+        }
+        .login-title {
+            font-family: 'Rajdhani', sans-serif; font-size: 32px; font-weight: 800; color: #fff;
+            text-shadow: 0 0 10px #00f3ff; letter-spacing: 4px; margin-bottom: 20px;
+        }
+        .stTextInput input {
+            text-align: center; color: #00f3ff !important; border-color: #333 !important;
+        }
+    </style>
+    """, unsafe_allow_html=True)
+
+    st.markdown(f"""
+    <div class="login-box">
+        <div class="login-title">SYSTEM ACCESS</div>
+        <div style="color: #555; font-size: 12px; margin-bottom: 20px;">RESTRICTED AREA // LEVEL 5 CLEARANCE</div>
+    </div>
     """, unsafe_allow_html=True)
     
     c1, c2, c3 = st.columns([1, 1, 1])
     with c2:
         with st.form("login_form"):
-            user = st.text_input("CODENAME", placeholder="admin / stock")
-            pwd = st.text_input("PASSWORD", type="password", placeholder="admin123 / stock123")
-            btn = st.form_submit_button("ACCESS SYSTEM", type="primary", use_container_width=True)
+            user = st.text_input("IDENTITY", placeholder="USER_ID")
+            pwd = st.text_input("KEY_PHRASE", type="password", placeholder="ACCESS_CODE")
             
-            if btn:
+            if st.form_submit_button("INITIATE UPLINK", type="primary", use_container_width=True):
+                # Fake loading effect
+                with st.spinner("VERIFYING BIOMETRICS..."):
+                    time.sleep(1)
+                
                 if (user == "admin" and pwd == "admin123") or (user == "stock" and pwd == "stock123"):
                     st.session_state['logged_in'] = True
-                    st.toast("✅ Access Granted!", icon="🔓")
                     st.rerun()
                 else:
-                    st.error("⛔ Access Denied!")
+                    st.error("⛔ ACCESS DENIED: INVALID CREDENTIALS")
 
 if not st.session_state['logged_in']:
-    render_login()
-    st.stop() # Dừng code tại đây nếu chưa login
+    load_hardcore_css() # Load font cho trang login
+    render_secure_login()
+    st.stop()
 
 # ==============================================================================
-# 3. GIAO DIỆN CHÍNH (MAIN DASHBOARD)
+# 4. MAIN COMMAND CENTER (Giao diện chính)
 # ==============================================================================
 
-# Nạp CSS & Header
+# Khởi động giao diện
 load_hardcore_css()
 render_header()
 
-# --- SIDEBAR (TRẠM ĐIỀU KHIỂN) ---
+# --- SIDEBAR: SYSTEM CONTROL ---
 with st.sidebar:
-    st.markdown("### 🎛️ CONTROL PANEL")
-    st.success("🟢 ONLINE")
+    st.markdown("### 🎛️ SYSTEM CONTROL")
+    st.markdown("""
+    <div style="display:flex; align-items:center; gap:10px; margin-bottom:20px; background:#111; padding:10px; border:1px solid #333;">
+        <div style="width:10px; height:10px; background:#00ff41; border-radius:50%; box-shadow:0 0 5px #00ff41;"></div>
+        <div style="color:#00ff41; font-family:Rajdhani; font-weight:700;">ONLINE</div>
+        <div style="color:#555; font-size:10px; margin-left:auto;">LATENCY: 12ms</div>
+    </div>
+    """, unsafe_allow_html=True)
     
-    st.markdown("---")
-    st.markdown("### 📡 SCANNER")
-    # Danh sách mã mặc định để quét
-    default_tickers = "HPG, SSI, FPT, MWG, VCB, STB, DIG, NVL, PDR, VIX, DGC, VND, TCB, MBB"
-    user_tickers = st.text_area("Nhập mã (cách nhau dấu phẩy):", value=default_tickers, height=100)
+    st.markdown("### 📡 TARGET SCANNER")
+    default_list = "HPG, SSI, FPT, MWG, VCB, STB, DIG, NVL, PDR, VIX, DGC, VND"
+    user_tickers = st.text_area("WATCHLIST INPUT", value=default_list, height=100, help="Enter symbols separated by comma")
     
-    if st.button("🚀 QUÉT RADAR", type="primary", use_container_width=True):
-        st.cache_data.clear() # Xóa cache để làm mới dữ liệu
+    if st.button("EXECUTE SCAN", type="primary", use_container_width=True):
+        st.cache_data.clear()
         st.rerun()
         
-    st.markdown("---")
-    if st.button("LOGOUT / ĐĂNG XUẤT"):
+    st.divider()
+    
+    # System Log Simulation
+    with st.expander("SYSTEM LOGS", expanded=True):
+        st.markdown("""
+        <div style="font-family:monospace; font-size:10px; color:#555; height:150px; overflow-y:auto;">
+            > SYS_INIT... OK<br>
+            > CONNECTING TO DATA FEED... OK<br>
+            > LOADING NEURAL NETS... OK<br>
+            > DECRYPTING STREAM... OK<br>
+            > READY FOR INPUT_<br>
+            <span style="color:#00f3ff; animation: blink 1s infinite;">_</span>
+        </div>
+        """, unsafe_allow_html=True)
+
+    if st.button("TERMINATE SESSION"):
         st.session_state['logged_in'] = False
         st.rerun()
-    
-    st.markdown("---")
-    st.caption("Developed by Thang Long Team\nVersion 36.1 Ultimate")
 
-# --- PHẦN 1: THANH CHỈ SỐ (TICKER TAPE) ---
-with st.spinner("Connecting Global Markets..."):
-    # Lấy dữ liệu chỉ số (ETF VN30, Gold, Bitcoin...)
+# --- MARKET TAPE ---
+with st.spinner("ESTABLISHING DATA LINK..."):
     indices = get_market_indices()
     render_market_overview(indices)
 
-st.markdown("---")
+st.markdown("<div style='height:20px'></div>", unsafe_allow_html=True)
 
-# --- PHẦN 2: CHIA CỘT (RADAR vs ANALYST) ---
+# --- DUAL PANE LAYOUT ---
 col_radar, col_analyst = st.columns([1.5, 2.5])
 
-# === CỘT TRÁI: RADAR ===
+# === LEFT PANE: RADAR ===
 with col_radar:
-    st.markdown('<div class="glass-box"><h3>📡 MARKET RADAR</h3>', unsafe_allow_html=True)
+    st.markdown('<div class="glass-box"><h4>📡 MARKET RADAR</h4>', unsafe_allow_html=True)
     
-    # Xử lý input từ sidebar
     ticker_list = [t.strip().upper() for t in user_tickers.split(',') if t.strip()]
     
-    with st.spinner("Scanning data..."):
+    with st.spinner("SCANNING SECTOR..."):
         df_radar = get_pro_data(ticker_list)
         
     if not df_radar.empty:
         st.dataframe(
             df_radar,
             column_config={
-                "Symbol": st.column_config.TextColumn("Mã", width="small"),
-                "Price": st.column_config.NumberColumn("Giá (K)", format="%.2f"),
-                "Pct": st.column_config.NumberColumn("%", format="%.2f %%"),
-                "Signal": st.column_config.TextColumn("Tín hiệu"),
-                "Score": st.column_config.ProgressColumn("Sức mạnh", format="%d", min_value=0, max_value=10),
-                "Trend": st.column_config.LineChartColumn("Trend (30D)"),
+                "Symbol": st.column_config.TextColumn("SYM", width="small"),
+                "Price": st.column_config.NumberColumn("PX (K)", format="%.2f"),
+                "Pct": st.column_config.NumberColumn("% CHG", format="%.2f %%"),
+                "Signal": st.column_config.TextColumn("ALGO"),
+                "Score": st.column_config.ProgressColumn("STR", format="%d", min_value=0, max_value=10),
+                "Trend": st.column_config.LineChartColumn("TREND"),
             },
-            hide_index=True, use_container_width=True, height=700
+            hide_index=True, use_container_width=True, height=680
         )
     else:
-        st.warning("Không có dữ liệu. Hãy kiểm tra lại mã cổ phiếu.")
+        st.warning("NO TARGETS FOUND.")
     st.markdown('</div>', unsafe_allow_html=True)
 
-# === CỘT PHẢI: TRUNG TÂM PHÂN TÍCH ===
+# === RIGHT PANE: ANALYST CENTER ===
 with col_analyst:
     st.markdown('<div class="glass-box">', unsafe_allow_html=True)
     
     if not df_radar.empty:
-        # Chọn mã để phân tích sâu
-        selected = st.selectbox("CHỌN MÃ CỔ PHIẾU:", df_radar['Symbol'])
+        selected = st.selectbox("SELECT TARGET", df_radar['Symbol'])
         
-        st.markdown(f"<h1 style='color:#0ea5e9; margin-top:-10px; font-family:Rajdhani;'>{selected} - ANALYST CENTER</h1>", unsafe_allow_html=True)
+        st.markdown(f"<h1 style='color:#00f3ff; margin-top:-10px; font-family:Rajdhani; text-shadow:0 0 10px #00f3ff;'>{selected} // DEEP DIVE</h1>", unsafe_allow_html=True)
         
-        # Tải dữ liệu chi tiết (Deep Dive)
-        with st.spinner(f"Đang tải dữ liệu sâu của {selected}..."):
-            hist_df = get_history_df(selected)
-            info, fin, bal, cash, divs, splits = get_stock_data_full(selected)
-            news_list = get_stock_news_google(selected)
-
-        # 1. CHẤM ĐIỂM KÉP (KỸ THUẬT & CƠ BẢN)
+        # Load Data
+        hist_df = get_history_df(selected)
+        info, fin, bal, cash, divs, splits = get_stock_data_full(selected)
+        
+        # Analyze
         tech_res = analyze_smart_v36(hist_df)
         fund_res = analyze_fundamental(info, fin)
 
@@ -161,156 +208,96 @@ with col_analyst:
         
         st.markdown("---")
 
-        # 2. HỆ THỐNG TABS CHỨC NĂNG
+        # TABS
         t1, t2, t3, t4, t5, t6, t7 = st.tabs([
-            "📊 Biểu Đồ", 
-            "📉 TradingView", 
-            "🔮 AI Prophet", 
-            "🌌 Đa Vũ Trụ", 
-            "📰 Tin Tức", 
-            "💰 Tài Chính", 
-            "🏢 Hồ Sơ & Cổ Tức"
+            "CHART", "TRADINGVIEW", "AI_PROPHET", "MONTE_CARLO", "NEWS_FEED", "FINANCIALS", "PROFILE"
         ])
         
-        # --- TAB 1: CHART TƯƠNG TÁC ---
+        # TAB 1: INTERACTIVE CHART (ZOOM/PAN)
         with t1:
             render_interactive_chart(hist_df, selected)
 
-        # --- TAB 2: TRADINGVIEW WIDGET ---
+        # TAB 2: TRADINGVIEW EMBED
         with t2:
-            st.markdown("### 📉 Biểu đồ Real-time (TradingView)")
-            # Nhúng Widget TradingView
+            st.markdown("### EXTERNAL DATA FEED")
             components.html(f"""
             <div class="tradingview-widget-container">
               <div id="tradingview_widget"></div>
               <script type="text/javascript" src="https://s3.tradingview.com/tv.js"></script>
               <script type="text/javascript">
               new TradingView.widget({{
-                  "width": "100%", "height": 500,
+                  "width": "100%", "height": 550,
                   "symbol": "HOSE:{selected}",
                   "interval": "D", "timezone": "Asia/Ho_Chi_Minh",
-                  "theme": "dark", "style": "1", "locale": "vi_VN",
+                  "theme": "dark", "style": "1", "locale": "en",
                   "toolbar_bg": "#f1f3f6", "enable_publishing": false,
                   "allow_symbol_change": true, "container_id": "tradingview_widget"
               }});
               </script>
             </div>
-            """, height=520)
+            """, height=560)
 
-        # --- TAB 3: AI PROPHET ---
+        # TAB 3: PROPHET FORECAST
         with t3:
-            st.markdown("### 🔮 AI Tiên Tri (Dự báo xu hướng 60 ngày)")
-            if st.button("Kích hoạt AI Prophet", type="primary"):
-                with st.spinner("AI đang training mô hình..."):
+            st.markdown("### 🔮 NEURAL NETWORK FORECAST (60 DAYS)")
+            if st.button("INITIATE AI MODEL", type="primary"):
+                with st.spinner("TRAINING MODELS..."):
                     fig_ai = run_prophet_ai(hist_df)
-                    if fig_ai: 
-                        st.plotly_chart(fig_ai, use_container_width=True)
-                    else: 
-                        st.warning("⚠️ Không thể chạy mô hình (Thiếu thư viện Prophet hoặc dữ liệu ít).")
+                    if fig_ai: st.plotly_chart(fig_ai, use_container_width=True)
+                    else: st.error("DATA INSUFFICIENT FOR PREDICTION.")
 
-        # --- TAB 4: ĐA VŨ TRỤ (MONTE CARLO) ---
+        # TAB 4: MONTE CARLO
         with t4:
-            st.markdown("### 🌌 Giả lập 1000 Kịch bản Tương lai (Monte Carlo)")
-            if st.button("Mở cổng Đa Vũ Trụ"):
+            st.markdown("### 🌌 MULTIVERSE SIMULATION (1000 PATHS)")
+            if st.button("RUN SIMULATION"):
                 fig_mc, fig_hist, stats = run_monte_carlo(hist_df)
                 if fig_mc:
                     st.plotly_chart(fig_mc, use_container_width=True)
-                    
-                    # Thống kê xác suất
-                    c1, c2, c3 = st.columns(3)
-                    c1.metric("Kỳ vọng (Trung bình)", f"{stats['mean']:,.0f}")
-                    c2.metric("Kịch bản Tốt (Top 5%)", f"{stats['top_5']:,.0f}", delta="Bull Case")
-                    c3.metric("Xác suất Tăng giá", f"{stats['prob_up']:.1f}%")
-                    
+                    # Cyber Metrics
+                    m1, m2, m3 = st.columns(3)
+                    m1.metric("EXPECTED MEAN", f"{stats['mean']:,.0f}")
+                    m2.metric("BULL CASE (95%)", f"{stats['top_5']:,.0f}", delta="UPSIDE")
+                    m3.metric("PROBABILITY > CURRENT", f"{stats['prob_up']:.1f}%")
                     st.plotly_chart(fig_hist, use_container_width=True)
 
-        # --- TAB 5: TIN TỨC ---
+        # TAB 5: NEWS
         with t5:
-            st.markdown(f"### 📰 Tin tức mới nhất về {selected}")
+            news_list = get_stock_news_google(selected)
             if news_list:
                 for n in news_list:
-                    # Card tin tức
                     st.markdown(f"""
-                    <div style="
-                        background:#1f2937; padding:15px; border-radius:8px; 
-                        margin-bottom:12px; border-left: 4px solid #0ea5e9;
-                        transition: transform 0.2s;
-                    ">
-                        <a href="{n['link']}" target="_blank" style="
-                            color:white; font-weight:700; font-size:1rem; 
-                            text-decoration:none; display:block; margin-bottom:5px;
-                        ">{n['title']}</a>
-                        <div style="
-                            display:flex; justify-content:space-between; 
-                            color:#94a3b8; font-size:0.8rem;
-                        ">
-                            <span>🕒 {n['published']}</span>
-                            <span>Nguồn: {n.get('source', 'Google News')}</span>
-                        </div>
+                    <div style="background:#0a0f14; padding:15px; border:1px solid #222; margin-bottom:10px; border-left: 2px solid #00f3ff;">
+                        <a href="{n['link']}" target="_blank" style="color:#fff; font-weight:700; text-decoration:none; font-family:Rajdhani; font-size:18px;">{n['title']}</a>
+                        <div style="color:#666; font-size:12px; margin-top:5px; text-transform:uppercase;">SOURCE: {n.get('source', 'UNKNOWN')} | {n['published']}</div>
                     </div>
                     """, unsafe_allow_html=True)
-            else:
-                st.info("Chưa tìm thấy tin tức mới.")
 
-        # --- TAB 6: TÀI CHÍNH ---
+        # TAB 6: FINANCIALS
         with t6:
-            st.markdown("### 💰 Báo Cáo Tài Chính (Rút gọn)")
             if not fin.empty:
-                st.subheader("1. Kết Quả Kinh Doanh")
-                # Format hiển thị Tỷ đồng
+                st.subheader("INCOME STATEMENT (BILLION VND)")
                 fin_display = fin.iloc[:, :4].apply(lambda x: x / 1e9 if pd.api.types.is_numeric_dtype(x) else x)
-                st.dataframe(fin_display.style.format("{:,.1f} Tỷ"), use_container_width=True)
-            
-            if not bal.empty:
-                st.subheader("2. Cân Đối Kế Toán")
-                bal_display = bal.iloc[:, :4].apply(lambda x: x / 1e9 if pd.api.types.is_numeric_dtype(x) else x)
-                st.dataframe(bal_display.style.format("{:,.1f} Tỷ"), use_container_width=True)
-                
-            if not cash.empty:
-                st.subheader("3. Lưu Chuyển Tiền Tệ")
-                cash_display = cash.iloc[:, :4].apply(lambda x: x / 1e9 if pd.api.types.is_numeric_dtype(x) else x)
-                st.dataframe(cash_display.style.format("{:,.1f} Tỷ"), use_container_width=True)
+                st.dataframe(fin_display.style.format("{:,.1f}"), use_container_width=True)
 
-        # --- TAB 7: HỒ SƠ & CỔ TỨC ---
+        # TAB 7: PROFILE
         with t7:
             c_left, c_right = st.columns(2)
-            
             with c_left:
-                st.markdown("### 🏢 Hồ Sơ Doanh Nghiệp")
-                st.info(f"📍 Ngành nghề: {info.get('sector', 'N/A')}")
-                st.info(f"👥 Nhân sự: {info.get('fullTimeEmployees', 'N/A')}")
-                st.info(f"🌍 Website: {info.get('website', 'N/A')}")
-                
-                with st.expander("📝 Mô tả chi tiết", expanded=True):
-                    st.write(info.get('longBusinessSummary', 'Chưa có mô tả.'))
-
+                st.info(f"SECTOR: {info.get('sector', 'N/A').upper()}")
+                st.info(f"EMPLOYEES: {info.get('fullTimeEmployees', 'N/A')}")
+                st.caption(info.get('longBusinessSummary', 'NO DATA.'))
             with c_right:
-                st.markdown("### 🎁 Lịch Sử Cổ Tức")
                 if not divs.empty:
-                    # Chế biến dữ liệu cổ tức
+                    st.markdown("### DIVIDEND YIELD")
                     div_data = divs.reset_index()
-                    div_data.columns = ['Ngày', 'Giá Trị']
-                    div_data['Ngày'] = div_data['Ngày'].dt.strftime('%Y-%m-%d')
-                    
-                    # Chart Cổ tức
-                    fig_div = go.Figure(go.Bar(
-                        x=div_data['Ngày'], 
-                        y=div_data['Giá Trị'], 
-                        marker_color='#10b981',
-                        name='Cổ tức'
-                    ))
-                    fig_div.update_layout(
-                        title="Tiền mặt (VND)", 
-                        template="plotly_dark", 
-                        height=300,
-                        paper_bgcolor='rgba(0,0,0,0)',
-                        plot_bgcolor='rgba(0,0,0,0)'
-                    )
-                    st.plotly_chart(fig_div, use_container_width=True)
-                    
-                    # Bảng dữ liệu
-                    st.dataframe(div_data.sort_values('Ngày', ascending=False).head(10), use_container_width=True)
-                else:
-                    st.info("Không có dữ liệu trả cổ tức gần đây.")
+                    div_data.columns = ['DATE', 'VALUE']
+                    st.bar_chart(div_data.set_index('DATE').head(10))
 
     st.markdown('</div>', unsafe_allow_html=True)
+
+# 5. FOOTER
+st.markdown("""
+<div style="text-align:center; color:#444; font-size:10px; margin-top:50px; font-family:monospace;">
+    THANG LONG TERMINAL SYSTEM V36.2 // ENCRYPTED CONNECTION ESTABLISHED
+</div>
+""", unsafe_allow_html=True)
