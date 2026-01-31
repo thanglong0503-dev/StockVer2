@@ -1,2 +1,0 @@
-# StockVer2
-Stock
