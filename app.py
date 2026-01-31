@@ -1,60 +1,51 @@
+# app.py
 import streamlit as st
 import sys
 import os
 
-# --- CẤU HÌNH ---
-st.set_page_config(layout="wide", page_title="Stock V2", page_icon="🐲")
+# Cấu hình trang (Phải để đầu tiên)
+st.set_page_config(layout="wide", page_title="DNSE Pro", page_icon="⚡")
 
-# --- KẾT NỐI MODULE ---
-# Giúp app tìm thấy folder backend và frontend
+# Import module
 sys.path.append(os.path.abspath(os.path.dirname(__file__)))
+from backend.data import get_batch_data
+from frontend.ui import load_dnse_css, render_header, render_sidebar_detail
 
-from backend.data import get_stock_data, get_news
-from backend.logic import analyze_technical
-from backend.ai import run_monte_carlo_sim
-from frontend.ui import load_css, render_kpi_cards, render_chart_tradingview, plot_monte_carlo
+# 1. Load giao diện
+load_dnse_css()
+render_header()
 
-# --- GIAO DIỆN CHÍNH ---
-load_css() # Load giao diện đẹp
+# 2. Xử lý logic
+col_list, col_detail = st.columns([3, 1])
 
-# Sidebar
-st.sidebar.title("🐲 STOCK V2")
-symbol = st.sidebar.text_input("Mã CP:", "HPG").upper()
-tabs = st.tabs(["📊 Tổng Quan", "🔮 AI Dự Báo", "📰 Tin Tức"])
+# DANH SÁCH MÃ THEO DÕI (Sửa list này tùy thích)
+watchlist = ["HPG", "SSI", "FPT", "MWG", "VCB", "STB", "VND", "DIG", "NVL"]
 
-if symbol:
-    # 1. Lấy dữ liệu
-    df = get_stock_data(symbol)
-    
-    if df is not None:
-        # 2. Tab Tổng Quan
-        with tabs[0]:
-            # Tính toán
-            result = analyze_technical(df)
-            
-            # Hiển thị
-            col1, col2 = st.columns([1, 2])
-            with col1:
-                render_kpi_cards(result)
-                st.write("✅ **Điểm mạnh:**")
-                for p in result['pros']: st.success(p)
-                st.write("⚠️ **Cảnh báo:**")
-                for c in result['cons']: st.warning(c)
-                
-            with col2:
-                render_chart_tradingview(symbol)
+with st.spinner("Đang tải data thị trường..."):
+    df = get_batch_data(watchlist)
+
+# CỘT TRÁI: Bảng giá
+with col_list:
+    st.subheader("🔥 Bảng giá trực tuyến")
+    if not df.empty:
+        st.dataframe(
+            df,
+            column_config={
+                "Mã": st.column_config.TextColumn("Mã", width="small"),
+                "Giá": st.column_config.NumberColumn("Giá", format="%.2f", width="small"),
+                "%": st.column_config.NumberColumn("%", format="%.2f %%", width="small"),
+                "Xu hướng": st.column_config.LineChartColumn("Trend (20p)", y_min=0, width="medium"),
+            },
+            hide_index=True,
+            use_container_width=True,
+            height=500
+        )
+
+# CỘT PHẢI: Chi tiết & AI
+with col_detail:
+    if not df.empty:
+        selected = st.selectbox("Chi tiết mã:", df['Mã'])
+        info = df[df['Mã'] == selected].iloc[0]
+        render_sidebar_detail(info)
         
-        # 3. Tab AI
-        with tabs[1]:
-            if st.button("Chạy Monte Carlo"):
-                sim_df = run_monte_carlo_sim(df)
-                plot_monte_carlo(sim_df)
-                
-        # 4. Tab Tin Tức
-        with tabs[2]:
-            news = get_news(symbol)
-            for n in news:
-                st.markdown(f"- [{n['title']}]({n['link']}) ({n['published']})")
-
-    else:
-        st.error(f"Không tìm thấy mã {symbol}")
+        st.info("🤖 **Ensa AI:** Dòng tiền đang vào mạnh, xu hướng tích cực!")
