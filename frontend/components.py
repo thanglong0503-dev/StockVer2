@@ -247,38 +247,91 @@ def render_interactive_chart(df, symbol):
 # ==============================================================================
 def render_market_galaxy(df):
     """
-    Vẽ biểu đồ Bubble Chart mô phỏng vũ trụ.
+    Vẽ biểu đồ Galaxy đã được TỐI ƯU HÓA:
+    - Chỉ lấy TOP 20 mã có Vol_Ratio cao nhất (Bớt rối).
+    - Tắt Text tĩnh, chuyển sang Hover (Rê chuột xem).
+    - Bật chế độ Zoom/Pan mượt mà.
     """
     if df.empty: return
 
-    # === [FIX LỖI KEY ERROR] ===
-    # Nếu dữ liệu cũ chưa có Vol_Ratio, tự động điền = 1.0 để không bị crash app
-    if 'Vol_Ratio' not in df.columns:
-        df['Vol_Ratio'] = 1.0 
-    # ===========================
+    # 1. XỬ LÝ DỮ LIỆU (DATA PREPROCESSING)
+    # Nếu chưa có cột Vol_Ratio, tạo mặc định
+    if 'Vol_Ratio' not in df.columns: df['Vol_Ratio'] = 1.0
 
-    # ... (Các đoạn code bên dưới giữ nguyên)
-    df['Color_Type'] = df['Pct'].apply(lambda x: '#00ff41' if x >= 0 else '#ff0055')
-    # ...
+    # [QUAN TRỌNG] Lọc lấy TOP 20 hành tinh bùng nổ nhất để vẽ cho thoáng
+    # Sắp xếp giảm dần theo Vol_Ratio -> Lấy 20 dòng đầu
+    df_galaxy = df.sort_values(by='Vol_Ratio', ascending=False).head(20).copy()
     
-    # Tạo text hiển thị khi rê chuột
-    df['Hover_Text'] = df.apply(lambda row: f"<b>{row['Symbol']}</b><br>Giá: {row['Price']:.2f}<br>Change: {row['Pct']:.2f}%<br>Vol Bùng Nổ: <b>x{row['Vol_Ratio']:.1f} lần</b>", axis=1)
+    # Tạo màu: Tăng (Xanh Neon) / Giảm (Đỏ Neon) / Tham chiếu (Vàng)
+    def get_color(pct):
+        if pct > 0.5: return '#00ff41'  # Tăng mạnh
+        if pct < -0.5: return '#ff0055' # Giảm mạnh
+        return '#ffff00'                # Đi ngang
+    
+    df_galaxy['Color'] = df_galaxy['Pct'].apply(get_color)
 
-    # Vẽ Galaxy bằng Plotly Express
+    # Tạo nội dung Tooltip (Khi rê chuột vào) chuẩn HTML đẹp
+    df_galaxy['Hover_Info'] = df_galaxy.apply(lambda row: (
+        f"<b>{row['Symbol']}</b><br>"
+        f"-----------------<br>"
+        f"💰 Giá: {row['Price']:.2f} K<br>"
+        f"📈 Biến động: {row['Pct']:.2f}%<br>"
+        f"🦈 Độ nổ Vol: <b>x{row['Vol_Ratio']:.1f} lần</b> TB"
+    ), axis=1)
+
+    # 2. VẼ BIỂU ĐỒ (PLOTTING)
     fig = px.scatter(
-        df, x="Price", y="Pct", size="Vol_Ratio", color="Color_Type", text="Symbol",
-        color_discrete_map="identity", hover_name="Hover_Text",
-        size_max=60, template="plotly_dark", height=500
+        df_galaxy,
+        x="Price",
+        y="Pct",
+        size="Vol_Ratio",       # Kích thước bóng bóng
+        color="Color",          # Màu sắc
+        hover_name="Hover_Info", # Nội dung khi rê chuột
+        color_discrete_map="identity",
+        size_max=50,            # Giới hạn độ to để không che hết màn hình
+        template="plotly_dark",
+        height=500
     )
 
-    fig.update_traces(textposition='top center', marker=dict(line=dict(width=2, color='White'), opacity=0.9))
+    # 3. TINH CHỈNH GIAO DIỆN (STYLING)
+    fig.update_traces(
+        marker=dict(
+            line=dict(width=1, color='White'), # Viền trắng mỏng cho sang
+            opacity=0.85 # Hơi trong suốt để các bóng đè nhau vẫn nhìn thấy được
+        ),
+        selector=dict(mode='markers')
+    )
 
+    # 4. CẤU HÌNH TƯƠNG TÁC (INTERACTION)
     fig.update_layout(
-        paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)', showlegend=False,
-        title=dict(text="🌌 MARKET GALAXY (SIZE = VOLUME EXPLOSION)", font=dict(family="Rajdhani", size=20, color="#00f3ff")),
-        xaxis=dict(title="PRICE (K)", showgrid=False, zeroline=False, color="#888"),
-        yaxis=dict(title="% CHANGE", showgrid=True, gridcolor='#333', zeroline=True, zerolinecolor='#666'),
-        font=dict(family="Rajdhani", color="white")
+        title=dict(
+            text="🌌 TOP 20 VOLUME EXPLOSION (ZOOMABLE)",
+            font=dict(family="Rajdhani", size=20, color="#00f3ff")
+        ),
+        xaxis=dict(
+            title="GIÁ CỔ PHIẾU (K)",
+            gridcolor='rgba(255,255,255,0.1)', # Lưới mờ
+            zeroline=False
+        ),
+        yaxis=dict(
+            title="% TĂNG / GIẢM",
+            gridcolor='rgba(255,255,255,0.1)',
+            zeroline=True, zerolinecolor='#666'
+        ),
+        paper_bgcolor='rgba(0,0,0,0)', # Nền trong suốt
+        plot_bgcolor='rgba(0,0,0,0)',
+        showlegend=False,
+        # Kích hoạt chế độ Kéo thả (Pan) và Zoom
+        dragmode='pan', 
+        hovermode='closest'
     )
+
+    # 5. CẤU HÌNH THANH CÔNG CỤ (CONFIG BAR)
+    config = {
+        'scrollZoom': True,        # Cho phép lăn chuột để Zoom
+        'displayModeBar': True,    # Hiện thanh công cụ nhỏ ở góc
+        'modeBarButtonsToRemove': ['lasso2d', 'select2d'], # Bỏ mấy nút không cần thiết
+        'displaylogo': False
+    }
     
-    st.plotly_chart(fig, use_container_width=True)
+    st.plotly_chart(fig, use_container_width=True, config=config)
