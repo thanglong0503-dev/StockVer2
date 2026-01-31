@@ -360,22 +360,30 @@ def get_pro_data(tickers: List[str]) -> pd.DataFrame:
             prev_close = df['Close'].iloc[-2]
             pct_change = (close - prev_close) / prev_close
             
+            # ... (Phần code tính toán bên trên giữ nguyên)
+            
+            # [LOGIC MỚI] Tính độ nổ Volume (Volume Ratio)
+            vol_now = df['Volume'].iloc[-1]
+            vol_avg = df['Volume'].rolling(window=20).mean().iloc[-1] # Trung bình 20 phiên
+            
+            # Tránh chia cho 0
+            vol_ratio = 1.0
+            if vol_avg > 0:
+                vol_ratio = vol_now / vol_avg
+            
+            # [CẬP NHẬT] Thêm Volume và Vol_Ratio vào kết quả trả về
             rows.append({
                 "Symbol": symbol.replace(".VN", ""),
-                "Price": close / 1000.0, # Đơn vị: Nghìn đồng
-                "PX (K)": close,
-                "Change": close - prev_close,
-                "Pct": pct_change,
+                "Price": close / 1000.0, 
+                "Pct": pct_change * 100, # Đổi sang % luôn (ví dụ 1.5 thay vì 0.015)
                 "Signal": signal,
-                "ALGO": signal, # Thêm cột ALGO cho tương thích app.py
                 "Score": int(score),
-                "STR": score,   # Thêm cột STR cho tương thích app.py
                 "Trend": trend_data,
-                "TREND": trend_data # Thêm cột TREND viết hoa
+                "Volume": vol_now,      # <--- MỚI
+                "Vol_Ratio": vol_ratio  # <--- MỚI (Độ to của hành tinh)
             })
             
         except Exception as e:
-            # logger.error(f"Error processing {symbol}: {e}")
             continue
             
     return pd.DataFrame(rows)
