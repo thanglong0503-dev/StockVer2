@@ -251,8 +251,15 @@ def render_market_galaxy(df):
     """
     if df.empty: return
 
-    # Tạo màu sắc dựa trên % Tăng giảm
+    # === [FIX LỖI KEY ERROR] ===
+    # Nếu dữ liệu cũ chưa có Vol_Ratio, tự động điền = 1.0 để không bị crash app
+    if 'Vol_Ratio' not in df.columns:
+        df['Vol_Ratio'] = 1.0 
+    # ===========================
+
+    # ... (Các đoạn code bên dưới giữ nguyên)
     df['Color_Type'] = df['Pct'].apply(lambda x: '#00ff41' if x >= 0 else '#ff0055')
+    # ...
     
     # Tạo text hiển thị khi rê chuột
     df['Hover_Text'] = df.apply(lambda row: f"<b>{row['Symbol']}</b><br>Giá: {row['Price']:.2f}<br>Change: {row['Pct']:.2f}%<br>Vol Bùng Nổ: <b>x{row['Vol_Ratio']:.1f} lần</b>", axis=1)
