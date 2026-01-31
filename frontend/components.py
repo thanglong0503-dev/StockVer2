@@ -1,10 +1,14 @@
 """
 ================================================================================
 MODULE: frontend/components.py
-PROJECT: THANG LONG TERMINAL
-VERSION: 36.1.3-NO-INDENT-FIX
+THEME: ULTRA CYBERPUNK HUD INTERFACE
+VERSION: 36.2.0-HEAVY-DUTY
 DESCRIPTION: 
-    Using Single-line HTML strings to absolutely prevent Markdown code-block errors.
+    Render complex HUD elements using embedded CSS animations and SVG generation.
+    Includes:
+    - Dynamic SVG Speedometers for scoring.
+    - Holographic cards with scanning effects.
+    - Neon-glowing market tickers.
 ================================================================================
 """
 
@@ -12,148 +16,322 @@ import streamlit as st
 import plotly.graph_objects as go
 from plotly.subplots import make_subplots
 import pandas_ta as ta
-
-# CSS CHUNG (Nạp 1 lần để dùng cho toàn file)
-GLOBAL_CSS = """
-<style>
-.ticker-item {
-    background-color: #0d1117; border: 1px solid #30363d; border-radius: 4px;
-    padding: 10px 12px; display: flex; flex-direction: column; justify-content: center; height: 70px;
-}
-.t-name { color: #8b949e; font-size: 11px; font-weight: 600; text-transform: uppercase; margin-bottom: 4px; }
-.t-val-row { display: flex; justify-content: space-between; align-items: baseline; }
-.t-price { color: #e6edf3; font-size: 16px; font-weight: 700; font-variant-numeric: tabular-nums; }
-.t-change { font-size: 12px; font-weight: 500; margin-left: 8px; font-variant-numeric: tabular-nums; }
-.up { color: #238636; } .down { color: #da3633; }
-.pro-card { height: 100%; background: #161b22; border: 1px solid #30363d; border-radius: 6px; padding: 20px; }
-.sub-card { background: #0d1117; border-radius: 4px; padding: 12px; border: 1px solid #30363d; }
-.metric-row { display: flex; justify-content: space-between; font-size: 13px; margin-bottom: 8px; }
-.metric-row:last-child { margin-bottom: 0; }
-.divider { width: 100%; height: 1px; background: #21262d; margin: 4px 0; }
-</style>
-"""
+import numpy as np
 
 # ==============================================================================
-# 1. MARKET TICKER BAR
+# 1. CORE VISUAL ENGINE (CSS ANIMATIONS & EFFECTS)
+# ==============================================================================
+def inject_cyber_effects():
+    """
+    Tiêm vào trang web các hiệu ứng chuyển động phức tạp:
+    - Scanline (Quét ngang màn hình)
+    - Flicker (Nhấp nháy như đèn Neon hỏng)
+    - Glitch (Nhiễu sóng)
+    """
+    css = """
+    <style>
+        /* 1. SCROLLBAR HACK */
+        ::-webkit-scrollbar { width: 6px; background: #000; }
+        ::-webkit-scrollbar-thumb { background: #00f3ff; border-radius: 0px; }
+
+        /* 2. HUD CARD CONTAINER */
+        .hud-card {
+            background: rgba(5, 10, 15, 0.9);
+            border: 1px solid #333;
+            border-left: 2px solid #00f3ff;
+            border-right: 2px solid #ff0055;
+            position: relative;
+            padding: 20px;
+            margin-bottom: 20px;
+            box-shadow: 0 0 20px rgba(0, 243, 255, 0.1);
+            overflow: hidden;
+            transition: all 0.3s ease;
+        }
+        .hud-card:hover {
+            box-shadow: 0 0 30px rgba(0, 243, 255, 0.2);
+            border-color: #fff;
+        }
+
+        /* 3. SCANNING LINE ANIMATION */
+        .hud-card::after {
+            content: "";
+            position: absolute;
+            top: 0; left: 0;
+            width: 100%; height: 5px;
+            background: rgba(0, 243, 255, 0.3);
+            box-shadow: 0 0 10px #00f3ff;
+            animation: scan 4s linear infinite;
+            opacity: 0.3;
+            pointer-events: none;
+        }
+        @keyframes scan {
+            0% { top: -10%; }
+            100% { top: 110%; }
+        }
+
+        /* 4. TEXT GLITCH EFFECT */
+        .glitch-text {
+            color: #fff;
+            font-family: 'Rajdhani', sans-serif;
+            font-weight: 800;
+            position: relative;
+            text-transform: uppercase;
+        }
+        
+        /* 5. METRIC GRID */
+        .cyber-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 10px;
+            margin-top: 15px;
+            border-top: 1px solid #333;
+            padding-top: 15px;
+        }
+        .cyber-metric {
+            background: #0a0f14;
+            padding: 8px;
+            border: 1px solid #222;
+        }
+        .cyber-label { font-size: 10px; color: #00f3ff; text-transform: uppercase; letter-spacing: 1px; }
+        .cyber-val { font-size: 16px; color: #fff; font-weight: 700; font-family: 'Rajdhani'; }
+
+        /* 6. STATUS INDICATORS */
+        .status-dot {
+            height: 8px; width: 8px;
+            background-color: #333;
+            border-radius: 50%;
+            display: inline-block;
+            margin-right: 5px;
+            box-shadow: 0 0 5px currentColor;
+        }
+        .status-dot.active { animation: blink 1s infinite; }
+        @keyframes blink { 50% { opacity: 0.3; } }
+    </style>
+    """
+    st.markdown(css, unsafe_allow_html=True)
+
+# ==============================================================================
+# 2. SVG GENERATOR (VẼ ĐỒ HỌA BẰNG CODE)
+# ==============================================================================
+def create_svg_gauge(score, color):
+    """
+    Tạo mã SVG để vẽ đồng hồ đo sức mạnh (Speedometer) trực tiếp.
+    Không cần ảnh ngoài, load siêu nhanh.
+    """
+    # Tính toán góc quay (0-10 điểm tương ứng 0-180 độ)
+    percentage = max(0, min(10, score)) / 10
+    rotation = -90 + (percentage * 180)
+    
+    svg = f"""
+    <svg width="120" height="70" viewBox="0 0 120 70">
+        <path d="M 10 60 A 50 50 0 0 1 110 60" fill="none" stroke="#222" stroke-width="10" stroke-linecap="round"/>
+        
+        <path d="M 10 60 A 50 50 0 0 1 110 60" fill="none" stroke="{color}" stroke-width="10" stroke-linecap="round" 
+              stroke-dasharray="157" stroke-dashoffset="{157 * (1 - percentage)}" 
+              style="transition: stroke-dashoffset 1s ease-out;"/>
+        
+        <g transform="translate(60, 60) rotate({rotation})">
+            <path d="M -5 0 L 0 -50 L 5 0 Z" fill="#fff" />
+            <circle cx="0" cy="0" r="5" fill="#fff"/>
+        </g>
+        
+        <text x="60" y="50" text-anchor="middle" fill="#fff" font-family="Rajdhani" font-weight="bold" font-size="20">{score}</text>
+    </svg>
+    """
+    return svg.replace('\n', ' ')
+
+# ==============================================================================
+# 3. MARKET TICKER (THANH CHỈ SỐ NEON)
 # ==============================================================================
 def render_market_overview(indices_data):
     if not indices_data: return
+    inject_cyber_effects()
     
-    # Inject CSS
-    st.markdown(GLOBAL_CSS, unsafe_allow_html=True)
-
     cols = st.columns(len(indices_data))
     
     for i, data in enumerate(indices_data):
         with cols[i]:
-            if data.get('Status') == "LIVE":
-                color_class = "up" if data['Change'] >= 0 else "down"
-                sign = "+" if data['Change'] >= 0 else ""
-                price_fmt = "{:,.2f}".format(data['Price'])
-                
-                # HTML VIẾT TRÊN 1 DÒNG (Không thể lỗi)
-                html = f'<div class="ticker-item"><div class="t-name">{data["Name"]}</div><div class="t-val-row"><div class="t-price">{price_fmt}</div><div class="t-change {color_class}">{sign}{data["Pct"]:.2f}%</div></div></div>'
-                st.markdown(html, unsafe_allow_html=True)
-            else:
-                html = f'<div class="ticker-item" style="opacity: 0.5;"><div class="t-name">{data["Name"]}</div><div class="t-val-row"><div class="t-price" style="color:#8b949e;">---</div><div class="t-change" style="color:#8b949e;">OFFLINE</div></div></div>'
-                st.markdown(html, unsafe_allow_html=True)
+            status_color = "#00f3ff" # Default Neon Blue
+            if data['Change'] >= 0: status_color = "#00ff41" # Matrix Green
+            else: status_color = "#ff0055" # Cyber Pink
+            
+            arrow = "▲" if data['Change'] >= 0 else "▼"
+            
+            # HTML Card phức tạp
+            html = (
+                f'<div style="background:linear-gradient(180deg, rgba(0,0,0,0), rgba(0,243,255,0.05)); border:1px solid #222; border-bottom: 2px solid {status_color}; padding:10px; text-align:center;">'
+                f'<div style="font-size:10px; color:#888; text-transform:uppercase; letter-spacing:2px;">{data["Name"]}</div>'
+                f'<div style="font-size:20px; font-weight:800; color:#fff; font-family:Rajdhani; text-shadow:0 0 10px {status_color}; margin: 5px 0;">{data["Price"]:,.2f}</div>'
+                f'<div style="font-size:12px; color:{status_color}; font-weight:600;">{arrow} {abs(data["Change"]):,.2f} ({data["Pct"]:.2f}%)</div>'
+                f'</div>'
+            )
+            st.markdown(html, unsafe_allow_html=True)
 
 # ==============================================================================
-# 2. ANALYSIS DASHBOARD
+# 4. CYBERPUNK DASHBOARD (TRUNG TÂM PHÂN TÍCH)
 # ==============================================================================
 def render_analysis_section(tech, fund):
+    """
+    Hiển thị 2 thẻ bài Hologram với hiệu ứng SVG và Grid.
+    """
     c1, c2 = st.columns(2)
     
-    # --- TECHNICAL CARD ---
+    # --- LEFT CARD: TECHNICAL SYSTEMS ---
     with c1:
-        score_color = "#238636" if tech['score'] >= 7 else "#da3633" if tech['score'] <= 3 else "#d29922"
+        tech_color = tech['color']
         action_text = tech['action'].replace('💎','').replace('💪','').replace('⚠️','')
         
-        # HTML DÒNG ĐƠN - Nối chuỗi
+        # Tạo SVG Gauge
+        gauge_svg = create_svg_gauge(tech['score'], tech_color)
+        
+        # Xử lý list Pros/Cons thành HTML string
+        signals_html = ""
+        for p in tech['pros'][:3]: # Lấy tối đa 3 tin tốt
+            signals_html += f'<div style="color:#00ff41; font-size:12px; margin-bottom:2px;">[+] {p}</div>'
+        for c in tech['cons'][:2]: # Lấy tối đa 2 tin xấu
+            signals_html += f'<div style="color:#ff0055; font-size:12px; margin-bottom:2px;">[-] {c}</div>'
+            
         html_tech = (
-            f'<div class="pro-card" style="border-left: 4px solid {score_color};">'
-            f'<div style="display: flex; justify-content: space-between; align-items: start; margin-bottom: 20px;">'
-            f'<div><div style="color: #8b949e; font-size: 11px; font-weight: 600; text-transform: uppercase;">Technical Rating</div>'
-            f'<div style="font-size: 28px; font-weight: 700; color: {score_color}; margin-top: 4px;">{action_text}</div></div>'
-            f'<div style="text-align: right;"><div style="font-size: 32px; font-weight: 800; color: #e6edf3;">{tech["score"]}<span style="font-size: 14px; color: #8b949e;">/10</span></div></div></div>'
-            f'<div class="sub-card">'
-            f'<div class="metric-row"><span style="color: #8b949e;">Entry Price</span><span style="color: #e6edf3; font-weight: 600;">{tech["entry"]:,.0f}</span></div>'
-            f'<div class="divider"></div>'
-            f'<div class="metric-row"><span style="color: #da3633;">Stop Loss</span><span style="color: #da3633; font-weight: 600;">{tech["stop"]:,.0f}</span></div>'
-            f'<div class="divider"></div>'
-            f'<div class="metric-row"><span style="color: #238636;">Target Price</span><span style="color: #238636; font-weight: 600;">{tech["target"]:,.0f}</span></div>'
-            f'</div></div>'
+            f'<div class="hud-card">'
+            f'  <div style="display:flex; justify-content:space-between; align-items:center;">'
+            f'      <div>'
+            f'          <div class="glitch-text" style="font-size:14px; letter-spacing:2px; color:{tech_color};">TECHNICAL_SYS_V36</div>'
+            f'          <div style="font-size:32px; font-weight:900; color:#fff; font-family:Rajdhani; text-shadow:0 0 15px {tech_color};">{action_text}</div>'
+            f'      </div>'
+            f'      <div>{gauge_svg}</div>'
+            f'  </div>'
+            f'  <div class="cyber-grid">'
+            f'      <div class="cyber-metric"><div class="cyber-label">ENTRY_ZONE</div><div class="cyber-val">{tech["entry"]:,.0f}</div></div>'
+            f'      <div class="cyber-metric"><div class="cyber-label">TARGET_LOCK</div><div class="cyber-val" style="color:#00ff41;">{tech["target"]:,.0f}</div></div>'
+            f'      <div class="cyber-metric"><div class="cyber-label">STOP_LOSS</div><div class="cyber-val" style="color:#ff0055;">{tech["stop"]:,.0f}</div></div>'
+            f'      <div class="cyber-metric"><div class="cyber-label">ATR_VOLTY</div><div class="cyber-val">{tech.get("atr", 0):,.0f}</div></div>'
+            f'  </div>'
+            f'  <div style="margin-top:15px; background:rgba(0,0,0,0.5); padding:10px; border-left:2px solid {tech_color}; font-family:monospace;">'
+            f'      {signals_html}'
+            f'  </div>'
+            f'</div>'
         )
         st.markdown(html_tech, unsafe_allow_html=True)
-        
-        with st.expander("View Technical Factors", expanded=False):
-            for p in tech['pros']: st.success(p)
-            for c in tech['cons']: st.warning(c)
 
-    # --- FUNDAMENTAL CARD ---
+    # --- RIGHT CARD: FUNDAMENTAL CORE ---
     with c2:
-        health_color = fund['color']
+        fund_color = fund['color']
         health_text = fund['health'].replace('💎','').replace('💪','').replace('⚠️','')
-        mkt_cap = fund['market_cap']/1e9
         
+        # Tạo thanh Bar giả lập (Fake Progress Bar)
+        bars_html = ""
+        score_val = 0
+        if "KIM" in health_text: score_val = 100
+        elif "VỮNG" in health_text: score_val = 70
+        else: score_val = 30
+        
+        bars_html = f'<div style="width:100%; height:6px; background:#222; margin-top:10px; border-radius:3px;"><div style="width:{score_val}%; height:100%; background:{fund_color}; box-shadow:0 0 10px {fund_color};"></div></div>'
+
+        # Xử lý Financial Details
+        fin_html = ""
+        for d in fund['details']:
+            color = "#ff0055" if any(x in d for x in ["cao", "Thấp", "giảm", "kém"]) else "#00ff41"
+            fin_html += f'<div style="display:flex; align-items:center; margin-bottom:4px;"><div class="status-dot" style="background:{color}; box-shadow:0 0 5px {color};"></div><div style="font-size:12px; color:#ddd;">{d}</div></div>'
+
         html_fund = (
-            f'<div class="pro-card" style="border-left: 4px solid {health_color};">'
-            f'<div style="display: flex; justify-content: space-between; align-items: start; margin-bottom: 20px;">'
-            f'<div><div style="color: #8b949e; font-size: 11px; font-weight: 600; text-transform: uppercase;">Fundamental Health</div>'
-            f'<div style="font-size: 24px; font-weight: 700; color: {health_color}; margin-top: 4px;">{health_text}</div></div>'
-            f'<div style="text-align: right;"><div style="color: #8b949e; font-size: 11px; font-weight: 600; text-transform: uppercase;">Market Cap</div>'
-            f'<div style="font-size: 18px; font-weight: 600; color: #e6edf3;">{mkt_cap:,.0f} B</div></div></div>'
-            f'<div style="margin-top: 10px;">'
-            f'<div style="font-size: 13px; color: #8b949e; margin-bottom: 5px;">Analysis Summary</div>'
-            f'<div style="font-size: 13px; color: #e6edf3; line-height: 1.5;">Financial health evaluation based on Valuation (P/E), Profitability (ROE), and recent Growth metrics.</div></div></div>'
+            f'<div class="hud-card" style="border-right:2px solid {fund_color}; border-left:1px solid #333;">'
+            f'  <div style="display:flex; justify-content:space-between; align-items:end;">'
+            f'      <div>'
+            f'          <div class="glitch-text" style="font-size:14px; letter-spacing:2px; color:{fund_color};">FUNDAMENTAL_CORE</div>'
+            f'          <div style="font-size:28px; font-weight:900; color:#fff; font-family:Rajdhani;">{health_text}</div>'
+            f'      </div>'
+            f'      <div style="text-align:right;">'
+            f'          <div class="cyber-label">MARKET_CAP</div>'
+            f'          <div style="font-size:18px; font-weight:700; color:#fff; font-family:Rajdhani;">{fund["market_cap"]/1e9:,.0f} B</div>'
+            f'      </div>'
+            f'  </div>'
+            f'  {bars_html}'
+            f'  <div style="margin-top:20px;">'
+            f'      <div class="cyber-label" style="margin-bottom:10px; border-bottom:1px solid #333;">SYSTEM_DIAGNOSTICS</div>'
+            f'      {fin_html}'
+            f'  </div>'
+            f'</div>'
         )
         st.markdown(html_fund, unsafe_allow_html=True)
-        
-        with st.expander("View Financial Metrics", expanded=True):
-            for d in fund['details']:
-                color = "#da3633" if any(x in d for x in ["cao", "Thấp", "giảm", "kém"]) else "#238636"
-                st.markdown(f"<span style='color:{color}; font-size:13px;'>• {d}</span>", unsafe_allow_html=True)
 
 # ==============================================================================
-# 3. INTERACTIVE CHART
+# 5. ADVANCED CHARTING (BIỂU ĐỒ CHUẨN TRADER)
 # ==============================================================================
 def render_interactive_chart(df, symbol):
-    if df.empty: return
+    """
+    Vẽ biểu đồ nến với Theme tối tối ưu cho dân Trading.
+    Tắt lưới, tập trung vào hành động giá.
+    """
+    if df.empty:
+        st.error("NO DATA SIGNAL RECEIVED.")
+        return
 
+    # Tính toán Ichimoku nếu thiếu (Self-healing)
     try:
         if 'ITS_9' not in df.columns:
             ichi = ta.ichimoku(df['High'], df['Low'], df['Close'])
             if ichi is not None: df = df.join(ichi[0])
     except: pass
 
-    fig = make_subplots(rows=2, cols=1, shared_xaxes=True, vertical_spacing=0.05, row_heights=[0.75, 0.25])
+    # Layout: Giá (70%) + Volume (30%)
+    fig = make_subplots(
+        rows=2, cols=1, 
+        shared_xaxes=True, 
+        vertical_spacing=0.03, 
+        row_heights=[0.7, 0.3]
+    )
     
-    # Nến
+    # 1. Main Candlestick (Nến rỗng/đặc kiểu Nhật)
     fig.add_trace(go.Candlestick(
-        x=df.index, open=df['Open'], high=df['High'], low=df['Low'], close=df['Close'], name='OHLC',
-        increasing_line_color='#238636', increasing_fillcolor='#238636',
-        decreasing_line_color='#da3633', decreasing_fillcolor='#da3633'
+        x=df.index,
+        open=df['Open'], high=df['High'], low=df['Low'], close=df['Close'],
+        name='PRICE',
+        increasing_line_color='#00ff41', increasing_fillcolor='rgba(0,0,0,0)', # Nến tăng rỗng ruột (Pro style)
+        decreasing_line_color='#ff0055', decreasing_fillcolor='#ff0055', # Nến giảm đặc
+        line_width=1
     ), row=1, col=1)
     
-    # Ichimoku
-    if 'ITS_9' in df.columns:
-        fig.add_trace(go.Scatter(x=df.index, y=df['ITS_9'], line=dict(color='#2f81f7', width=1), name='Tenkan'), row=1, col=1)
-    if 'IKS_26' in df.columns:
-        fig.add_trace(go.Scatter(x=df.index, y=df['IKS_26'], line=dict(color='#d29922', width=1), name='Kijun'), row=1, col=1)
+    # 2. Ichimoku Cloud (Hiệu ứng mây mờ)
+    if 'ISA_9' in df.columns and 'ISB_26' in df.columns:
+        # Tô màu mây
+        fig.add_trace(go.Scatter(
+            x=df.index, y=df['ISA_9'], 
+            line=dict(color='rgba(0,0,0,0)'), showlegend=False, hoverinfo='skip'
+        ), row=1, col=1)
+        fig.add_trace(go.Scatter(
+            x=df.index, y=df['ISB_26'], 
+            line=dict(color='rgba(0,0,0,0)'), 
+            fill='tonexty', # Tô vùng giữa 2 đường
+            fillcolor='rgba(0, 243, 255, 0.1)', # Mây xanh nhạt
+            showlegend=False, hoverinfo='skip'
+        ), row=1, col=1)
 
-    # Volume
-    colors = ['#238636' if r['Open'] < r['Close'] else '#da3633' for i, r in df.iterrows()]
-    fig.add_trace(go.Bar(x=df.index, y=df['Volume'], marker_color=colors, name='Vol'), row=2, col=1)
+    # 3. Volume Bar (Màu theo nến)
+    colors = ['#003300' if r['Open'] < r['Close'] else '#330000' for i, r in df.iterrows()] # Màu tối hơn cho volume
+    edge_colors = ['#00ff41' if r['Open'] < r['Close'] else '#ff0055' for i, r in df.iterrows()] # Viền sáng
+    
+    fig.add_trace(go.Bar(
+        x=df.index, y=df['Volume'], 
+        marker_color=colors, marker_line_color=edge_colors, marker_line_width=1,
+        name='VOL', opacity=0.8
+    ), row=2, col=1)
 
+    # 4. Styling Ultimate Dark Mode
     fig.update_layout(
-        template="plotly_dark", height=600, 
-        paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)',
+        template="plotly_dark",
+        height=650,
+        margin=dict(l=0, r=50, t=30, b=0),
+        paper_bgcolor='rgba(0,0,0,0)', # Trong suốt để lộ nền Cyberpunk
+        plot_bgcolor='rgba(0,0,0,0)',
         xaxis_rangeslider_visible=False,
-        margin=dict(l=0, r=40, t=20, b=0),
-        font=dict(family="Inter", size=11),
+        hovermode="x unified",
+        font=dict(family="Rajdhani", size=12, color="#aaa"),
         showlegend=False
     )
-    fig.update_xaxes(showgrid=True, gridwidth=1, gridcolor='#21262d')
-    fig.update_yaxes(showgrid=True, gridwidth=1, gridcolor='#21262d', side='right')
+    
+    # Tinh chỉnh trục (Gridlines mờ ảo)
+    grid_style = dict(showgrid=True, gridwidth=1, gridcolor='rgba(0, 243, 255, 0.1)', zeroline=False)
+    fig.update_xaxes(**grid_style)
+    fig.update_yaxes(**grid_style, side='right') # Giá bên phải chuẩn Trader
     
     st.plotly_chart(fig, use_container_width=True)
