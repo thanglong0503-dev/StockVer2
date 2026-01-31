@@ -331,3 +331,62 @@ def render_interactive_chart(df, symbol):
     }
     
     st.plotly_chart(fig, use_container_width=True, config=config)
+# ... (Các hàm cũ giữ nguyên)
+
+# ==============================================================================
+# 6. MARKET GALAXY (VŨ TRỤ DÒNG TIỀN - VOLUME EXPLOSION)
+# ==============================================================================
+import plotly.express as px
+
+def render_market_galaxy(df):
+    """
+    Vẽ biểu đồ Bubble Chart mô phỏng vũ trụ.
+    - Trục X: Giá cổ phiếu.
+    - Trục Y: % Tăng/Giảm giá.
+    - Kích thước (Size): Mức độ bùng nổ Volume (Vol_Ratio).
+    - Màu sắc: Xanh (Tăng) / Đỏ (Giảm).
+    """
+    if df.empty: return
+
+    # Tạo màu sắc dựa trên % Tăng giảm
+    # Nếu Tăng: Màu Xanh Neon (#00ff41), Nếu Giảm: Màu Đỏ (#ff0055)
+    df['Color_Type'] = df['Pct'].apply(lambda x: '#00ff41' if x >= 0 else '#ff0055')
+    
+    # Tạo text hiển thị khi rê chuột
+    df['Hover_Text'] = df.apply(lambda row: f"<b>{row['Symbol']}</b><br>Giá: {row['Price']:.2f}<br>Change: {row['Pct']:.2f}%<br>Vol Bùng Nổ: <b>x{row['Vol_Ratio']:.1f} lần</b>", axis=1)
+
+    # Vẽ Galaxy bằng Plotly Express
+    fig = px.scatter(
+        df, 
+        x="Price", 
+        y="Pct", 
+        size="Vol_Ratio",      # <--- MẤU CHỐT: To nhỏ tùy độ nổ Volume
+        color="Color_Type",    # Màu theo Tăng/Giảm
+        text="Symbol",         # Hiện tên mã
+        color_discrete_map="identity", # Giữ nguyên mã màu Hex mình đặt
+        hover_name="Hover_Text",
+        size_max=60,           # Kích thước tối đa của hành tinh (cho VCB nổ to đùng)
+        template="plotly_dark",
+        height=500
+    )
+
+    # Trang trí cho giống vũ trụ
+    fig.update_traces(
+        textposition='top center',
+        marker=dict(
+            line=dict(width=2, color='White'), # Viền trắng phát sáng
+            opacity=0.9
+        )
+    )
+
+    fig.update_layout(
+        paper_bgcolor='rgba(0,0,0,0)',
+        plot_bgcolor='rgba(0,0,0,0)',
+        showlegend=False,
+        title=dict(text="🌌 MARKET GALAXY (SIZE = VOLUME EXPLOSION)", font=dict(family="Rajdhani", size=20, color="#00f3ff")),
+        xaxis=dict(title="PRICE (K)", showgrid=False, zeroline=False, color="#888"),
+        yaxis=dict(title="% CHANGE", showgrid=True, gridcolor='#333', zeroline=True, zerolinecolor='#666'),
+        font=dict(family="Rajdhani", color="white")
+    )
+    
+    st.plotly_chart(fig, use_container_width=True)
