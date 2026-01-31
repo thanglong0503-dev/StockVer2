@@ -211,7 +211,8 @@ with col_analyst:
         info, fin, bal, cash, divs, splits = get_stock_data_full(target_symbol)
         
         tech_res = analyze_smart_v36(hist_df)
-        fund_res = analyze_fundamental(info, fin)
+        from backend.logic import analyze_fundamental_full
+        fund_res = analyze_fundamental_full(info, fin, bal, cash)
 
         if tech_res and fund_res:
             render_analysis_section(tech_res, fund_res)
