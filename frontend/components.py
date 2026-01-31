@@ -212,18 +212,56 @@ def render_analysis_section(tech, fund):
         )
         st.markdown(html_tech, unsafe_allow_html=True)
 
-    # --- RIGHT CARD: FUNDAMENTAL (Giữ nguyên) ---
+    # ... (Phần Technical bên trái giữ nguyên)
+
+    # --- RIGHT CARD: FUNDAMENTAL (HIỂN THỊ 9 CHỈ SỐ) ---
     with c2:
         fund_color = fund['color']
         health_text = fund['health'].replace('💎','').replace('💪','').replace('⚠️','')
         
-        score_val = 100 if "KIM" in health_text else (70 if "VỮNG" in health_text else 30)
+        # Thanh sức khỏe
+        score_val = 100 if "MẠNH" in health_text else (70 if "ỔN" in health_text else 30)
         bars_html = f'<div style="width:100%; height:6px; background:#222; margin-top:10px; border-radius:3px;"><div style="width:{score_val}%; height:100%; background:{fund_color}; box-shadow:0 0 10px {fund_color};"></div></div>'
 
+        # [NEW] XỬ LÝ HIỂN THỊ 9 CHỈ SỐ
+        metrics = fund.get('metrics', {})
+        
+        # Tạo Grid HTML cho 9 chỉ số
+        metrics_html = '<div style="display:grid; grid-template-columns: 1fr 1fr 1fr; gap:8px; margin-top:15px;">'
+        
+        # Danh sách key cần hiển thị
+        display_keys = [
+            ('Rev Growth', 'Tăng Trưởng DT'), 
+            ('NI Growth', 'Tăng Trưởng LN'), 
+            ('ROE', 'ROE'),
+            ('Net Margin', 'Biên Lợi Nhuận'),
+            ('Debt/Asset', 'Nợ/Tài Sản'),
+            ('Current Ratio', 'Thanh Toán HH'),
+            ('OCF', 'Dòng Tiền KD'),
+            ('BEP', 'Sinh Lời CS'),
+            ('Inv Turnover', 'Vòng Quay Kho')
+        ]
+        
+        for key, label in display_keys:
+            val = metrics.get(key, 'N/A')
+            # Tô màu giá trị
+            color_val = "#fff"
+            if "Growth" in key: color_val = "#00ff41" if "-" not in str(val) else "#ff0055"
+            if "OCF" in key: color_val = "#00ff41" if "-" not in str(val) else "#ff0055"
+            
+            metrics_html += f"""
+                <div style="background:rgba(255,255,255,0.05); padding:5px; border-radius:4px; text-align:center;">
+                    <div style="font-size:9px; color:#888;">{label}</div>
+                    <div style="font-size:12px; font-weight:bold; color:{color_val}; font-family:Rajdhani;">{val}</div>
+                </div>
+            """
+        metrics_html += "</div>"
+
+        # Hiển thị các chi tiết điểm cộng/trừ (Details)
         fin_html = ""
-        for d in fund['details']:
-            color = "#ff0055" if any(x in d for x in ["cao", "Thấp", "giảm", "kém"]) else "#00ff41"
-            fin_html += f'<div style="display:flex; align-items:center; margin-bottom:4px;"><div class="status-dot" style="background:{color}; box-shadow:0 0 5px {color};"></div><div style="font-size:12px; color:#ddd;">{d}</div></div>'
+        for d in fund['details'][:3]: # Chỉ lấy 3 cái quan trọng nhất
+            color = "#ff0055" if any(x in d for x in ["cao", "Thấp", "giảm", "kém", "Âm"]) else "#00ff41"
+            fin_html += f'<div style="display:flex; align-items:center; margin-bottom:2px;"><div class="status-dot" style="background:{color}; box-shadow:0 0 5px {color};"></div><div style="font-size:11px; color:#ddd;">{d}</div></div>'
 
         html_fund = (
             f'<div class="hud-card" style="border-right:2px solid {fund_color}; border-left:1px solid #333;">'
@@ -238,8 +276,8 @@ def render_analysis_section(tech, fund):
             f'      </div>'
             f'  </div>'
             f'  {bars_html}'
-            f'  <div style="margin-top:20px;">'
-            f'      <div class="cyber-label" style="margin-bottom:10px; border-bottom:1px solid #333;">SYSTEM_DIAGNOSTICS</div>'
+            f'  {metrics_html}' # Chèn bảng 9 chỉ số vào đây
+            f'  <div style="margin-top:15px; border-top:1px solid #333; padding-top:10px;">'
             f'      {fin_html}'
             f'  </div>'
             f'</div>'
