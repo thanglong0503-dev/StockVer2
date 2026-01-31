@@ -205,9 +205,7 @@ with col_radar:
                 
                 "Trend": st.column_config.LineChartColumn(
                     "MINI CHART",
-                    width="large",
-                    y_min=0 # Tự động scale biểu đồ cho đẹp
-                )
+                    width="large"
             },
             hide_index=True,       # Ẩn cột số thứ tự 0,1,2...
             use_container_width=True,
