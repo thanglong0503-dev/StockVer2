@@ -1,46 +1,46 @@
+# frontend/ui.py
 import streamlit as st
-import plotly.graph_objects as go
-from prophet.plot import plot_plotly
-import streamlit.components.v1 as components
+from datetime import datetime
 
-def load_css():
+def load_dnse_css():
     st.markdown("""
     <style>
-        .stApp {background-color: #0f172a; color: white;}
-        .glass {background: rgba(30,41,59,0.7); border-radius: 15px; padding: 20px; margin-bottom: 20px; border: 1px solid #334155;}
-        h1, h2, h3 {color: #f8fafc !important;}
+        @import url('https://fonts.googleapis.com/css2?family=Manrope:wght@400;600;800&display=swap');
+        html, body, [class*="css"] {
+            font-family: 'Manrope', sans-serif; background-color: #0b0e11; color: #e2e8f0;
+        }
+        header {visibility: hidden;}
+        /* Top Navigation */
+        .nav-container {
+            display: flex; justify-content: space-between; align-items: center;
+            background: #161b22; padding: 12px 20px; border-radius: 8px;
+            border-bottom: 1px solid #2d3748; margin-bottom: 20px;
+        }
+        .brand { font-size: 1.2rem; font-weight: 800; color: white; }
+        .brand span { color: #ef4444; }
+        
+        /* Tab Style */
+        .stTabs [data-baseweb="tab-list"] { gap: 24px; }
+        .stTabs [aria-selected="true"] { color: #ef4444 !important; border-bottom: 2px solid #ef4444; }
     </style>
     """, unsafe_allow_html=True)
 
-def render_kpi_cards(data):
+def render_header():
     st.markdown(f"""
-    <div class="glass" style="border-left: 5px solid {data['color']}">
-        <h3>{data['action']} ({data['score']}/10)</h3>
-        <h1 style="color:{data['color']}">{data['price']:,.0f} VND</h1>
+    <div class="nav-container">
+        <div class="brand">DNSE <span>AI</span></div>
+        <div style="color: #94a3b8;">VN-INDEX Market Watch</div>
+        <div style="color: white; font-weight: 600;">{datetime.now().strftime('%H:%M:%S')}</div>
     </div>
     """, unsafe_allow_html=True)
 
-def render_chart_tradingview(symbol):
-    # Hàm nhúng TradingView
-    components.html(f"""
-    <div class="tradingview-widget-container">
-      <div id="tv_chart"></div>
-      <script type="text/javascript" src="https://s3.tradingview.com/tv.js"></script>
-      <script type="text/javascript">
-      new TradingView.widget({{
-          "width": "100%", "height": 500, "symbol": "HOSE:{symbol}",
-          "interval": "D", "timezone": "Asia/Ho_Chi_Minh", "theme": "dark",
-          "style": "1", "container_id": "tv_chart"
-      }});
-      </script>
+def render_sidebar_detail(stock_info):
+    # Vẽ cái hộp chi tiết bên phải
+    color = "#22c55e" if stock_info['%'] >= 0 else "#ef4444"
+    st.markdown(f"""
+    <div style="background: #161b22; border: 1px solid #2d3748; padding: 15px; border-radius: 8px; border-left: 4px solid {color};">
+        <h2 style="margin:0; color:white;">{stock_info['Mã']}</h2>
+        <div style="font-size: 1.8rem; font-weight: 800; color: {color}">{stock_info['Giá']:.2f}</div>
+        <div style="color: {color}">{'▲' if stock_info['%'] >=0 else '▼'} {stock_info['%']:.2f}%</div>
     </div>
-    """, height=500)
-
-def plot_monte_carlo(sim_df):
-    if sim_df is None: return
-    fig = go.Figure()
-    # Vẽ 50 đường
-    for i in range(min(50, sim_df.shape[1])):
-        fig.add_trace(go.Scatter(y=sim_df.iloc[:, i], mode='lines', opacity=0.1, showlegend=False))
-    fig.update_layout(title="Monte Carlo Simulation", template="plotly_dark", height=400)
-    st.plotly_chart(fig, use_container_width=True)
+    """, unsafe_allow_html=True)
