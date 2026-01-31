@@ -203,11 +203,14 @@ with col_radar:
                     width="medium"
                 ),
                 
+                # [SỬA LẠI ĐOẠN NÀY]
                 "Trend": st.column_config.LineChartColumn(
                     "MINI CHART",
                     width="large"
+                    # ĐÃ XÓA: y_min=0 -> Để nó tự động Auto Scale theo sóng
+                )
             },
-            hide_index=True,       # Ẩn cột số thứ tự 0,1,2...
+            hide_index=True,
             use_container_width=True,
             height=680
         )
