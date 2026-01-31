@@ -273,3 +273,30 @@ with col_analyst:
     st.markdown('</div>', unsafe_allow_html=True)
 
 st.markdown('<div style="text-align:center; color:#444; font-size:10px; margin-top:50px;">THANG LONG TERMINAL SYSTEM V36.6 // ENCRYPTED</div>', unsafe_allow_html=True)
+# ==============================================================================
+# 5. FOOTER (ĐÁNH DẤU CHỦ QUYỀN)
+# ==============================================================================
+st.markdown("""
+<div style="text-align:center; font-family: 'Rajdhani', sans-serif; margin-top:80px; margin-bottom: 20px; opacity: 0.8;">
+    <div style="color:#444; font-size:10px;">THANG LONG TERMINAL SYSTEM V36.6 // ENCRYPTED CONNECTION</div>
+    <div style="
+        color: #00f3ff; 
+        font-size: 16px; 
+        font-weight: 800; 
+        letter-spacing: 4px; 
+        margin-top: 8px; 
+        text-transform: uppercase;
+        text-shadow: 0 0 10px #00f3ff, 0 0 20px #00f3ff;
+        animation: pulse 2s infinite;
+    ">
+        ⚡ DEV BY THANGLONG ⚡
+    </div>
+</div>
+<style>
+    @keyframes pulse {
+        0% { opacity: 0.8; text-shadow: 0 0 10px #00f3ff; }
+        50% { opacity: 1; text-shadow: 0 0 20px #00f3ff, 0 0 30px #00f3ff; }
+        100% { opacity: 0.8; text-shadow: 0 0 10px #00f3ff; }
+    }
+</style>
+""", unsafe_allow_html=True)
