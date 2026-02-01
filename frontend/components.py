@@ -315,8 +315,19 @@ def render_market_galaxy(df):
         hovermode='closest'
     )
 
+    # 3. TINH CHỈNH GIAO DIỆN (✨ PHẦN NÂNG CẤP GIAO DIỆN NẰM Ở ĐÂY ✨)
     fig.update_traces(
-        marker=dict(line=dict(width=1, color='White'), opacity=0.8), # Giảm độ đậm xuống 0.8 cho dễ nhìn xuyên thấu
+        mode='markers',
+        marker=dict(
+            # --- HIỆU ỨNG NEON GLASS ---
+            symbol='circle',          # Hình dáng: Hình tròn
+            opacity=0.7,              # Độ trong suốt cao hơn (nhìn xuyên thấu như kính)
+            line=dict(
+                width=3,              # Viền dày lên (tạo cảm giác phát sáng)
+                color='white'         # Viền màu trắng sáng chói
+                # Mẹo: Nếu muốn viền cùng màu với hành tinh thì bỏ dòng color='white' này đi
+            )
+        ),
         textposition='top center'
     )
 
