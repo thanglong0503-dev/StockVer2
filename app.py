@@ -2,15 +2,18 @@
 ================================================================================
 MODULE: app.py
 PROJECT: THANG LONG TERMINAL (ENTERPRISE EDITION)
-VERSION: 36.6.0-PERFORMANCE-FIX-FULL
+VERSION: 36.7.0-TREASURE-VAULT-MERGED
 THEME: CYBERPUNK HUD
 DESCRIPTION: 
     - Full Logic: Login -> Sidebar -> Radar (Cached) -> Analyst (Deep Dive).
     - Fixed: Radar does NOT re-scan when selecting a stock.
     - Features: AI Prophet Crosshair, Monte Carlo, Zoomable Charts.
+    - NEW: TREASURE VAULT (Gold & Silver Realtime Price).
 ================================================================================
 """
+# [NEW IMPORT]
 from backend.commodities import get_gold_price, get_silver_price
+
 import streamlit as st
 import sys
 import os
@@ -18,6 +21,7 @@ import time
 import pandas as pd
 import streamlit.components.v1 as components
 from frontend.components import render_market_galaxy
+
 # ==============================================================================
 # 1. SYSTEM CONFIGURATION
 # ==============================================================================
@@ -25,7 +29,7 @@ sys.path.append(os.path.abspath(os.path.dirname(__file__)))
 
 st.set_page_config(
     layout="wide", 
-    page_title="TL-TERMINAL V36.6", 
+    page_title="TL-TERMINAL V36.7", 
     page_icon="💠",
     initial_sidebar_state="expanded",
     menu_items={'About': "Thang Long Terminal - Advanced Market Intelligence System"}
@@ -152,7 +156,6 @@ with st.sidebar:
     if st.button("TERMINATE SESSION", key="btn_logout"):
         st.session_state['logged_in'] = False
         st.rerun()
-# ... (Code cũ của nút TERMINATE SESSION)
 
     st.divider()
     
@@ -196,13 +199,12 @@ with st.sidebar:
         <div style="animation: blink 1s infinite;">_</div>
     </div>
     """, unsafe_allow_html=True)
+
 # --- MARKET OVERVIEW ---
 with st.spinner("UPDATING MARKET FEED..."):
     indices = get_market_indices()
     render_market_overview(indices)
-# ... (Phần code cũ: render_market_overview(indices))
 
-    # === [NEW] CYBER TICKER: DÒNG CHẢY DỮ LIỆU ===
     # === [NEW] CYBER TICKER: DÒNG CHẢY DỮ LIỆU (ĐÃ FIX HTML 1 DÒNG) ===
     if indices:
         # 1. Tạo chuỗi HTML từ dữ liệu Indices (Dùng f-string 1 dòng)
@@ -236,165 +238,200 @@ with st.spinner("UPDATING MARKET FEED..."):
         </div>
         """, unsafe_allow_html=True)
 
-# ... (Tiếp tục code cũ: st.markdown("<div style='height:20px'></div>"...))
 st.markdown("<div style='height:20px'></div>", unsafe_allow_html=True)
 
-col_radar, col_analyst = st.columns([1.5, 2.5])
+# ==============================================================================
+# [NEW] CẤU TRÚC TAB LỚN - CHIA KHU VỰC CỔ PHIẾU VÀ KHO BÁU
+# ==============================================================================
+main_tab1, main_tab2 = st.tabs(["🚀 STOCK COMMAND CENTER", "💰 TREASURE VAULT (GOLD/SILVER)"])
 
-# === LEFT PANE: RADAR (HIỂN THỊ TỪ BỘ NHỚ) ===
-with col_radar:
-    st.markdown('<div class="glass-box"><h4>📡 MARKET RADAR</h4>', unsafe_allow_html=True)
-    
-    df_radar = st.session_state['radar_data']
-    
-    if not df_radar.empty:
-        # CHỈ LẤY NHỮNG CỘT CẦN THIẾT (Lọc bỏ rác ngay tại đây)
-        # Sắp xếp lại thứ tự luôn cho đẹp
-        df_display = df_radar[["Symbol", "Price", "Pct", "Signal", "Score", "Trend"]]
+# ==============================================================================
+# TAB 1: STOCK COMMAND CENTER (TOÀN BỘ CODE CŨ NẰM Ở ĐÂY)
+# ==============================================================================
+with main_tab1:
+    col_radar, col_analyst = st.columns([1.5, 2.5])
 
+    # === LEFT PANE: RADAR (HIỂN THỊ TỪ BỘ NHỚ) ===
+    with col_radar:
+        st.markdown('<div class="glass-box"><h4>📡 MARKET RADAR</h4>', unsafe_allow_html=True)
+        
+        df_radar = st.session_state['radar_data']
+        
+        if not df_radar.empty:
+            # CHỈ LẤY NHỮNG CỘT CẦN THIẾT
+            df_display = df_radar[["Symbol", "Price", "Pct", "Signal", "Score", "Trend"]]
+
+            st.dataframe(
+                df_display,
+                column_config={
+                    "Symbol": st.column_config.TextColumn("SYM", width="small", help="Mã cổ phiếu"),
+                    "Price": st.column_config.NumberColumn("PRICE", format="%.2f", width="small"),
+                    "Pct": st.column_config.NumberColumn("%", format="%.2f %%", width="small"),
+                    "Signal": st.column_config.TextColumn("ACTION", width="medium"),
+                    "Score": st.column_config.ProgressColumn("POWER", format="%d/10", min_value=0, max_value=10, width="medium"),
+                    "Trend": st.column_config.LineChartColumn("MINI CHART", width="large")
+                },
+                hide_index=True,
+                use_container_width=True,
+                height=400 
+            )
+
+            # 👉 HIỂN THỊ GALAXY 3D
+            st.markdown("---") 
+            render_market_galaxy(df_radar)
+            
+        else:
+            # Nếu chưa có dữ liệu
+            st.info("AWAITING SCAN COMMAND...")
+            st.caption("Please click 'EXECUTE SCAN' on the sidebar.")
+            
+        st.markdown('</div>', unsafe_allow_html=True)
+
+    # === RIGHT PANE: ANALYST CENTER (ĐỘC LẬP) ===
+    with col_analyst:
+        st.markdown('<div class="glass-box">', unsafe_allow_html=True)
+        
+        target_symbol = "HPG" # Giá trị mặc định
+        
+        # Nếu Radar có dữ liệu -> Chọn từ Radar
+        if not df_radar.empty:
+            symbol_list = df_radar['Symbol'].tolist()
+            # Selectbox này thay đổi sẽ KHÔNG kích hoạt lại việc quét Radar
+            target_symbol = st.selectbox("SELECT TARGET FROM RADAR", symbol_list)
+        # Nếu Radar trống -> Nhập tay
+        else:
+            target_symbol = st.text_input("MANUAL TARGET ENTRY", value="HPG").upper()
+
+        if target_symbol:
+            st.markdown(f"<h1 style='color:#00f3ff; margin-top:-10px; font-family:Rajdhani; text-shadow:0 0 10px #00f3ff;'>{target_symbol} // DEEP DIVE</h1>", unsafe_allow_html=True)
+            
+            # Phần xử lý dữ liệu chi tiết cho 1 mã
+            hist_df = get_history_df(target_symbol)
+            info, fin, bal, cash, divs, splits = get_stock_data_full(target_symbol)
+            
+            tech_res = analyze_smart_v36(hist_df)
+            from backend.logic import analyze_fundamental_full
+            fund_res = analyze_fundamental_full(info, fin, bal, cash)
+
+            if tech_res and fund_res:
+                render_analysis_section(tech_res, fund_res)
+            
+            st.markdown("---")
+
+            t1, t2, t3, t4, t5, t6, t7 = st.tabs(["CHART", "TRADINGVIEW", "AI_PROPHET", "MONTE_CARLO", "NEWS", "FINANCIALS", "PROFILE"])
+            
+            # TAB 1: CHART (Crosshair Neon)
+            with t1: render_interactive_chart(hist_df, target_symbol)
+            
+            # TAB 2: TV
+            with t2:
+                components.html(f"""<div class="tradingview-widget-container"><div id="tv_widget"></div><script type="text/javascript" src="https://s3.tradingview.com/tv.js"></script><script>new TradingView.widget({{"width":"100%","height":550,"symbol":"HOSE:{target_symbol}","interval":"D","theme":"dark","style":"1","locale":"en","toolbar_bg":"#f1f3f6","enable_publishing":false,"container_id":"tv_widget"}});</script></div>""", height=560)
+            
+            # TAB 3: AI (Crosshair Neon + Dots)
+            with t3:
+                st.markdown("### 🔮 NEURAL NETWORK FORECAST")
+                if st.button("INITIATE AI MODEL", key="btn_ai", type="primary"):
+                    with st.spinner("TRAINING NEURAL NETS..."):
+                        fig_ai = run_prophet_ai(hist_df)
+                        if fig_ai: 
+                            st.plotly_chart(fig_ai, use_container_width=True, config={'scrollZoom': True, 'displayModeBar': True})
+                        else: st.error("INSUFFICIENT DATA")
+            
+            # TAB 4: MONTE CARLO
+            with t4:
+                st.markdown("### 🌌 MULTIVERSE SIMULATION")
+                if st.button("RUN SIMULATION", key="btn_mc"):
+                    fig_mc, fig_hist, stats = run_monte_carlo(hist_df)
+                    if fig_mc:
+                        st.plotly_chart(fig_mc, use_container_width=True)
+                        m1, m2, m3 = st.columns(3)
+                        m1.metric("MEAN", f"{stats['mean']:,.0f}")
+                        m2.metric("UPSIDE (95%)", f"{stats['top_5']:,.0f}")
+                        m3.metric("PROBABILITY", f"{stats['prob_up']:.1f}%")
+                        st.plotly_chart(fig_hist, use_container_width=True)
+            
+            # TAB 5: NEWS
+            with t5:
+                news = get_stock_news_google(target_symbol)
+                if news:
+                    for n in news: st.markdown(f"- [{n['title']}]({n['link']})")
+                else: st.info("NO NEWS DATA.")
+                
+            # TAB 6: FINANCE
+            with t6:
+                if not fin.empty: 
+                    st.dataframe(fin.iloc[:, :4], use_container_width=True)
+                else: st.warning("NO FINANCIAL DATA.")
+                
+            # TAB 7: PROFILE
+            with t7:
+                c1, c2 = st.columns(2)
+                with c1: st.info(f"SECTOR: {info.get('sector', 'N/A')}")
+                with c2: 
+                    if not divs.empty: st.bar_chart(divs.head(10))
+
+        st.markdown('</div>', unsafe_allow_html=True)
+
+# ==============================================================================
+# TAB 2: TREASURE VAULT (KHO BÁU VÀNG & BẠC) - [NEW FEATURE]
+# ==============================================================================
+with main_tab2:
+    st.markdown('<div class="glass-box">', unsafe_allow_html=True)
+    st.markdown("### 🏆 PRECIOUS METALS (REAL ASSETS)")
+    
+    col_gold, col_silver = st.columns(2)
+    
+    # --- 1. KHO VÀNG (SJC/PNJ) ---
+    with col_gold:
+        st.markdown("""
+        <div style='background: linear-gradient(45deg, #FFD700, #B8860B); padding: 10px; border-radius: 5px; color: black; font-weight: bold; text-align: center; margin-bottom: 10px;'>
+            👑 GOLD PRICE (PNJ / SJC)
+        </div>
+        """, unsafe_allow_html=True)
+        
+        df_gold = get_gold_price()
+        
         st.dataframe(
-            df_display,
+            df_gold,
             column_config={
-                "Symbol": st.column_config.TextColumn("SYM", width="small", help="Mã cổ phiếu"),
-                
-                "Price": st.column_config.NumberColumn(
-                    "PRICE", 
-                    format="%.2f", # Hiển thị 2 số thập phân
-                    width="small"
-                ),
-                
-                "Pct": st.column_config.NumberColumn(
-                    "%", 
-                    format="%.2f %%", # Thêm dấu %
-                    width="small"
-                ),
-                
-                "Signal": st.column_config.TextColumn(
-                    "ACTION", 
-                    width="medium"
-                ),
-                
-                "Score": st.column_config.ProgressColumn(
-                    "POWER", 
-                    format="%d/10", 
-                    min_value=0, 
-                    max_value=10,
-                    width="medium"
-                ),
-                
-                # [SỬA LẠI ĐOẠN NÀY]
-                "Trend": st.column_config.LineChartColumn(
-                    "MINI CHART",
-                    width="large"
-                    # ĐÃ XÓA: y_min=0 -> Để nó tự động Auto Scale theo sóng
-                )
+                "Loại vàng": st.column_config.TextColumn("Loại Vàng", width="medium"),
+                "Giá mua": st.column_config.TextColumn("Giá Mua (k)", width="small"),
+                "Giá bán": st.column_config.TextColumn("Giá Bán (k)", width="small"),
             },
             hide_index=True,
             use_container_width=True,
-            height=400 # [GỢI Ý] Giảm chiều cao bảng xuống chút để nhường chỗ cho Galaxy
+            height=500
         )
 
-        # ========================================================
-        # 👉 DÁN ĐOẠN VŨ TRỤ DÒNG TIỀN VÀO ĐÂY (Ngay dưới bảng)
-        # ========================================================
-        st.markdown("---") # Đường kẻ ngang ngăn cách
+    # --- 2. KHO BẠC (PHÚ QUÝ) ---
+    with col_silver:
+        st.markdown("""
+        <div style='background: linear-gradient(45deg, #C0C0C0, #708090); padding: 10px; border-radius: 5px; color: black; font-weight: bold; text-align: center; margin-bottom: 10px;'>
+            🥈 SILVER PRICE (PHÚ QUÝ)
+        </div>
+        """, unsafe_allow_html=True)
         
-        # Gọi hàm vẽ Galaxy (Truyền toàn bộ dữ liệu radar vào)
-        render_market_galaxy(df_radar)
+        df_silver = get_silver_price()
         
-    else:
-        # Nếu chưa có dữ liệu
-        st.info("AWAITING SCAN COMMAND...")
-        st.caption("Please click 'EXECUTE SCAN' on the sidebar.")
-        
+        st.dataframe(
+            df_silver,
+            column_config={
+                "SẢN PHẨM": st.column_config.TextColumn("Sản Phẩm", width="medium"),
+                "ĐVT": st.column_config.TextColumn("ĐVT", width="small"),
+                "MUA": st.column_config.TextColumn("Mua Vào", width="small"),
+                "BÁN": st.column_config.TextColumn("Bán Ra", width="small"),
+            },
+            hide_index=True,
+            use_container_width=True,
+            height=500
+        )
+    
+    st.markdown("---")
+    st.info("ℹ️ Dữ liệu được cập nhật từ hệ thống niêm yết PNJ/SJC và Phú Quý.")
     st.markdown('</div>', unsafe_allow_html=True)
 
-# === RIGHT PANE: ANALYST CENTER (ĐỘC LẬP) ===
-with col_analyst:
-    st.markdown('<div class="glass-box">', unsafe_allow_html=True)
-    
-    target_symbol = "HPG" # Giá trị mặc định
-    
-    # Nếu Radar có dữ liệu -> Chọn từ Radar
-    if not df_radar.empty:
-        symbol_list = df_radar['Symbol'].tolist()
-        # Selectbox này thay đổi sẽ KHÔNG kích hoạt lại việc quét Radar
-        target_symbol = st.selectbox("SELECT TARGET FROM RADAR", symbol_list)
-    # Nếu Radar trống -> Nhập tay
-    else:
-        target_symbol = st.text_input("MANUAL TARGET ENTRY", value="HPG").upper()
+st.markdown('<div style="text-align:center; color:#444; font-size:10px; margin-top:50px;">THANG LONG TERMINAL SYSTEM V36.7 // ENCRYPTED</div>', unsafe_allow_html=True)
 
-    if target_symbol:
-        st.markdown(f"<h1 style='color:#00f3ff; margin-top:-10px; font-family:Rajdhani; text-shadow:0 0 10px #00f3ff;'>{target_symbol} // DEEP DIVE</h1>", unsafe_allow_html=True)
-        
-        # Phần xử lý dữ liệu chi tiết cho 1 mã
-        hist_df = get_history_df(target_symbol)
-        info, fin, bal, cash, divs, splits = get_stock_data_full(target_symbol)
-        
-        tech_res = analyze_smart_v36(hist_df)
-        from backend.logic import analyze_fundamental_full
-        fund_res = analyze_fundamental_full(info, fin, bal, cash)
-
-        if tech_res and fund_res:
-            render_analysis_section(tech_res, fund_res)
-        
-        st.markdown("---")
-
-        t1, t2, t3, t4, t5, t6, t7 = st.tabs(["CHART", "TRADINGVIEW", "AI_PROPHET", "MONTE_CARLO", "NEWS", "FINANCIALS", "PROFILE"])
-        
-        # TAB 1: CHART (Crosshair Neon)
-        with t1: render_interactive_chart(hist_df, target_symbol)
-        
-        # TAB 2: TV
-        with t2:
-            components.html(f"""<div class="tradingview-widget-container"><div id="tv_widget"></div><script type="text/javascript" src="https://s3.tradingview.com/tv.js"></script><script>new TradingView.widget({{"width":"100%","height":550,"symbol":"HOSE:{target_symbol}","interval":"D","theme":"dark","style":"1","locale":"en","toolbar_bg":"#f1f3f6","enable_publishing":false,"container_id":"tv_widget"}});</script></div>""", height=560)
-        
-        # TAB 3: AI (Crosshair Neon + Dots)
-        with t3:
-            st.markdown("### 🔮 NEURAL NETWORK FORECAST")
-            if st.button("INITIATE AI MODEL", key="btn_ai", type="primary"):
-                with st.spinner("TRAINING NEURAL NETS..."):
-                    fig_ai = run_prophet_ai(hist_df)
-                    if fig_ai: 
-                        st.plotly_chart(fig_ai, use_container_width=True, config={'scrollZoom': True, 'displayModeBar': True})
-                    else: st.error("INSUFFICIENT DATA")
-        
-        # TAB 4: MONTE CARLO
-        with t4:
-            st.markdown("### 🌌 MULTIVERSE SIMULATION")
-            if st.button("RUN SIMULATION", key="btn_mc"):
-                fig_mc, fig_hist, stats = run_monte_carlo(hist_df)
-                if fig_mc:
-                    st.plotly_chart(fig_mc, use_container_width=True)
-                    m1, m2, m3 = st.columns(3)
-                    m1.metric("MEAN", f"{stats['mean']:,.0f}")
-                    m2.metric("UPSIDE (95%)", f"{stats['top_5']:,.0f}")
-                    m3.metric("PROBABILITY", f"{stats['prob_up']:.1f}%")
-                    st.plotly_chart(fig_hist, use_container_width=True)
-        
-        # TAB 5: NEWS
-        with t5:
-            news = get_stock_news_google(target_symbol)
-            if news:
-                for n in news: st.markdown(f"- [{n['title']}]({n['link']})")
-            else: st.info("NO NEWS DATA.")
-            
-        # TAB 6: FINANCE
-        with t6:
-            if not fin.empty: 
-                st.dataframe(fin.iloc[:, :4], use_container_width=True)
-            else: st.warning("NO FINANCIAL DATA.")
-            
-        # TAB 7: PROFILE
-        with t7:
-            c1, c2 = st.columns(2)
-            with c1: st.info(f"SECTOR: {info.get('sector', 'N/A')}")
-            with c2: 
-                if not divs.empty: st.bar_chart(divs.head(10))
-
-    st.markdown('</div>', unsafe_allow_html=True)
-
-st.markdown('<div style="text-align:center; color:#444; font-size:10px; margin-top:50px;">THANG LONG TERMINAL SYSTEM V36.6 // ENCRYPTED</div>', unsafe_allow_html=True)
 # ==============================================================================
 # 5. FOOTER (THANH TRẠNG THÁI NGANG - CYBER COMMANDER STYLE)
 # ==============================================================================
@@ -410,7 +447,7 @@ st.markdown("""
         bottom: 0;
         width: 100%;
         background-color: #0a0a0a; /* Nền đen tối */
-        color: #888;               /* Màu chữ xám mặc định */
+        color: #888;                /* Màu chữ xám mặc định */
         text-align: center;
         padding: 10px 0;
         font-family: 'Rajdhani', sans-serif;
