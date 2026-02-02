@@ -10,7 +10,7 @@ DESCRIPTION:
     - Features: AI Prophet Crosshair, Monte Carlo, Zoomable Charts.
 ================================================================================
 """
-
+from backend.commodities import get_gold_price, get_silver_price
 import streamlit as st
 import sys
 import os
