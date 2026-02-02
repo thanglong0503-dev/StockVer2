@@ -5,15 +5,12 @@ DESCRIPTION: Crawler dữ liệu Vàng (SJC/PNJ) & Bạc (Phú Quý).
 ================================================================================
 """
 import pandas as pd
-import requests
-import random
 
 def get_gold_price():
     """
-    Lấy giá Vàng giả lập (Backup Data) để đảm bảo App luôn chạy được
-    ngay cả khi trang web nguồn bị lỗi hoặc đổi cấu trúc.
+    Lấy giá Vàng giả lập (Backup Data)
     """
-    # Dữ liệu mô phỏng theo ảnh ngài gửi (Ngày 02/02/2026)
+    # Dữ liệu mô phỏng theo ảnh ngài gửi
     data = [
         {"Loại vàng": "Vàng miếng SJC 999.9", "Giá mua": "16.560", "Giá bán": "16.860"},
         {"Loại vàng": "Nhẫn Trơn PNJ 999.9", "Giá mua": "16.510", "Giá bán": "16.810"},
