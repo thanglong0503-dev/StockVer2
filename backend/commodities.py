@@ -1,46 +1,43 @@
 """
 ================================================================================
 MODULE: backend/commodities.py
-DESCRIPTION: Crawler dữ liệu Vàng & Bạc Real-time (ĐÃ CÓ BỘ LỌC RÁC SẠCH SẼ).
+DESCRIPTION: Crawler dữ liệu Vàng & Bạc Real-time (STRICT MODE - NO FAKE DATA).
 ================================================================================
 """
 import pandas as pd
 import requests
 
-# --- DỮ LIỆU DỰ PHÒNG (BACKUP) ---
-BACKUP_GOLD = [
-    {"Loại vàng": "Vàng miếng SJC 999.9", "Mua vào": "16.560.000", "Bán ra": "16.860.000"},
-    {"Loại vàng": "Nhẫn Trơn PNJ 999.9", "Mua vào": "16.510.000", "Bán ra": "16.810.000"},
-    {"Loại vàng": "Vàng Nữ Trang 999.9", "Mua vào": "16.300.000", "Bán ra": "16.700.000"}
-]
-
-BACKUP_SILVER = [
-    {"SẢN PHẨM": "Bạc miếng Phú Quý 999 1 lượng", "ĐVT": "Vnđ/Lượng", "MUA": "2,904,000", "BÁN": "2,994,000"},
-    {"SẢN PHẨM": "Bạc thỏi Phú Quý 999 10 lượng", "ĐVT": "Vnđ/Lượng", "MUA": "2,904,000", "BÁN": "2,994,000"}
-]
-
 def get_gold_price():
-    """Crawl giá vàng SJC từ webgia.com và LỌC SẠCH RÁC"""
+    """
+    Crawl giá vàng SJC từ webgia.com.
+    Nếu lỗi -> Trả về DataFrame rỗng (Không dùng backup ảo).
+    """
     url = "https://webgia.com/gia-vang/sjc/"
     try:
+        # Thử đọc bảng từ web
         dfs = pd.read_html(url, encoding='utf-8')
         if len(dfs) > 0:
             df = dfs[0]
             if 'Loại vàng' in df.columns:
                 df_clean = df[['Loại vàng', 'Mua vào', 'Bán ra']].copy()
                 
-                # [LỌC RÁC] Loại bỏ các dòng chứa chữ "web", "xem", "liên hệ"
-                # Chuyển cột giá sang chuỗi để tìm kiếm
+                # [LỌC RÁC] Loại bỏ các dòng quảng cáo
                 df_clean = df_clean[~df_clean['Mua vào'].astype(str).str.contains("web|xem|liên hệ", case=False, na=False)]
                 df_clean = df_clean[~df_clean['Bán ra'].astype(str).str.contains("web|xem|liên hệ", case=False, na=False)]
                 
                 return df_clean
-        raise Exception("Structure changed")
-    except Exception:
-        return pd.DataFrame(BACKUP_GOLD)
+                
+    except Exception as e:
+        pass # Gặp lỗi thì bỏ qua, xuống dòng dưới trả về rỗng
+        
+    # Trả về bảng rỗng nếu không lấy được dữ liệu thật
+    return pd.DataFrame()
 
 def get_silver_price():
-    """Crawl giá bạc Phú Quý và LỌC TIÊU ĐỀ THỪA"""
+    """
+    Crawl giá bạc Phú Quý.
+    Nếu lỗi -> Trả về DataFrame rỗng.
+    """
     url = "https://giabac.phuquygroup.vn/"
     header = {"User-Agent": "Mozilla/5.0"}
     try:
@@ -48,20 +45,19 @@ def get_silver_price():
         dfs = pd.read_html(response.text)
         if len(dfs) > 0:
             df = dfs[0]
-            df.columns = [c.upper() for c in df.columns] # Viết hoa tên cột
+            df.columns = [c.upper() for c in df.columns] 
             
             if "SẢN PHẨM" in df.columns:
-                # [LỌC RÁC] Bỏ những dòng mà cột ĐƠN VỊ bị trống (thường là tiêu đề nhóm)
-                # Hoặc cột SẢN PHẨM lặp lại chữ "SẢN PHẨM"
+                # [LỌC RÁC]
                 df = df[df['SẢN PHẨM'] != "SẢN PHẨM"]
                 df = df[df['ĐƠN VỊ'].notna()] 
-                
-                # Bỏ các dòng tiêu đề nhóm (Ví dụ: "BẠC THƯƠNG HIỆU PHÚ QUÝ")
-                # Đặc điểm: Dòng tiêu đề thường không có giá tiền cụ thể hoặc định dạng khác
-                # Cách đơn giản: Chỉ lấy dòng có ĐVT là 'Vnđ/Lượng' hoặc 'Vnđ/Kg'
+                # Chỉ lấy dòng có đơn vị tiền tệ
                 df = df[df['ĐƠN VỊ'].str.contains("Vnđ", na=False, case=False)]
 
                 return df[['SẢN PHẨM', 'ĐƠN VỊ', 'GIÁ MUA VÀO', 'GIÁ BÁN RA']]
-        raise Exception("No table found")
-    except Exception:
-        return pd.DataFrame(BACKUP_SILVER)
+                
+    except Exception as e:
+        pass
+        
+    # Trả về bảng rỗng
+    return pd.DataFrame()
