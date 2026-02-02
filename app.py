@@ -373,58 +373,67 @@ with main_tab1:
         st.markdown('</div>', unsafe_allow_html=True)
 
 # ==============================================================================
+# ==============================================================================
 # TAB 2: TREASURE VAULT (KHO BÁU VÀNG & BẠC)
 # ==============================================================================
 with main_tab2:
     st.markdown('<div class="glass-box">', unsafe_allow_html=True)
     
-    # [NEW] HEADER CÓ NÚT BẤM
+    # HEADER CÓ NÚT BẤM
     c_title, c_btn = st.columns([3, 1])
     with c_title:
-        st.markdown("### 🏆 PRECIOUS METALS (REAL ASSETS)")
+        st.markdown("### 🏆 PRECIOUS METALS (REAL-TIME)")
     with c_btn:
-        # Nút bấm để reload lại dữ liệu mới nhất
-        if st.button("🔄 CẬP NHẬT GIÁ (LIVE)", type="primary", use_container_width=True):
+        if st.button("🔄 CẬP NHẬT (LIVE)", type="primary", use_container_width=True):
             st.rerun()
 
     col_gold, col_silver = st.columns(2)
     
     # --- 1. KHO VÀNG (SJC/PNJ) ---
     with col_gold:
-        st.markdown("""<div style='background: linear-gradient(45deg, #FFD700, #B8860B); padding: 10px; border-radius: 5px; color: black; font-weight: bold; text-align: center; margin-bottom: 10px;'>👑 GOLD PRICE (PNJ / SJC)</div>""", unsafe_allow_html=True)
+        st.markdown("""<div style='background: linear-gradient(45deg, #FFD700, #B8860B); padding: 10px; border-radius: 5px; color: black; font-weight: bold; text-align: center; margin-bottom: 10px;'>👑 GOLD PRICE (WEB-GIA)</div>""", unsafe_allow_html=True)
         
-        # Gọi hàm lấy dữ liệu (Code mới đã có bộ lọc rác)
         df_gold = get_gold_price()
         
-        st.dataframe(
-            df_gold,
-            column_config={
-                "Loại vàng": st.column_config.TextColumn("Loại Vàng", width="medium"),
-                "Mua vào": st.column_config.TextColumn("Giá Mua", width="small"),
-                "Bán ra": st.column_config.TextColumn("Giá Bán", width="small"),
-            },
-            hide_index=True, use_container_width=True, height=500
-        )
+        # [CHECK] Nếu có dữ liệu thì hiện bảng, không thì báo lỗi
+        if not df_gold.empty:
+            st.dataframe(
+                df_gold,
+                column_config={
+                    "Loại vàng": st.column_config.TextColumn("Loại Vàng", width="medium"),
+                    "Mua vào": st.column_config.TextColumn("Giá Mua", width="small"),
+                    "Bán ra": st.column_config.TextColumn("Giá Bán", width="small"),
+                },
+                hide_index=True, use_container_width=True, height=500
+            )
+        else:
+            st.error("⚠️ KHÔNG LẤY ĐƯỢC DỮ LIỆU VÀNG")
+            st.caption("Kiểm tra kết nối mạng hoặc nguồn webgia.com đang bảo trì.")
 
     # --- 2. KHO BẠC (PHÚ QUÝ) ---
     with col_silver:
-        st.markdown("""<div style='background: linear-gradient(45deg, #C0C0C0, #708090); padding: 10px; border-radius: 5px; color: black; font-weight: bold; text-align: center; margin-bottom: 10px;'>🥈 SILVER PRICE (PHÚ QUÝ)</div>""", unsafe_allow_html=True)
+        st.markdown("""<div style='background: linear-gradient(45deg, #C0C0C0, #708090); padding: 10px; border-radius: 5px; color: black; font-weight: bold; text-align: center; margin-bottom: 10px;'>🥈 SILVER PRICE (PHU QUY)</div>""", unsafe_allow_html=True)
         
         df_silver = get_silver_price()
         
-        st.dataframe(
-            df_silver,
-            column_config={
-                "SẢN PHẨM": st.column_config.TextColumn("Sản Phẩm", width="medium"),
-                "ĐƠN VỊ": st.column_config.TextColumn("ĐVT", width="small"),
-                "GIÁ MUA VÀO": st.column_config.TextColumn("Mua Vào", width="small"),
-                "GIÁ BÁN RA": st.column_config.TextColumn("Bán Ra", width="small"),
-            },
-            hide_index=True, use_container_width=True, height=500
-        )
+        # [CHECK]
+        if not df_silver.empty:
+            st.dataframe(
+                df_silver,
+                column_config={
+                    "SẢN PHẨM": st.column_config.TextColumn("Sản Phẩm", width="medium"),
+                    "ĐƠN VỊ": st.column_config.TextColumn("ĐVT", width="small"),
+                    "GIÁ MUA VÀO": st.column_config.TextColumn("Mua Vào", width="small"),
+                    "GIÁ BÁN RA": st.column_config.TextColumn("Bán Ra", width="small"),
+                },
+                hide_index=True, use_container_width=True, height=500
+            )
+        else:
+            st.error("⚠️ KHÔNG LẤY ĐƯỢC DỮ LIỆU BẠC")
+            st.caption("Không thể kết nối đến máy chủ Phu Quy Group.")
     
     st.markdown("---")
-    st.caption("ℹ️ Dữ liệu Real-time từ Webgia & Phu Quy Group. Bấm nút 'CẬP NHẬT' để lấy giá mới nhất.")
+    st.caption("ℹ️ Chế độ Strict Mode: Chỉ hiển thị dữ liệu thực tế tại thời điểm bấm nút.")
     st.markdown('</div>', unsafe_allow_html=True)
 
 st.markdown('<div style="text-align:center; color:#444; font-size:10px; margin-top:50px;">THANG LONG TERMINAL SYSTEM V36.7 // ENCRYPTED</div>', unsafe_allow_html=True)
