@@ -7,6 +7,5 @@ requests
 feedparser
 prophet
 lxml
-requests
 beautifulsoup4
 html5lib
