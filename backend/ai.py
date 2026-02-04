@@ -2,10 +2,11 @@
 ================================================================================
 MODULE: backend/ai.py
 PROJECT: THANG LONG TERMINAL (ENTERPRISE EDITION)
-VERSION: 36.4.1-AI-CROSSHAIR
+VERSION: 36.8.0-BLUE-RIVER-FIX
 DESCRIPTION: 
-    Artificial Intelligence Engine.
-    UPDATED: Added NEON CROSSHAIR (Spikelines) to the Prophet Forecast Chart.
+    - Artificial Intelligence Engine.
+    - Features: Monte Carlo Simulation & Prophet Forecasting.
+    - Style: Blue River (Smooth Line + Tiny Dots) on Dark Mode.
 ================================================================================
 """
 
@@ -72,14 +73,14 @@ class MonteCarloSimulator:
                 showlegend=False, hoverinfo='skip'
             ))
             
-        # 3. Đường trung bình
+        # 3. Đường trung bình (Đổi sang màu xanh cho đồng bộ nếu muốn, hoặc giữ đỏ)
         fig.add_trace(go.Scatter(
             x=dates, y=simulation_df.mean(axis=1),
-            mode='lines', line=dict(color='#ff0055', width=4),
+            mode='lines', line=dict(color='#ff0055', width=2),
             name='Kỳ vọng (Mean)'
         ))
         
-        # Layout Monte Carlo (Cũng thêm Crosshair luôn cho đồng bộ)
+        # Layout Monte Carlo
         fig.update_layout(
             title=dict(text=f"🌌 MONTE CARLO: {self.simulations} KỊCH BẢN", font=dict(family="Rajdhani", size=18)),
             yaxis_title="Giá",
@@ -91,7 +92,6 @@ class MonteCarloSimulator:
             plot_bgcolor='rgba(0,0,0,0)',
             dragmode='pan',
             
-            # Crosshair Monte Carlo
             xaxis=dict(
                 showgrid=True, gridcolor='rgba(255,255,255,0.1)',
                 showspikes=True, spikemode='across', spikesnap='cursor', 
@@ -119,7 +119,14 @@ class MonteCarloSimulator:
         return fig, fig_hist, stats
 
 # ==============================================================================
-def predict(self, periods: int = 60) -> Optional[go.Figure]:
+# 2. PROPHET FORECASTING ENGINE
+# ==============================================================================
+
+class ProphetPredictor:
+    def __init__(self, df: pd.DataFrame):
+        self.df = df
+        
+    def predict(self, periods: int = 60) -> Optional[go.Figure]:
         try:
             from prophet import Prophet
         except ImportError: return None
@@ -144,11 +151,10 @@ def predict(self, periods: int = 60) -> Optional[go.Figure]:
         future = m.make_future_dataframe(periods=periods)
         forecast = m.predict(future)
         
-        # --- VẼ BIỂU ĐỒ ---
+        # --- VẼ BIỂU ĐỒ (STYLE: BLUE RIVER) ---
         fig = go.Figure()
         
-        # 1. VÙNG RỦI RO (CLOUD) - Vẽ cho toàn bộ quá trình (Cả quá khứ và tương lai)
-        # Để nhìn thấy AI "ôm" giá lịch sử thế nào
+        # 1. VÙNG RỦI RO (CLOUD) - Vẽ toàn bộ
         fig.add_trace(go.Scatter(
             x=pd.concat([forecast['ds'], forecast['ds'][::-1]]),
             y=pd.concat([forecast['yhat_upper'], forecast['yhat_lower'][::-1]]),
@@ -159,8 +165,8 @@ def predict(self, periods: int = 60) -> Optional[go.Figure]:
             name='Biên độ dao động'
         ))
 
-        # 2. ĐƯỜNG CHỈ XUYÊN SUỐT (AI TREND LINE)
-        # Vẽ một đường mượt mà từ đầu đến cuối (yhat)
+        # 2. ĐƯỜNG CHỈ XUYÊN SUỐT (AI TREND LINE - YHAT)
+        # Vẽ một đường mượt mà từ quá khứ đến tương lai
         fig.add_trace(go.Scatter(
             x=forecast['ds'], y=forecast['yhat'],
             mode='lines', 
@@ -170,19 +176,19 @@ def predict(self, periods: int = 60) -> Optional[go.Figure]:
         ))
         
         # 3. HẠT BỤI DỮ LIỆU (REAL DATA DOTS)
-        # Chỉ là các chấm nhỏ, không có đường nối
+        # Dữ liệu thực tế dạng chấm
         fig.add_trace(go.Scatter(
             x=df_p['ds'], y=df_p['y'],
             mode='markers', 
             name='Giá thực tế',
             marker=dict(
-                color='#48cae4', # Màu Cyan sáng nổi bật trên nền đen
+                color='#48cae4', # Cyan sáng
                 size=3,          # Chấm nhỏ li ti
-                line=dict(width=0.5, color='white') # Viền trắng mỏng dính cho hạt nổi bật
+                line=dict(width=0.5, color='white') # Viền trắng mỏng
             ),
             opacity=0.9
         ))
-
+        
         # --- CẤU HÌNH GIAO DIỆN ---
         fig.update_layout(
             title=dict(text=f"🔮 AI PROPHET: DỰ BÁO {periods} NGÀY TỚI", font=dict(family="Rajdhani", size=18)),
