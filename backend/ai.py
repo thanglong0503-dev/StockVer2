@@ -119,15 +119,7 @@ class MonteCarloSimulator:
         return fig, fig_hist, stats
 
 # ==============================================================================
-# ==============================================================================
-# 2. PROPHET FORECASTING ENGINE
-# ==============================================================================
-
-class ProphetPredictor:
-    def __init__(self, df: pd.DataFrame):
-        self.df = df
-        
-    def predict(self, periods: int = 60) -> Optional[go.Figure]:
+def predict(self, periods: int = 60) -> Optional[go.Figure]:
         try:
             from prophet import Prophet
         except ImportError: return None
@@ -155,54 +147,46 @@ class ProphetPredictor:
         # --- VẼ BIỂU ĐỒ ---
         fig = go.Figure()
         
-        # 1. BIÊN ĐỘ RỦI RO (CLOUD) - [ĐỔI MÀU TẠI ĐÂY]
-        future_data = forecast[forecast['ds'] > df_p['ds'].iloc[-1]]
+        # 1. VÙNG RỦI RO (CLOUD) - Vẽ cho toàn bộ quá trình (Cả quá khứ và tương lai)
+        # Để nhìn thấy AI "ôm" giá lịch sử thế nào
         fig.add_trace(go.Scatter(
-            x=pd.concat([future_data['ds'], future_data['ds'][::-1]]),
-            y=pd.concat([future_data['yhat_upper'], future_data['yhat_lower'][::-1]]),
+            x=pd.concat([forecast['ds'], forecast['ds'][::-1]]),
+            y=pd.concat([forecast['yhat_upper'], forecast['yhat_lower'][::-1]]),
             fill='toself',
-            # Đổi màu fill sang xanh dương nhạt trong suốt
-            fillcolor='rgba(0, 180, 216, 0.3)', 
+            fillcolor='rgba(0, 180, 216, 0.2)', # Xanh dương nhạt mờ ảo
             line=dict(color='rgba(255,255,255,0)'),
             hoverinfo="skip",
-            name='Vùng Rủi Ro'
+            name='Biên độ dao động'
         ))
 
-        # 2. LỊCH SỬ: ĐƯỜNG TREND (DƯỚI)
+        # 2. ĐƯỜNG CHỈ XUYÊN SUỐT (AI TREND LINE)
+        # Vẽ một đường mượt mà từ đầu đến cuối (yhat)
         fig.add_trace(go.Scatter(
-            x=df_p['ds'], y=df_p['y'],
+            x=forecast['ds'], y=forecast['yhat'],
             mode='lines', 
-            name='Trend Lịch Sử',
-            line=dict(color='#0099aa', width=2),
-            opacity=0.8
+            name='AI Trend Line',
+            # Màu xanh dương đậm, nét liền mạch, xuyên suốt
+            line=dict(color='#0077b6', width=2.5) 
         ))
         
-        # 3. LỊCH SỬ: HẠT DỮ LIỆU (TRÊN)
+        # 3. HẠT BỤI DỮ LIỆU (REAL DATA DOTS)
+        # Chỉ là các chấm nhỏ, không có đường nối
         fig.add_trace(go.Scatter(
             x=df_p['ds'], y=df_p['y'],
             mode='markers', 
-            name='Dữ Liệu Thô',
+            name='Giá thực tế',
             marker=dict(
-                color='#00f3ff', # Cyan phát sáng
-                size=4,
-                line=dict(width=0)
+                color='#48cae4', # Màu Cyan sáng nổi bật trên nền đen
+                size=3,          # Chấm nhỏ li ti
+                line=dict(width=0.5, color='white') # Viền trắng mỏng dính cho hạt nổi bật
             ),
-            opacity=1.0
+            opacity=0.9
         ))
-        
-        # 4. DỰ BÁO TƯƠNG LAI - [ĐỔI MÀU TẠI ĐÂY]
-        fig.add_trace(go.Scatter(
-            x=future_data['ds'], y=future_data['yhat'],
-            mode='lines', 
-            name='AI DỰ BÁO',
-            # Đổi màu sang xanh cyan đậm và giữ nét thanh mảnh
-            line=dict(color='#00b4d8', width=2) 
-        ))
-        
-        # --- CẤU HÌNH CROSSHAIR VÀ LAYOUT ---
+
+        # --- CẤU HÌNH GIAO DIỆN ---
         fig.update_layout(
             title=dict(text=f"🔮 AI PROPHET: DỰ BÁO {periods} NGÀY TỚI", font=dict(family="Rajdhani", size=18)),
-            yaxis_title="Giá dự kiến",
+            yaxis_title="Giá",
             template="plotly_dark",
             height=500,
             hovermode="x unified",
@@ -210,24 +194,20 @@ class ProphetPredictor:
             paper_bgcolor='rgba(0,0,0,0)',
             plot_bgcolor='rgba(0,0,0,0)',
             
-            # Interactive Config
             dragmode='pan',
             
-            # TRỤC X: Đường chỉ dọc màu Cyan
+            # Crosshair (Đường chỉ chữ thập)
             xaxis=dict(
                 showgrid=True, gridcolor='rgba(255,255,255,0.1)',
                 showspikes=True, spikemode='across', spikesnap='cursor',
                 showline=False, spikedash='solid', spikecolor='#00f3ff', spikethickness=1
             ),
-            
-            # TRỤC Y: Đường chỉ ngang cũng đổi sang màu Cyan cho đồng bộ
             yaxis=dict(
                 showgrid=True, gridcolor='rgba(255,255,255,0.1)', side='right',
                 showspikes=True, spikemode='across', spikesnap='cursor',
-                showline=False, spikedash='dot', 
-                # Đổi màu crosshair trục Y sang cyan luôn
-                spikecolor='#00f3ff', spikethickness=1
-            )
+                showline=False, spikedash='dot', spikecolor='#00f3ff', spikethickness=1
+            ),
+            legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1)
         )
         
         return fig
