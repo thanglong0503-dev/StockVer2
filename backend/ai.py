@@ -142,7 +142,7 @@ class ProphetPredictor:
         m = Prophet(
             daily_seasonality=True, 
             weekly_seasonality=False,
-            yearly_seasonality=False,
+            yearly_seasonality=True,
             changepoint_prior_scale=0.05,
             seasonality_mode='additive'
         )
