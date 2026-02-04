@@ -119,6 +119,7 @@ class MonteCarloSimulator:
         return fig, fig_hist, stats
 
 # ==============================================================================
+# ==============================================================================
 # 2. PROPHET FORECASTING ENGINE
 # ==============================================================================
 
@@ -138,7 +139,7 @@ class ProphetPredictor:
         df_p.columns = ['ds', 'y']
         df_p['ds'] = df_p['ds'].dt.tz_localize(None)
         
-        # Model Config (Tắt Daily Seasonality để mượt)
+        # Model Config
         m = Prophet(
             daily_seasonality=False, 
             weekly_seasonality=True,
@@ -154,13 +155,14 @@ class ProphetPredictor:
         # --- VẼ BIỂU ĐỒ ---
         fig = go.Figure()
         
-        # 1. BIÊN ĐỘ RỦI RO (CLOUD)
+        # 1. BIÊN ĐỘ RỦI RO (CLOUD) - [ĐỔI MÀU TẠI ĐÂY]
         future_data = forecast[forecast['ds'] > df_p['ds'].iloc[-1]]
         fig.add_trace(go.Scatter(
             x=pd.concat([future_data['ds'], future_data['ds'][::-1]]),
             y=pd.concat([future_data['yhat_upper'], future_data['yhat_lower'][::-1]]),
             fill='toself',
-            fillcolor='rgba(255, 0, 85, 0.2)',
+            # Đổi màu fill sang xanh dương nhạt trong suốt
+            fillcolor='rgba(0, 180, 216, 0.3)', 
             line=dict(color='rgba(255,255,255,0)'),
             hoverinfo="skip",
             name='Vùng Rủi Ro'
@@ -188,15 +190,16 @@ class ProphetPredictor:
             opacity=1.0
         ))
         
-        # 4. DỰ BÁO TƯƠNG LAI (LINE ĐẬM)
+        # 4. DỰ BÁO TƯƠNG LAI - [ĐỔI MÀU TẠI ĐÂY]
         fig.add_trace(go.Scatter(
             x=future_data['ds'], y=future_data['yhat'],
             mode='lines', 
             name='AI DỰ BÁO',
-            line=dict(color='#ff0055', width=2) # Neon Pink siêu đậm
+            # Đổi màu sang xanh cyan đậm và giữ nét thanh mảnh
+            line=dict(color='#00b4d8', width=2) 
         ))
         
-        # --- CẤU HÌNH CROSSHAIR (ĐƯỜNG CHỈ CỘNG) Ở ĐÂY ---
+        # --- CẤU HÌNH CROSSHAIR VÀ LAYOUT ---
         fig.update_layout(
             title=dict(text=f"🔮 AI PROPHET: DỰ BÁO {periods} NGÀY TỚI", font=dict(family="Rajdhani", size=18)),
             yaxis_title="Giá dự kiến",
@@ -210,29 +213,20 @@ class ProphetPredictor:
             # Interactive Config
             dragmode='pan',
             
-            # TRỤC X: Đường chỉ dọc màu Cyan (#00f3ff)
+            # TRỤC X: Đường chỉ dọc màu Cyan
             xaxis=dict(
                 showgrid=True, gridcolor='rgba(255,255,255,0.1)',
-                showspikes=True,        # Bật đường chỉ
-                spikemode='across',     # Chạy hết biểu đồ
-                spikesnap='cursor',     # Dính theo chuột
-                showline=False,
-                spikedash='solid',      # Nét liền
-                spikecolor='#00f3ff',   # Màu Neon Cyan
-                spikethickness=1
+                showspikes=True, spikemode='across', spikesnap='cursor',
+                showline=False, spikedash='solid', spikecolor='#00f3ff', spikethickness=1
             ),
             
-            # TRỤC Y: Đường chỉ ngang màu Pink (#ff0055)
+            # TRỤC Y: Đường chỉ ngang cũng đổi sang màu Cyan cho đồng bộ
             yaxis=dict(
-                showgrid=True, gridcolor='rgba(255,255,255,0.1)', 
-                side='right',
-                showspikes=True,        # Bật đường chỉ
-                spikemode='across',
-                spikesnap='cursor',
-                showline=False,
-                spikedash='dot',        # Nét đứt (cho khác trục X)
-                spikecolor='#ff0055',   # Màu Neon Pink
-                spikethickness=1
+                showgrid=True, gridcolor='rgba(255,255,255,0.1)', side='right',
+                showspikes=True, spikemode='across', spikesnap='cursor',
+                showline=False, spikedash='dot', 
+                # Đổi màu crosshair trục Y sang cyan luôn
+                spikecolor='#00f3ff', spikethickness=1
             )
         )
         
