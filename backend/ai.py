@@ -193,7 +193,7 @@ class ProphetPredictor:
             x=future_data['ds'], y=future_data['yhat'],
             mode='lines', 
             name='AI DỰ BÁO',
-            line=dict(color='#ff0055', width=4) # Neon Pink siêu đậm
+            line=dict(color='#ff0055', width=2) # Neon Pink siêu đậm
         ))
         
         # --- CẤU HÌNH CROSSHAIR (ĐƯỜNG CHỈ CỘNG) Ở ĐÂY ---
