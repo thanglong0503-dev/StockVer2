@@ -224,5 +224,6 @@ class ProphetPredictor:
 def run_monte_carlo(df: pd.DataFrame) -> Tuple:
     return MonteCarloSimulator(df).run()
 
-def run_prophet_ai(df: pd.DataFrame) -> Optional[go.Figure]:
-    return ProphetPredictor(df).predict()
+def run_prophet_ai(df: pd.DataFrame, periods: int = 60) -> Optional[go.Figure]:
+    # Truyền tham số periods vào bên trong
+    return ProphetPredictor(df).predict(periods=periods)
