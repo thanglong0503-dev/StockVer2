@@ -327,15 +327,43 @@ with main_tab1:
             with t2:
                 components.html(f"""<div class="tradingview-widget-container"><div id="tv_widget"></div><script type="text/javascript" src="https://s3.tradingview.com/tv.js"></script><script>new TradingView.widget({{"width":"100%","height":550,"symbol":"HOSE:{target_symbol}","interval":"D","theme":"dark","style":"1","locale":"en","toolbar_bg":"#f1f3f6","enable_publishing":false,"container_id":"tv_widget"}});</script></div>""", height=560)
             
-            # TAB 3: AI (Crosshair Neon + Dots)
+            # TAB 3: AI (Crosshair Neon + Time Selector)
             with t3:
                 st.markdown("### 🔮 NEURAL NETWORK FORECAST")
-                if st.button("INITIATE AI MODEL", key="btn_ai", type="primary"):
-                    with st.spinner("TRAINING NEURAL NETS..."):
-                        fig_ai = run_prophet_ai(hist_df)
-                        if fig_ai: 
-                            st.plotly_chart(fig_ai, use_container_width=True, config={'scrollZoom': True, 'displayModeBar': True})
-                        else: st.error("INSUFFICIENT DATA")
+                
+                # [NEW] CHỌN KHUNG THỜI GIAN DỰ BÁO
+                c_ai_1, c_ai_2 = st.columns([1, 3])
+                
+                with c_ai_1:
+                    # Hộp chọn thời gian
+                    time_option = st.selectbox(
+                        "⏳ TẦM NHÌN (TIMEFRAME)",
+                        ["3 Tháng (90 ngày)", "6 Tháng (180 ngày)", "12 Tháng (1 Năm)", "1 Tháng (30 ngày)"],
+                        index=0 # Mặc định chọn 3 tháng
+                    )
+                    
+                    # Mapping từ chữ sang số ngày
+                    days_map = {
+                        "1 Tháng (30 ngày)": 30,
+                        "3 Tháng (90 ngày)": 90,
+                        "6 Tháng (180 ngày)": 180,
+                        "12 Tháng (1 Năm)": 365
+                    }
+                    selected_days = days_map[time_option]
+
+                with c_ai_2:
+                    st.write("") # Căn lề cho nút bấm thẳng hàng
+                    st.write("")
+                    # Nút bấm kích hoạt
+                    if st.button(f"🚀 KÍCH HOẠT AI ({selected_days} NGÀY)", key="btn_ai", type="primary"):
+                        with st.spinner(f"ĐANG TÍNH TOÁN DỰ BÁO {selected_days} NGÀY TỚI..."):
+                            # Truyền số ngày (selected_days) vào hàm AI
+                            fig_ai = run_prophet_ai(hist_df, periods=selected_days)
+                            
+                            if fig_ai: 
+                                st.plotly_chart(fig_ai, use_container_width=True, config={'scrollZoom': True, 'displayModeBar': True})
+                            else: 
+                                st.error("DỮ LIỆU KHÔNG ĐỦ ĐỂ DỰ BÁO XA")
             
             # TAB 4: MONTE CARLO
             with t4:
