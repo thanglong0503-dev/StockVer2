@@ -16,7 +16,11 @@ from backend.commodities import get_gold_price, get_silver_price
 # [NEW IMPORT] Module quản lý User & Portfolio
 from backend.database import register_user, login_user, add_transaction, get_user_portfolio
 # Thêm get_all_users_admin và delete_user_admin vào dòng import
-from backend.database import register_user, login_user, add_transaction, get_user_portfolio, get_all_users_admin, delete_user_admin
+# Thêm init_admin_account vào import
+from backend.database import register_user, login_user, add_transaction, get_user_portfolio, get_all_users_admin, delete_user_admin, init_admin_account
+
+# Gọi hàm này ngay đầu file để chắc chắn Admin luôn tồn tại
+init_admin_account()
 import streamlit as st
 import sys
 import os
