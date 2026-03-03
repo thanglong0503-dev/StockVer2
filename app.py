@@ -13,7 +13,8 @@ DESCRIPTION:
 """
 # [NEW IMPORT]
 from backend.commodities import get_gold_price, get_silver_price
-
+# [NEW IMPORT] Module quản lý User & Portfolio
+from backend.database import register_user, login_user, add_transaction, get_user_portfolio
 import streamlit as st
 import sys
 import os
@@ -63,45 +64,63 @@ if 'scan_list' not in st.session_state:
     st.session_state['scan_list'] = "HPG, SSI, FPT, MWG, VCB, STB, DIG, NVL, PDR, VIX, DGC, VND"
 
 # ==============================================================================
-# 3. SECURE LOGIN LAYER
+# 3. SECURE AUTH LAYER (LOGIN & REGISTER - NEW)
 # ==============================================================================
-def render_secure_login():
-    """Màn hình đăng nhập Cyberpunk"""
+def render_auth_screen():
+    """Màn hình xác thực Cyberpunk (Có Đăng Ký & Đăng Nhập)"""
     st.markdown("""
     <style>
-        .login-box {
-            max-width: 400px; margin: 100px auto; padding: 40px;
-            background: rgba(0, 0, 0, 0.8); border: 1px solid #00f3ff;
-            box-shadow: 0 0 50px rgba(0, 243, 255, 0.2); text-align: center; border-radius: 10px;
-        }
-        .login-title {
-            font-family: 'Rajdhani', sans-serif; font-size: 32px; font-weight: 800; color: #fff;
-            text-shadow: 0 0 10px #00f3ff; letter-spacing: 4px; margin-bottom: 20px;
-        }
-        .stTextInput input { text-align: center; color: #00f3ff !important; border-color: #333 !important; }
+        .login-box { max-width: 400px; margin: 50px auto; padding: 30px; background: rgba(0, 0, 0, 0.8); border: 1px solid #00f3ff; box-shadow: 0 0 30px rgba(0, 243, 255, 0.2); border-radius: 10px; }
+        .login-title { font-family: 'Rajdhani', sans-serif; font-size: 28px; font-weight: 800; color: #fff; text-align: center; margin-bottom: 20px; text-shadow: 0 0 10px #00f3ff; }
     </style>
     """, unsafe_allow_html=True)
 
-    st.markdown('<div class="login-box"><div class="login-title">SYSTEM ACCESS</div><div style="color: #555; font-size: 12px; margin-bottom: 20px;">RESTRICTED AREA // LEVEL 5 CLEARANCE</div></div>', unsafe_allow_html=True)
-    
     c1, c2, c3 = st.columns([1, 1, 1])
     with c2:
-        with st.form("login_form"):
-            user = st.text_input("IDENTITY", placeholder="USER_ID")
-            pwd = st.text_input("KEY_PHRASE", type="password", placeholder="ACCESS_CODE")
-            if st.form_submit_button("INITIATE UPLINK", type="primary", use_container_width=True):
-                time.sleep(0.3)
-                if (user == "admin" and pwd == "admin123") or (user == "stock" and pwd == "stock123"):
-                    st.session_state['logged_in'] = True
-                    st.rerun()
-                else:
-                    st.error("⛔ ACCESS DENIED")
+        st.markdown('<div class="login-box"><div class="login-title">THANG LONG CITADEL</div>', unsafe_allow_html=True)
+        
+        tab_login, tab_register = st.tabs(["🔑 ĐĂNG NHẬP", "📝 ĐĂNG KÝ"])
+        
+        # --- FORM ĐĂNG NHẬP ---
+        with tab_login:
+            with st.form("login_form"):
+                user = st.text_input("Tài khoản", placeholder="Username")
+                pwd = st.text_input("Mật khẩu", type="password", placeholder="Password")
+                if st.form_submit_button("ACCESS SYSTEM", type="primary", use_container_width=True):
+                    success, info = login_user(user, pwd)
+                    if success:
+                        st.session_state['logged_in'] = True
+                        # Lưu info user vào session để dùng sau
+                        st.session_state['user_info'] = {"username": user, "name": info['name']}
+                        st.success(f"Chào mừng {info['name']}!")
+                        time.sleep(0.5)
+                        st.rerun()
+                    else:
+                        st.error("⛔ Sai tài khoản hoặc mật khẩu")
 
+        # --- FORM ĐĂNG KÝ ---
+        with tab_register:
+            with st.form("reg_form"):
+                new_user = st.text_input("Tạo Username", placeholder="VD: stock_master")
+                new_pwd = st.text_input("Tạo Password", type="password")
+                full_name = st.text_input("Họ và Tên", placeholder="Nguyễn Văn A")
+                email = st.text_input("Email (Tùy chọn)")
+                if st.form_submit_button("CREATE IDENTITY", use_container_width=True):
+                    if new_user and new_pwd:
+                        ok, msg = register_user(new_user, new_pwd, full_name, email)
+                        if ok: st.success(msg)
+                        else: st.error(msg)
+                    else:
+                        st.warning("Vui lòng nhập đủ thông tin.")
+        
+        st.markdown('</div>', unsafe_allow_html=True)
+
+# [QUAN TRỌNG] Gọi hàm này thay vì render_secure_login cũ
 if not st.session_state['logged_in']:
     load_hardcore_css()
-    render_secure_login()
+    # render_secure_login() <-- Xóa dòng cũ này đi
+    render_auth_screen()      # <-- Thay bằng dòng mới này
     st.stop()
-
 # ==============================================================================
 # 4. MAIN COMMAND CENTER
 # ==============================================================================
@@ -241,9 +260,13 @@ with st.spinner("UPDATING MARKET FEED..."):
 st.markdown("<div style='height:20px'></div>", unsafe_allow_html=True)
 
 # ==============================================================================
-# [NEW] CẤU TRÚC TAB LỚN - CHIA KHU VỰC CỔ PHIẾU VÀ KHO BÁU
+# MAIN TABS: 3 KHU VỰC CHÍNH (ĐÃ THÊM TAB PORTFOLIO)
 # ==============================================================================
-main_tab1, main_tab2 = st.tabs(["🚀 STOCK COMMAND CENTER", "💰 TREASURE VAULT (GOLD/SILVER)"])
+main_tab1, main_tab2, main_tab3 = st.tabs([
+    "🚀 STOCK COMMAND CENTER", 
+    "💼 MY PORTFOLIO (SỔ TAY ĐẦU TƯ)", 
+    "💰 TREASURE VAULT (GOLD/SILVER)"
+])
 
 # ==============================================================================
 # TAB 1: STOCK COMMAND CENTER (TOÀN BỘ CODE CŨ NẰM Ở ĐÂY)
@@ -399,12 +422,75 @@ with main_tab1:
                     if not divs.empty: st.bar_chart(divs.head(10))
 
         st.markdown('</div>', unsafe_allow_html=True)
-
-# ==============================================================================
-# ==============================================================================
-# TAB 2: TREASURE VAULT (KHO BÁU VÀNG & BẠC)
-# ==============================================================================
+# === TAB 2: MY PORTFOLIO (SỔ TAY ĐẦU TƯ) - [NEW FEATURE] ===
 with main_tab2:
+    st.markdown('<div class="glass-box">', unsafe_allow_html=True)
+    
+    # Lấy tên user hiện tại
+    user_name = st.session_state.get('user_info', {}).get('name', 'Unknown')
+    
+    # Header
+    c_p1, c_p2 = st.columns([3, 1])
+    with c_p1: st.markdown(f"### 💼 DANH MỤC ĐẦU TƯ CỦA: <span style='color:#00f3ff'>{user_name}</span>", unsafe_allow_html=True)
+    with c_p2: 
+        if st.button("🔄 CẬP NHẬT P/L", use_container_width=True): st.rerun()
+
+    col_input, col_table = st.columns([1, 2])
+    
+    # 1. FORM NHẬP LỆNH MUA
+    with col_input:
+        st.markdown("#### 📥 GHI SỔ LỆNH MỚI")
+        with st.form("portfolio_add"):
+            p_symbol = st.text_input("Mã CK (VD: HPG)", max_chars=3).upper()
+            p_vol = st.number_input("Khối lượng", min_value=10, step=100)
+            p_price = st.number_input("Giá vốn (Nghìn VNĐ)", min_value=0.0, step=0.1, format="%.2f")
+            
+            if st.form_submit_button("LƯU VÀO VÍ", type="primary", use_container_width=True):
+                if p_symbol and p_vol > 0 and p_price > 0:
+                    current_user = st.session_state['user_info']['username']
+                    ok = add_transaction(current_user, p_symbol, p_vol, p_price)
+                    if ok: st.success(f"Đã thêm {p_symbol}!")
+                    else: st.error("Lỗi lưu dữ liệu.")
+                    time.sleep(1)
+                    st.rerun()
+
+    # 2. BẢNG DANH MỤC & HIỆU SUẤT
+    with col_table:
+        st.markdown("#### 📊 HIỆU SUẤT REAL-TIME")
+        current_user = st.session_state.get('user_info', {}).get('username', '')
+        
+        if current_user:
+            df_port = get_user_portfolio(current_user)
+            
+            if not df_port.empty:
+                # Hiển thị Metrics
+                total_invest = df_port['cost_value'].sum()
+                total_pl = df_port['profit_loss'].sum()
+                total_pct = (total_pl / total_invest * 100) if total_invest > 0 else 0
+                
+                m1, m2 = st.columns(2)
+                m1.metric("TỔNG VỐN", f"{total_invest:,.0f} K")
+                m2.metric("LÃI/LỖ TỔNG", f"{total_pl:,.0f} K", f"{total_pct:.2f}%")
+                
+                st.dataframe(
+                    df_port,
+                    column_config={
+                        "symbol": "Mã CK",
+                        "volume": "Khối lượng",
+                        "price_avg": st.column_config.NumberColumn("Giá Vốn", format="%.2f"),
+                        "market_price": st.column_config.NumberColumn("Giá TT", format="%.2f"),
+                        "profit_loss": st.column_config.NumberColumn("Lãi/Lỗ", format="%.0f"),
+                        "percent_pl": st.column_config.NumberColumn("% Lãi", format="%.2f %%"),
+                    },
+                    hide_index=True, use_container_width=True
+                )
+            else:
+                st.info("Ví trống. Hãy nhập mã cổ phiếu!")
+
+    st.markdown('</div>', unsafe_allow_html=True)
+# ==============================================================================
+# === TAB 3: TREASURE VAULT (CODE CŨ CỦA NGÀI - CHUYỂN TỪ main_tab2 SANG main_tab3) ===
+with main_tab3:
     st.markdown('<div class="glass-box">', unsafe_allow_html=True)
     
     # HEADER CÓ NÚT BẤM
