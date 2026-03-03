@@ -1,13 +1,13 @@
 """
 ================================================================================
 MODULE: backend/database.py
-DESCRIPTION: Hệ thống quản lý User & Portfolio (Fix lỗi giá 0 bằng Backup YFinance).
+DESCRIPTION: Quản lý User & Portfolio (BẢO MẬT CAO - CHỐNG CHIẾM QUYỀN ADMIN).
 ================================================================================
 """
 import json
 import os
 import pandas as pd
-import yfinance as yf # [NEW] Gọi thêm đội đặc nhiệm YFinance
+import yfinance as yf
 from datetime import datetime
 from backend.data import get_pro_data
 
@@ -24,10 +24,38 @@ def save_db(data):
     with open(DB_FILE, "w", encoding="utf-8") as f:
         json.dump(data, f, ensure_ascii=False, indent=4)
 
+# [QUAN TRỌNG] TỰ ĐỘNG KHỞI TẠO ADMIN NẾU CHƯA CÓ
+def init_admin_account():
+    """
+    Hàm này đảm bảo user 'admin' luôn tồn tại và thuộc về Lão Đại.
+    Mật khẩu mặc định: 'ThangLongVip' (Ngài có thể đổi ở đây)
+    """
+    db = load_db()
+    if "admin" not in db:
+        # Tạo mới tài khoản trùm cuối
+        db["admin"] = {
+            "password": "ThangLongVip",  # <--- MẬT KHẨU CỦA NGÀI (Đổi tùy ý)
+            "profile": {
+                "name": "SUPREME COMMANDER",
+                "email": "boss@thanglong.vn",
+                "joined_date": "2026-01-01"
+            },
+            "portfolio": []
+        }
+        save_db(db)
+        print(">>> ADMIN ACCOUNT CREATED SUCCESSFULLY.")
+
 # --- 2. QUẢN LÝ TÀI KHOẢN ---
 def register_user(username, password, full_name, email):
+    # [CHỐT CHẶN 1] CẤM ĐĂNG KÝ TÊN NHẠY CẢM
+    forbidden_names = ["admin", "administrator", "root", "system", "support", "mod"]
+    
+    if username.lower().strip() in forbidden_names:
+        return False, "⛔ Tên này là TỐI MẬT (Reserved)! Không được phép đăng ký."
+
     db = load_db()
     if username in db: return False, "⚠️ Tên đăng nhập đã tồn tại!"
+    
     db[username] = {
         "password": password,
         "profile": {"name": full_name, "email": email, "joined_date": datetime.now().strftime("%Y-%m-%d")},
@@ -38,11 +66,12 @@ def register_user(username, password, full_name, email):
 
 def login_user(username, password):
     db = load_db()
+    # Kiểm tra khớp user và pass
     if username in db and db[username]["password"] == password:
         return True, db[username]["profile"]
     return False, None
 
-# --- 3. QUẢN LÝ DANH MỤC (CÓ FIX GIÁ) ---
+# --- 3. QUẢN LÝ DANH MỤC (GIỮ NGUYÊN) ---
 def add_transaction(username, symbol, volume, price_avg):
     db = load_db()
     if username not in db: return False
@@ -57,26 +86,15 @@ def add_transaction(username, symbol, volume, price_avg):
     return True
 
 def get_realtime_price_backup(symbol):
-    """
-    Hàm cứu hộ: Lấy giá từ Yahoo Finance nếu nguồn chính bị lỗi.
-    Input: 'MBB' -> Output: 27.05 (Đơn vị nghìn đồng)
-    """
     try:
-        # Thử thêm đuôi .VN nếu chưa có
         ticker = symbol if symbol.endswith(".VN") else f"{symbol}.VN"
         data = yf.Ticker(ticker).history(period="1d")
         if not data.empty:
-            price_vnd = data['Close'].iloc[-1]
-            # Yahoo trả về VND (VD: 27050), ta đổi sang nghìn (27.05) để khớp hệ thống
-            return price_vnd / 1000
-    except:
-        pass
+            return data['Close'].iloc[-1] / 1000
+    except: pass
     return 0.0
 
 def get_user_portfolio(username):
-    """
-    Lấy danh mục đầu tư & TÍNH TOÁN LÃI LỖ (CƠ CHẾ KÉP)
-    """
     db = load_db()
     if username not in db: return pd.DataFrame()
     
@@ -84,67 +102,53 @@ def get_user_portfolio(username):
     if not portfolio_list: return pd.DataFrame()
     
     df = pd.DataFrame(portfolio_list)
-    
-    # 1. Tính giá vốn trước (Luôn có)
     df['cost_value'] = df['price_avg'] * df['volume']
     
-    # 2. Lấy giá thị trường từ nguồn Quét Nhanh (Radar)
     tickers = df['symbol'].unique().tolist()
     market_data = get_pro_data(tickers)
     
-    # Map giá vào bảng (Nếu không có thì để 0)
     if not market_data.empty:
         price_map = dict(zip(market_data['Symbol'], market_data['Price']))
         df['market_price'] = df['symbol'].map(price_map).fillna(0)
     else:
         df['market_price'] = 0.0
 
-    # 3. [FIX QUAN TRỌNG] VÒNG LẶP CỨU HỘ
-    # Duyệt qua từng dòng, nếu giá vẫn bằng 0 -> Gọi Yahoo Finance cứu viện
     for index, row in df.iterrows():
         if row['market_price'] == 0 or pd.isna(row['market_price']):
             backup_price = get_realtime_price_backup(row['symbol'])
             if backup_price > 0:
                 df.at[index, 'market_price'] = backup_price
 
-    # 4. Tính toán Lãi/Lỗ
-    # Nếu sau khi cứu viện mà giá vẫn = 0 (mã hủy niêm yết/sai mã) thì dùng giá vốn (coi như hòa vốn tạm thời)
     df['total_value'] = df.apply(lambda x: (x['market_price'] * x['volume']) if x['market_price'] > 0 else x['cost_value'], axis=1)
-    
     df['profit_loss'] = df['total_value'] - df['cost_value']
-    
-    # Tính % lãi lỗ (xử lý chia cho 0)
     df['percent_pl'] = df.apply(lambda x: (x['profit_loss'] / x['cost_value'] * 100) if x['cost_value'] != 0 else 0, axis=1)
     
     return df
-# --- 4. ADMIN TOOLS (CÔNG CỤ QUẢN TRỊ) ---
+
+# --- 4. ADMIN TOOLS ---
 def get_all_users_admin():
-    """
-    Hàm dành riêng cho Admin: Lấy danh sách toàn bộ User
-    """
     db = load_db()
     user_list = []
-    
     for username, data in db.items():
         profile = data.get("profile", {})
         portfolio = data.get("portfolio", [])
-        
         user_list.append({
             "Username": username,
             "Họ Tên": profile.get("name", "N/A"),
             "Email": profile.get("email", "N/A"),
             "Ngày Gia Nhập": profile.get("joined_date", "N/A"),
-            "Số Lệnh Đã Đặt": len(portfolio), # Đếm số mã họ đã mua
-            "Mật Khẩu": data.get("password", "***") # (Chỉ Admin mới thấy)
+            "Số Lệnh": len(portfolio),
+            "Pass": data.get("password", "***")
         })
-        
     return pd.DataFrame(user_list)
 
 def delete_user_admin(username_to_delete):
-    """Xóa một tài khoản khỏi hệ thống"""
     db = load_db()
     if username_to_delete in db:
         del db[username_to_delete]
         save_db(db)
         return True
     return False
+
+# [QUAN TRỌNG] Gọi hàm khởi tạo Admin ngay khi module được load
+init_admin_account()
