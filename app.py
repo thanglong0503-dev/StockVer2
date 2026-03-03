@@ -17,8 +17,9 @@ from backend.commodities import get_gold_price, get_silver_price
 from backend.database import register_user, login_user, add_transaction, get_user_portfolio
 # Thêm get_all_users_admin và delete_user_admin vào dòng import
 # Thêm init_admin_account vào import
-from backend.database import register_user, login_user, add_transaction, get_user_portfolio, get_all_users_admin, delete_user_admin, init_admin_account, delete_portfolio_stock
 
+# Thêm save_user_note và get_user_note vào dòng import
+from backend.database import register_user, login_user, add_transaction, get_user_portfolio, get_all_users_admin, delete_user_admin, init_admin_account, delete_portfolio_stock, save_user_note, get_user_note
 # Gọi hàm này ngay đầu file để chắc chắn Admin luôn tồn tại
 init_admin_account()
 import streamlit as st
@@ -371,12 +372,13 @@ with st.spinner("UPDATING MARKET FEED..."):
 st.markdown("<div style='height:20px'></div>", unsafe_allow_html=True)
 
 # ==============================================================================
-# MAIN TABS: 3 KHU VỰC CHÍNH (ĐÃ THÊM TAB PORTFOLIO)
+# MAIN TABS: 4 KHU VỰC CHIẾN LƯỢC
 # ==============================================================================
-main_tab1, main_tab2, main_tab3 = st.tabs([
+main_tab1, main_tab2, main_tab3, main_tab4 = st.tabs([
     "🚀 STOCK COMMAND CENTER", 
-    "💼 MY PORTFOLIO (SỔ TAY ĐẦU TƯ)", 
-    "💰 TREASURE VAULT (GOLD/SILVER)"
+    "💼 MY PORTFOLIO", 
+    "💰 TREASURE VAULT",
+    "🧮 CÔNG CỤ & GHI CHÚ"  # <--- TAB MỚI
 ])
 
 # ==============================================================================
@@ -684,7 +686,71 @@ with main_tab3:
     st.markdown('</div>', unsafe_allow_html=True)
 
 st.markdown('<div style="text-align:center; color:#444; font-size:10px; margin-top:50px;">THANG LONG TERMINAL SYSTEM V36.7 // ENCRYPTED</div>', unsafe_allow_html=True)
+# === TAB 4: CÔNG CỤ DỰ TÍNH & GHI CHÚ CHIẾN LƯỢC ===
+with main_tab4:
+    c_tools_1, c_tools_2 = st.columns([1, 1])
+    
+    # --- PHẦN 1: MÁY TÍNH LÃI LỖ (SIMULATOR) ---
+    with c_tools_1:
+        st.markdown('<div class="glass-box"><h4>🧮 MÁY TÍNH DỰ BÁO (SIMULATOR)</h4>', unsafe_allow_html=True)
+        
+        with st.form("calc_form"):
+            col_calc_1, col_calc_2 = st.columns(2)
+            with col_calc_1:
+                sim_vol = st.number_input("Số Lượng Cổ Phiếu", min_value=100, step=100, value=1000)
+                sim_price_in = st.number_input("Giá Vốn (Vào)", min_value=0.1, step=0.1, value=25.0, format="%.2f")
+            with col_calc_2:
+                sim_price_target = st.number_input("Giá Mục Tiêu (Ra)", min_value=0.1, step=0.1, value=28.5, format="%.2f")
+                st.write("") # Căn lề
+                st.write("")
+            
+            # Nút Tính Toán
+            if st.form_submit_button("🔮 DỰ TÍNH LÃI / LỖ", type="primary", use_container_width=True):
+                # Logic tính toán
+                total_cost = sim_vol * sim_price_in * 1000 # Đơn vị đồng
+                total_rev = sim_vol * sim_price_target * 1000
+                profit = total_rev - total_cost
+                pct_change = (profit / total_cost) * 100
+                
+                # Hiển thị kết quả
+                st.divider()
+                if profit > 0:
+                    st.success(f"🎉 LÃI DỰ KIẾN: +{profit:,.0f} VND (+{pct_change:.2f}%)")
+                    st.balloons() # Thả bóng chúc mừng
+                elif profit < 0:
+                    st.error(f"⚠️ LỖ DỰ KIẾN: {profit:,.0f} VND ({pct_change:.2f}%)")
+                else:
+                    st.warning("HÒA VỐN (BREAK EVEN)")
 
+        st.markdown('</div>', unsafe_allow_html=True)
+
+    # --- PHẦN 2: SỔ TAY GHI CHÚ (WATCHLIST NOTES) ---
+    with c_tools_2:
+        st.markdown('<div class="glass-box"><h4>📝 SỔ TAY ĐIỆP VIÊN (NOTES)</h4>', unsafe_allow_html=True)
+        
+        current_user = st.session_state.get('user_info', {}).get('username', '')
+        
+        # Lấy nội dung ghi chú cũ
+        saved_note = get_user_note(current_user)
+        
+        with st.form("note_form"):
+            # Ô nhập liệu lớn
+            new_note = st.text_area(
+                "Ghi lại mã cần theo dõi, điểm mua/bán:", 
+                value=saved_note, 
+                height=300,
+                placeholder="- HPG: Chờ về 26.5 múc mạnh\n- CEO: Đang tạo nền, theo dõi volume..."
+            )
+            
+            if st.form_submit_button("💾 LƯU GHI CHÚ", use_container_width=True):
+                if save_user_note(current_user, new_note):
+                    st.success("Đã lưu vào bộ nhớ mật!")
+                    time.sleep(0.5)
+                    st.rerun()
+                else:
+                    st.error("Lỗi lưu trữ.")
+        
+        st.markdown('</div>', unsafe_allow_html=True)
 # ==============================================================================
 # 5. FOOTER (THANH TRẠNG THÁI NGANG - CYBER COMMANDER STYLE)
 # ==============================================================================
