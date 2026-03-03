@@ -146,42 +146,42 @@ with st.sidebar:
     
     st.markdown("### 📡 TARGET SCANNER")
     
-    # [TÍNH NĂNG MỚI] 1. QUÉT THEO NGÀNH (SECTOR SCAN)
+    # 1. QUÉT THEO NGÀNH (Logic Fix: Chỉ cập nhật khi thay đổi lựa chọn)
     st.markdown("<span style='color:#00f3ff; font-size:12px'>⚡ QUÉT NHANH THEO NGÀNH</span>", unsafe_allow_html=True)
     
-    # Lấy danh sách tên các ngành
+    # Khởi tạo biến theo dõi nếu chưa có
+    if 'prev_sector' not in st.session_state: st.session_state['prev_sector'] = "NONE"
+
     sector_options = ["-- Chọn Nhóm Ngành --"] + get_all_sector_names()
     selected_sector = st.selectbox("Chọn Hạm Đội:", sector_options, label_visibility="collapsed")
     
-    # Logic: Nếu chọn ngành -> Tự động điền vào ô Watchlist
-    if selected_sector != "-- Chọn Nhóm Ngành --":
-        ticker_group = get_sector_list_data(selected_sector)
-        st.session_state['scan_list'] = ", ".join(ticker_group)
+    # [FIX QUAN TRỌNG] Chỉ chạy lệnh khi ngài THỰC SỰ đổi lựa chọn khác
+    if selected_sector != st.session_state['prev_sector']:
+        st.session_state['prev_sector'] = selected_sector # Lưu lại cái mới chọn
+        if selected_sector != "-- Chọn Nhóm Ngành --":
+            ticker_group = get_sector_list_data(selected_sector)
+            st.session_state['scan_list'] = ", ".join(ticker_group)
+            st.rerun() # Tải lại trang ngay để hiện list
 
-    st.markdown("---") # Đường kẻ ngăn cách
+    st.markdown("---")
 
-    # [TÍNH NĂNG CŨ] 2. QUÉT THEO SÀN (EXCHANGE SCAN)
+    # 2. QUÉT THEO SÀN (Nút bấm được ưu tiên)
     st.markdown("<span style='color:#00f3ff; font-size:12px'>🏛️ HOẶC QUÉT TOÀN SÀN</span>", unsafe_allow_html=True)
     
     c_hose, c_hnx, c_upcom = st.columns(3)
-    if c_hose.button("HOSE", key="btn_hose"): st.session_state['scan_list'] = ", ".join(get_full_market_list("HOSE"))
-    if c_hnx.button("HNX", key="btn_hnx"): st.session_state['scan_list'] = ", ".join(get_full_market_list("HNX"))
-    if c_upcom.button("UPCOM", key="btn_upcom"): st.session_state['scan_list'] = ", ".join(get_full_market_list("UPCOM"))
-        
-    # Ô INPUT HIỂN THỊ KẾT QUẢ (GIỮ NGUYÊN)
-    st.text_area("WATCHLIST HIỆN TẠI:", value=st.session_state['scan_list'], height=100, key="txt_watchlist_display", disabled=True)
     
-    # NÚT KÍCH HOẠT QUÉT (GIỮ NGUYÊN)
-    if st.button("EXECUTE SCAN", key="btn_scan", type="primary", use_container_width=True):
-        # Lấy dữ liệu từ session_state['scan_list']
-        raw_list = st.session_state['scan_list']
-        ticker_list = [t.strip().upper() for t in raw_list.split(',') if t.strip()]
+    # Thêm st.rerun() vào sau mỗi nút để Text Area cập nhật ngay lập tức
+    if c_hose.button("HOSE", key="btn_hose"): 
+        st.session_state['scan_list'] = ", ".join(get_full_market_list("HOSE"))
+        st.rerun()
         
-        if ticker_list:
-            with st.spinner("SCANNING TARGETS..."):
-                st.session_state['radar_data'] = get_pro_data(ticker_list) 
-            st.rerun()
+    if c_hnx.button("HNX", key="btn_hnx"): 
+        st.session_state['scan_list'] = ", ".join(get_full_market_list("HNX"))
+        st.rerun()
 
+    if c_upcom.button("UPCOM", key="btn_upcom"): 
+        st.session_state['scan_list'] = ", ".join(get_full_market_list("UPCOM"))
+        st.rerun()
     # (Phần Logout giữ nguyên)
     
     with st.expander("SYSTEM LOGS", expanded=True):
