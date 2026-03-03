@@ -245,13 +245,16 @@ def render_interactive_chart(df, symbol):
     st.plotly_chart(fig, use_container_width=True, config=config)
 
 # ==============================================================================
-# 6. MARKET GALAXY (LOGO EDITION - FIREANT SOURCE + TEXT BACKUP)
+# ==============================================================================
+# 6. MARKET GALAXY (CRYPTO TOKEN STYLE - SIÊU NHANH & KHÔNG LỖI)
 # ==============================================================================
 def render_market_galaxy(df):
     """
-    Vẽ biểu đồ Galaxy - BẢN LOGO TOP 50 (NGUỒN FIREANT).
-    - Dùng nguồn ảnh FireAnt (Ít lỗi hơn).
-    - LUÔN HIỆN TÊN MÃ (TEXT) để dự phòng trường hợp ảnh lỗi.
+    Vẽ biểu đồ Galaxy - PHONG CÁCH CRYPTO TOKENS.
+    - Thay vì tải logo (hay bị lỗi), ta vẽ các "Đồng Xu" (Bubble).
+    - Tên mã (HPG, VCB...) nằm CHÍNH GIỮA đồng xu.
+    - Màu sắc Xanh/Đỏ thể hiện Tăng/Giảm.
+    - To/Nhỏ thể hiện Dòng tiền (Volume).
     """
     if df.empty: return
 
@@ -260,10 +263,18 @@ def render_market_galaxy(df):
         mean_vol = df['Volume'].mean() if df['Volume'].mean() > 0 else 1
         df['Vol_Ratio'] = df['Volume'] / mean_vol
 
-    # Lấy Top 50
+    # Lấy Top 50 mã mạnh nhất
     df_galaxy = df.sort_values(by='Vol_Ratio', ascending=False).head(50).copy()
     
-    # Tạo Hover Info
+    # Logic màu sắc (Xanh / Đỏ / Vàng)
+    def get_color(pct):
+        if pct > 0.1: return '#00ff41'   # Tăng (Xanh Neon)
+        if pct < -0.1: return '#ff0055'  # Giảm (Đỏ Neon)
+        return '#ffcc00'                 # Tham chiếu (Vàng)
+    
+    df_galaxy['Color'] = df_galaxy['Pct'].apply(get_color)
+
+    # Tạo Hover Info (Thông tin khi rê chuột)
     df_galaxy['Hover_Info'] = df_galaxy.apply(lambda row: (
         f"<b>{row['Symbol']}</b><br>"
         f"💰 Giá: {row['Price']:.2f}<br>"
@@ -271,73 +282,41 @@ def render_market_galaxy(df):
         f"🦈 Vol Ratio: <b>{row['Vol_Ratio']:.1f}x</b>"
     ), axis=1)
 
-    # 2. TẠO KHUNG SƯỜN & TEXT LABEL (QUAN TRỌNG)
-    # Ta bật mode='markers+text' để hiện cả chấm tròn (ẩn) và CHỮ (hiện)
+    # 2. VẼ BIỂU ĐỒ BONG BÓNG (TOKEN)
     fig = px.scatter(
         df_galaxy,
         x="Price",
         y="Pct",
-        size="Vol_Ratio", 
+        size="Vol_Ratio",
+        color="Color",          # Dùng cột màu đã tính
         hover_name="Hover_Info",
-        text="Symbol",  # <--- BẮT BUỘC HIỆN TÊN MÃ
+        text="Symbol",          # [QUAN TRỌNG] Hiển thị mã CK
+        color_discrete_map="identity", # Dùng đúng mã màu Hex ta quy định
+        size_max=50,            # Kích thước tối đa của đồng xu
         template="plotly_dark",
         height=600
     )
 
-    # Tinh chỉnh: Ẩn chấm tròn, nhưng HIỆN CHỮ
+    # 3. TINH CHỈNH GIAO DIỆN "ĐỒNG XU"
     fig.update_traces(
-        mode='markers+text',
-        textposition='top center', # Chữ nằm trên đầu Logo
-        textfont=dict(
-            family="Rajdhani", 
-            size=14, 
-            color="#00f3ff" # Màu xanh neon cho chữ dễ đọc
+        mode='markers+text',    # Hiển thị cả Hình tròn + Chữ
+        textposition='middle center', # Chữ nằm chính giữa hình tròn
+        marker=dict(
+            opacity=0.9,        # Độ rõ nét
+            line=dict(width=2, color='white') # Viền trắng cho nổi bật
         ),
-        marker=dict(opacity=0, line=dict(width=0)) # Ẩn chấm tròn đi
+        textfont=dict(
+            family="Rajdhani",  # Font chữ Cyberpunk
+            size=12,            # Cỡ chữ (sẽ tự scale theo hình nếu muốn, nhưng để fix cho dễ đọc)
+            color='white',      # Chữ màu trắng
+            weight='bold'       # Chữ đậm
+        )
     )
 
-    # 3. CHÈN LOGO (NGUỒN MỚI: FIREANT)
-    x_range = df_galaxy['Price'].max() - df_galaxy['Price'].min()
-    y_range = df_galaxy['Pct'].max() - df_galaxy['Pct'].min()
-    
-    # Tính base size
-    base_sizex = (x_range * 0.035) if x_range > 0 else 1.0
-    base_sizey = (y_range * 0.07) if y_range > 0 else 0.5
-    
-    # [NGUỒN MỚI] FireAnt (Server tĩnh, đuôi .png)
-    logo_base_url = "https://static.fireant.vn/symbols/"
-
-    for index, row in df_galaxy.iterrows():
-        ticker = row['Symbol'].strip().upper()
-        # FireAnt dùng ảnh PNG nền trong
-        logo_url = f"{logo_base_url}{ticker}.png"
-        
-        # Scale theo Volume (Giới hạn lại để không che mất chữ)
-        scale_factor = row['Vol_Ratio'] 
-        if scale_factor > 2.5: scale_factor = 2.5
-        if scale_factor < 0.8: scale_factor = 0.8
-        
-        final_sizex = base_sizex * scale_factor
-        final_sizey = base_sizey * scale_factor
-
-        fig.add_layout_image(
-            dict(
-                source=logo_url,
-                xref="x", yref="y",
-                x=row['Price'],
-                y=row['Pct'],
-                sizex=final_sizex,
-                sizey=final_sizey,
-                xanchor="center", yanchor="middle",
-                layer="below", # Để ảnh nằm DƯỚI chữ (Text đè lên ảnh)
-                opacity=1.0
-            )
-        )
-
-    # 4. CẤU HÌNH GIAO DIỆN
+    # 4. CẤU HÌNH TRỤC VÀ TƯƠNG TÁC
     fig.update_layout(
         title=dict(
-            text="🌌 TOP 50 GALAXY (FIREANT SOURCE)",
+            text="🌌 TOP 50 MARKET TOKENS (CRYPTO STYLE)",
             font=dict(family="Rajdhani", size=18, color="#00f3ff")
         ),
         xaxis=dict(
@@ -358,7 +337,12 @@ def render_market_galaxy(df):
         hovermode='closest'
     )
 
-    # 5. CONFIG
-    config = {'scrollZoom': True, 'displayModeBar': True, 'responsive': True}
+    # 5. THANH CÔNG CỤ
+    config = {
+        'scrollZoom': True,
+        'displayModeBar': True,
+        'modeBarButtonsToRemove': ['lasso2d', 'select2d'],
+        'responsive': True
+    }
     
-    st.plotly_chart(fig, use_container_width=True, config=config, key="galaxy_fireant_v1")
+    st.plotly_chart(fig, use_container_width=True, config=config, key="galaxy_tokens_v1")
