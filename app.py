@@ -182,6 +182,22 @@ with st.sidebar:
     if c_upcom.button("UPCOM", key="btn_upcom"): 
         st.session_state['scan_list'] = ", ".join(get_full_market_list("UPCOM"))
         st.rerun()
+     # 👇 DÁN ĐOẠN NÀY VÀO DƯỚI 3 NÚT BẤM SÀN 👇
+    
+    st.markdown("---") # Kẻ ngang cho đẹp
+
+    # HIỂN THỊ LIST HIỆN TẠI (Để ngài biết đang chuẩn bị quét cái gì)
+    st.text_area("WATCHLIST HIỆN TẠI:", value=st.session_state['scan_list'], height=100, key="txt_watchlist_display", disabled=True)
+    
+    # 🔴 NÚT KÍCH HOẠT QUÉT (QUAN TRỌNG NHẤT)
+    if st.button("EXECUTE SCAN", key="btn_scan", type="primary", use_container_width=True):
+        raw_list = st.session_state['scan_list']
+        ticker_list = [t.strip().upper() for t in raw_list.split(',') if t.strip()]
+        
+        if ticker_list:
+            with st.spinner("SCANNING TARGETS..."):
+                st.session_state['radar_data'] = get_pro_data(ticker_list) 
+            st.rerun()   
     # (Phần Logout giữ nguyên)
     
     with st.expander("SYSTEM LOGS", expanded=True):
