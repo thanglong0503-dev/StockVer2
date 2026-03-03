@@ -17,7 +17,9 @@ import plotly.express as px  # Cần cái này để vẽ Galaxy
 from plotly.subplots import make_subplots
 import pandas_ta as ta
 import numpy as np
-
+import plotly.express as px
+import streamlit as st
+import plotly.graph_objects as go
 # ==============================================================================
 # 1. CORE VISUAL ENGINE (CSS ANIMATIONS & EFFECTS)
 # ==============================================================================
