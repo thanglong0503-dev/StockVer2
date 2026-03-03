@@ -17,7 +17,7 @@ from backend.commodities import get_gold_price, get_silver_price
 from backend.database import register_user, login_user, add_transaction, get_user_portfolio
 # Thêm get_all_users_admin và delete_user_admin vào dòng import
 # Thêm init_admin_account vào import
-from backend.database import register_user, login_user, add_transaction, get_user_portfolio, get_all_users_admin, delete_user_admin, init_admin_account
+from backend.database import register_user, login_user, add_transaction, get_user_portfolio, get_all_users_admin, delete_user_admin, init_admin_account, delete_portfolio_stock
 
 # Gọi hàm này ngay đầu file để chắc chắn Admin luôn tồn tại
 init_admin_account()
@@ -465,13 +465,16 @@ with main_tab1:
                     if not divs.empty: st.bar_chart(divs.head(10))
 
         st.markdown('</div>', unsafe_allow_html=True)
-# === TAB 2: MY PORTFOLIO (SỔ TAY ĐẦU TƯ) - [NEW FEATURE] ===
+# === TAB 2: MY PORTFOLIO (SỔ TAY ĐẦU TƯ) - [CÓ NÚT BÁN] ===
 with main_tab2:
     st.markdown('<div class="glass-box">', unsafe_allow_html=True)
     
-    # Lấy tên user hiện tại
-    user_name = st.session_state.get('user_info', {}).get('name', 'Unknown')
+    # Import hàm xóa mới (Lưu ý: Ngài nhớ thêm delete_portfolio_stock vào dòng import đầu file app.py nhé)
+    from backend.database import delete_portfolio_stock 
     
+    user_name = st.session_state.get('user_info', {}).get('name', 'Unknown')
+    current_user = st.session_state.get('user_info', {}).get('username', '')
+
     # Header
     c_p1, c_p2 = st.columns([3, 1])
     with c_p1: st.markdown(f"### 💼 DANH MỤC ĐẦU TƯ CỦA: <span style='color:#00f3ff'>{user_name}</span>", unsafe_allow_html=True)
@@ -480,33 +483,52 @@ with main_tab2:
 
     col_input, col_table = st.columns([1, 2])
     
-    # 1. FORM NHẬP LỆNH MUA
+    # --- CỘT TRÁI: KHU VỰC GIAO DỊCH ---
     with col_input:
-        st.markdown("#### 📥 GHI SỔ LỆNH MỚI")
-        with st.form("portfolio_add"):
-            p_symbol = st.text_input("Mã CK (VD: HPG)", max_chars=3).upper()
-            p_vol = st.number_input("Khối lượng", min_value=10, step=100)
-            p_price = st.number_input("Giá vốn (Nghìn VNĐ)", min_value=0.0, step=0.1, format="%.2f")
+        # Chia làm 2 tab con: MUA và BÁN
+        tab_buy, tab_sell = st.tabs(["🟢 NHẬP MUA", "🔴 BÁN / XÓA"])
+        
+        # 1. FORM MUA (Code cũ)
+        with tab_buy:
+            with st.form("portfolio_add"):
+                p_symbol = st.text_input("Mã CK (VD: HPG)", max_chars=3).upper()
+                p_vol = st.number_input("Khối lượng", min_value=10, step=100)
+                p_price = st.number_input("Giá vốn (Nghìn VNĐ)", min_value=0.0, step=0.1, format="%.2f")
+                
+                if st.form_submit_button("LƯU VÀO VÍ", type="primary", use_container_width=True):
+                    if p_symbol and p_vol > 0:
+                        ok = add_transaction(current_user, p_symbol, p_vol, p_price)
+                        if ok: st.success(f"Đã mua {p_symbol}!")
+                        else: st.error("Lỗi hệ thống.")
+                        time.sleep(1)
+                        st.rerun()
+
+        # 2. FORM BÁN (MỚI TINH)
+        with tab_sell:
+            st.info("Chọn mã cổ phiếu đã bán để xóa khỏi danh sách theo dõi.")
             
-            if st.form_submit_button("LƯU VÀO VÍ", type="primary", use_container_width=True):
-                if p_symbol and p_vol > 0 and p_price > 0:
-                    current_user = st.session_state['user_info']['username']
-                    ok = add_transaction(current_user, p_symbol, p_vol, p_price)
-                    if ok: st.success(f"Đã thêm {p_symbol}!")
-                    else: st.error("Lỗi lưu dữ liệu.")
+            # Lấy danh sách các mã đang có trong ví để hiển thị vào Selectbox
+            df_temp = get_user_portfolio(current_user)
+            if not df_temp.empty:
+                my_stock_list = df_temp['symbol'].unique().tolist()
+                stock_to_sell = st.selectbox("Chọn mã cần xóa", my_stock_list)
+                
+                if st.button(f"🗑️ XÓA {stock_to_sell} KHỎI VÍ", type="secondary", use_container_width=True):
+                    delete_portfolio_stock(current_user, stock_to_sell)
+                    st.success(f"Đã xóa {stock_to_sell} thành công!")
                     time.sleep(1)
                     st.rerun()
+            else:
+                st.warning("Ví đang trống, chưa có gì để bán.")
 
-    # 2. BẢNG DANH MỤC & HIỆU SUẤT
+    # --- CỘT PHẢI: BẢNG DANH MỤC (GIỮ NGUYÊN) ---
     with col_table:
         st.markdown("#### 📊 HIỆU SUẤT REAL-TIME")
-        current_user = st.session_state.get('user_info', {}).get('username', '')
         
         if current_user:
             df_port = get_user_portfolio(current_user)
             
             if not df_port.empty:
-                # Hiển thị Metrics
                 total_invest = df_port['cost_value'].sum()
                 total_pl = df_port['profit_loss'].sum()
                 total_pct = (total_pl / total_invest * 100) if total_invest > 0 else 0
@@ -528,7 +550,7 @@ with main_tab2:
                     hide_index=True, use_container_width=True
                 )
             else:
-                st.info("Ví trống. Hãy nhập mã cổ phiếu!")
+                st.info("Ví trống. Hãy nhập lệnh mua bên trái!")
 
     st.markdown('</div>', unsafe_allow_html=True)
 # ==============================================================================
