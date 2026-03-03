@@ -184,40 +184,83 @@ with st.sidebar:
         st.session_state['user_info'] = {}
         st.rerun()
 
-    # ======================================================
-    # 👇 ADMIN HQ (CHỈ HIỆN NẾU LÀ ADMIN) 👇
+# ======================================================
+    # 👇 ADMIN HQ LEVEL 2 (GOD MODE - X-RAY VISION) 👇
     # ======================================================
     current_user = st.session_state.get('user_info', {}).get('username', '')
     
-    # Thay 'admin' bằng tên tài khoản của Lão đại
+    # Thay 'admin' bằng tên tài khoản BOSS của ngài
     if current_user == "admin": 
         st.divider()
         st.markdown("### 🛡️ ADMIN HQ (GOD MODE)")
         
-        with st.expander("👥 DANH SÁCH KHÁCH HÀNG"):
-            # Lấy dữ liệu toàn bộ user
+        # 1. DANH SÁCH TỔNG QUAN (USER LIST)
+        with st.expander("👥 DANH SÁCH KHÁCH HÀNG", expanded=True):
             df_users = get_all_users_admin()
-            
             if not df_users.empty:
-                st.dataframe(
-                    df_users, 
-                    hide_index=True,
-                    use_container_width=True
-                )
-                
-                st.markdown("---")
-                # Chức năng xóa user
-                user_to_del = st.selectbox("Chọn User để XÓA", df_users["Username"].unique())
-                if st.button(f"❌ XÓA {user_to_del}", type="primary"):
-                    if user_to_del == "admin":
-                        st.error("Không thể xóa chính mình!")
-                    else:
-                        delete_user_admin(user_to_del)
-                        st.success(f"Đã xóa {user_to_del} khỏi hệ thống!")
-                        time.sleep(1)
-                        st.rerun()
+                st.dataframe(df_users, hide_index=True, use_container_width=True)
             else:
                 st.info("Chưa có user nào.")
+
+        # 2. MÁY SOI VÍ (PORTFOLIO INSPECTOR) - [TÍNH NĂNG MỚI]
+        st.markdown("#### 🔍 SOI VÍ KHÁCH HÀNG (X-RAY)")
+        
+        if not df_users.empty:
+            # Chọn user để soi
+            list_users = df_users["Username"].unique().tolist()
+            
+            # Chia cột: Chọn User và Nút Xóa nằm cạnh nhau
+            c_adm_1, c_adm_2 = st.columns([3, 1])
+            
+            with c_adm_1:
+                target_user = st.selectbox("Chọn đối tượng để kiểm tra:", list_users)
+            
+            with c_adm_2:
+                st.write("") # Căn lề
+                st.write("")
+                # Nút xóa user (dời xuống đây cho tiện tay)
+                if st.button("❌ XÓA USER", type="primary"):
+                    if target_user == "admin":
+                        st.error("Không thể tự sát!")
+                    else:
+                        delete_user_admin(target_user)
+                        st.success(f"Đã tiễn {target_user} ra đảo!")
+                        time.sleep(1)
+                        st.rerun()
+
+            # --- HIỂN THỊ CHI TIẾT VÍ CỦA NGƯỜI ĐÓ ---
+            if target_user:
+                st.markdown(f"Danh mục của: **{target_user}**")
+                # Gọi hàm lấy portfolio của user đó (kèm tính lãi lỗ real-time luôn)
+                df_target = get_user_portfolio(target_user)
+                
+                if not df_target.empty:
+                    # Tính tổng tài sản của khách
+                    total_nav = df_target['total_value'].sum()
+                    total_pl = df_target['profit_loss'].sum()
+                    
+                    # Hiển thị dashboard nhỏ
+                    m1, m2 = st.columns(2)
+                    m1.metric("Tổng Tài Sản", f"{total_nav:,.0f} K")
+                    m2.metric("Đang Lãi/Lỗ", f"{total_pl:,.0f} K", delta_color="normal")
+                    
+                    # Hiện bảng chi tiết
+                    st.dataframe(
+                        df_target,
+                        column_config={
+                            "symbol": "Mã",
+                            "volume": "KL",
+                            "price_avg": st.column_config.NumberColumn("Vốn", format="%.2f"),
+                            "market_price": st.column_config.NumberColumn("Giá TT", format="%.2f"),
+                            "profit_loss": st.column_config.NumberColumn("Lãi/Lỗ", format="%.0f"),
+                            "percent_pl": st.column_config.NumberColumn("%", format="%.2f %%"),
+                        },
+                        hide_index=True, use_container_width=True
+                    )
+                else:
+                    st.warning("Ví của đối tượng này đang trống (Chưa mua gì).")
+        else:
+            st.info("Hệ thống vắng tanh.")
 
     st.divider()
     
