@@ -117,3 +117,34 @@ def get_user_portfolio(username):
     df['percent_pl'] = df.apply(lambda x: (x['profit_loss'] / x['cost_value'] * 100) if x['cost_value'] != 0 else 0, axis=1)
     
     return df
+# --- 4. ADMIN TOOLS (CÔNG CỤ QUẢN TRỊ) ---
+def get_all_users_admin():
+    """
+    Hàm dành riêng cho Admin: Lấy danh sách toàn bộ User
+    """
+    db = load_db()
+    user_list = []
+    
+    for username, data in db.items():
+        profile = data.get("profile", {})
+        portfolio = data.get("portfolio", [])
+        
+        user_list.append({
+            "Username": username,
+            "Họ Tên": profile.get("name", "N/A"),
+            "Email": profile.get("email", "N/A"),
+            "Ngày Gia Nhập": profile.get("joined_date", "N/A"),
+            "Số Lệnh Đã Đặt": len(portfolio), # Đếm số mã họ đã mua
+            "Mật Khẩu": data.get("password", "***") # (Chỉ Admin mới thấy)
+        })
+        
+    return pd.DataFrame(user_list)
+
+def delete_user_admin(username_to_delete):
+    """Xóa một tài khoản khỏi hệ thống"""
+    db = load_db()
+    if username_to_delete in db:
+        del db[username_to_delete]
+        save_db(db)
+        return True
+    return False
