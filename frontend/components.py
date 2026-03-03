@@ -244,28 +244,25 @@ def render_interactive_chart(df, symbol):
     config = {'scrollZoom': True, 'displayModeBar': True, 'modeBarButtonsIfNeeded': False, 'displaylogo': False, 'modeBarButtonsToRemove': ['select2d', 'lasso2d', 'autoScale2d']}
     st.plotly_chart(fig, use_container_width=True, config=config)
 
-# ==============================================================================
 # 6. MARKET GALAXY (LOGO EDITION - VOLUME EXPLOSION)
 # ==============================================================================
 def render_market_galaxy(df):
     """
     Vẽ biểu đồ Galaxy - BẢN LOGO TOP 50.
-    - Hiển thị LOGO doanh nghiệp thay vì chấm tròn.
-    - Kích thước Logo TO/NHỎ phụ thuộc vào VOLUME (Dòng tiền).
-    - Giữ nguyên tính năng Zoom/Pan mượt mà.
+    - Hiển thị LOGO doanh nghiệp (Nguồn CafeF "bao sống").
+    - Kích thước Logo TO/NHỎ phụ thuộc vào VOLUME.
+    - Giữ nguyên tính năng Zoom/Pan.
     """
     if df.empty: return
 
     # 1. XỬ LÝ DỮ LIỆU
-    # Tính toán tỷ lệ Volume để scale kích thước Logo
     if 'Vol_Ratio' not in df.columns: 
         mean_vol = df['Volume'].mean() if df['Volume'].mean() > 0 else 1
         df['Vol_Ratio'] = df['Volume'] / mean_vol
 
-    # Lấy Top 50 mã mạnh nhất
+    # Lấy Top 50
     df_galaxy = df.sort_values(by='Vol_Ratio', ascending=False).head(50).copy()
     
-    # Tạo thông tin Hover (Rê chuột vào khoảng trống quanh logo vẫn hiện số)
     df_galaxy['Hover_Info'] = df_galaxy.apply(lambda row: (
         f"<b>{row['Symbol']}</b><br>"
         f"💰 Giá: {row['Price']:.2f}<br>"
@@ -273,52 +270,40 @@ def render_market_galaxy(df):
         f"🦈 Vol Ratio: <b>{row['Vol_Ratio']:.1f}x</b>"
     ), axis=1)
 
-    # 2. TẠO KHUNG BIỂU ĐỒ (Dùng Scatter ẩn để làm khung sườn)
-    # Ta vẫn vẽ các chấm tròn nhưng cho độ trong suốt = 0 (Tàng hình)
-    # Mục đích: Để Plotly tạo hệ trục tọa độ và tính năng Zoom/Pan
+    # 2. TẠO KHUNG BIỂU ĐỒ (Dùng Scatter ẩn)
     fig = px.scatter(
         df_galaxy,
         x="Price",
         y="Pct",
-        size="Vol_Ratio", # Vẫn giữ size để khung sườn chuẩn
+        size="Vol_Ratio", 
         hover_name="Hover_Info",
         template="plotly_dark",
-        height=600 # Tăng chiều cao xíu cho thoáng
+        height=600
     )
-
-    # Ẩn hoàn toàn các chấm tròn (chỉ giữ lại khung và hover)
+    # Ẩn các chấm tròn
     fig.update_traces(marker=dict(opacity=0, line=dict(width=0)))
 
-    # 3. CHÈN LOGO VÀO (Scale theo Volume)
-    # Tính toán hệ số scale cho ảnh
+    # 3. CHÈN LOGO (Nguồn CafeF JPG)
     x_range = df_galaxy['Price'].max() - df_galaxy['Price'].min()
     y_range = df_galaxy['Pct'].max() - df_galaxy['Pct'].min()
-    
-    # Kích thước cơ sở (Base size)
     base_sizex = (x_range * 0.03) if x_range > 0 else 1.0
     base_sizey = (y_range * 0.06) if y_range > 0 else 0.5
     
-    # Nguồn Logo (Simplize PNG trong suốt)
-    logo_base_url = "https://cdn.simplize.vn/simplefi/company/logo/"
+    # [FIX QUAN TRỌNG]: Đổi sang nguồn CafeF (đuôi .jpg)
+    logo_base_url = "https://s.cafef.vn/logo/"
 
     for index, row in df_galaxy.iterrows():
         ticker = row['Symbol'].strip().upper()
-        logo_url = f"{logo_base_url}{ticker}.png"
-        
-        # [QUAN TRỌNG] Logic phóng to Logo theo Volume
-        # Vol_Ratio càng lớn -> Logo càng to
-        # Ta dùng hàm log hoặc căn bậc 2 để tránh logo quá to che hết màn hình
-        # Ở đây ta nhân thẳng tỷ lệ nhưng giới hạn lại một chút
+        # [FIX QUAN TRỌNG]: Sửa đuôi thành .jpg
+        logo_url = f"{logo_base_url}{ticker}.jpg"
         
         scale_factor = row['Vol_Ratio'] 
-        # Kìm hãm bớt nếu scale quá lớn (chỉ cho max gấp 3 lần bình thường)
         if scale_factor > 3: scale_factor = 3
-        if scale_factor < 0.8: scale_factor = 0.8 # Không cho bé quá
+        if scale_factor < 0.8: scale_factor = 0.8
         
         final_sizex = base_sizex * scale_factor
         final_sizey = base_sizey * scale_factor
 
-        # Thêm ảnh vào biểu đồ
         fig.add_layout_image(
             dict(
                 source=logo_url,
@@ -333,24 +318,24 @@ def render_market_galaxy(df):
             )
         )
 
-    # 4. CẤU HÌNH TRỤC VÀ GIAO DIỆN
+    # 4. CẤU HÌNH GIAO DIỆN
     fig.update_layout(
         title=dict(
-            text="🌌 TOP 50 MARKET LOGOS (VOLUME SCALED)",
+            text="🌌 TOP 50 MARKET LOGOS (CAFEF SOURCE)",
             font=dict(family="Rajdhani", size=18, color="#00f3ff")
         ),
         xaxis=dict(
             title="GIÁ (K)",
             gridcolor='rgba(255,255,255,0.1)',
             zeroline=False,
-            fixedrange=False # Cho phép Zoom
+            fixedrange=False
         ),
         yaxis=dict(
             title="% CHANGE",
             gridcolor='rgba(255,255,255,0.1)',
             zeroline=True, 
             zerolinecolor='rgba(255,255,255,0.3)',
-            fixedrange=False # Cho phép Zoom
+            fixedrange=False
         ),
         paper_bgcolor='rgba(0,0,0,0)',
         plot_bgcolor='rgba(0,0,0,0)',
@@ -367,4 +352,4 @@ def render_market_galaxy(df):
         'responsive': True
     }
     
-    st.plotly_chart(fig, use_container_width=True, config=config, key="galaxy_logo_v50")
+    st.plotly_chart(fig, use_container_width=True, config=config, key="galaxy_logo_v50_cafef")
