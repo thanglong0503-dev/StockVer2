@@ -244,14 +244,14 @@ def render_interactive_chart(df, symbol):
     config = {'scrollZoom': True, 'displayModeBar': True, 'modeBarButtonsIfNeeded': False, 'displaylogo': False, 'modeBarButtonsToRemove': ['select2d', 'lasso2d', 'autoScale2d']}
     st.plotly_chart(fig, use_container_width=True, config=config)
 
-# 6. MARKET GALAXY (LOGO EDITION - VOLUME EXPLOSION)
+# ==============================================================================
+# 6. MARKET GALAXY (LOGO EDITION - FIREANT SOURCE + TEXT BACKUP)
 # ==============================================================================
 def render_market_galaxy(df):
     """
-    Vẽ biểu đồ Galaxy - BẢN LOGO TOP 50.
-    - Hiển thị LOGO doanh nghiệp (Nguồn CafeF "bao sống").
-    - Kích thước Logo TO/NHỎ phụ thuộc vào VOLUME.
-    - Giữ nguyên tính năng Zoom/Pan.
+    Vẽ biểu đồ Galaxy - BẢN LOGO TOP 50 (NGUỒN FIREANT).
+    - Dùng nguồn ảnh FireAnt (Ít lỗi hơn).
+    - LUÔN HIỆN TÊN MÃ (TEXT) để dự phòng trường hợp ảnh lỗi.
     """
     if df.empty: return
 
@@ -263,6 +263,7 @@ def render_market_galaxy(df):
     # Lấy Top 50
     df_galaxy = df.sort_values(by='Vol_Ratio', ascending=False).head(50).copy()
     
+    # Tạo Hover Info
     df_galaxy['Hover_Info'] = df_galaxy.apply(lambda row: (
         f"<b>{row['Symbol']}</b><br>"
         f"💰 Giá: {row['Price']:.2f}<br>"
@@ -270,35 +271,50 @@ def render_market_galaxy(df):
         f"🦈 Vol Ratio: <b>{row['Vol_Ratio']:.1f}x</b>"
     ), axis=1)
 
-    # 2. TẠO KHUNG BIỂU ĐỒ (Dùng Scatter ẩn)
+    # 2. TẠO KHUNG SƯỜN & TEXT LABEL (QUAN TRỌNG)
+    # Ta bật mode='markers+text' để hiện cả chấm tròn (ẩn) và CHỮ (hiện)
     fig = px.scatter(
         df_galaxy,
         x="Price",
         y="Pct",
         size="Vol_Ratio", 
         hover_name="Hover_Info",
+        text="Symbol",  # <--- BẮT BUỘC HIỆN TÊN MÃ
         template="plotly_dark",
         height=600
     )
-    # Ẩn các chấm tròn
-    fig.update_traces(marker=dict(opacity=0, line=dict(width=0)))
 
-    # 3. CHÈN LOGO (Nguồn CafeF JPG)
+    # Tinh chỉnh: Ẩn chấm tròn, nhưng HIỆN CHỮ
+    fig.update_traces(
+        mode='markers+text',
+        textposition='top center', # Chữ nằm trên đầu Logo
+        textfont=dict(
+            family="Rajdhani", 
+            size=14, 
+            color="#00f3ff" # Màu xanh neon cho chữ dễ đọc
+        ),
+        marker=dict(opacity=0, line=dict(width=0)) # Ẩn chấm tròn đi
+    )
+
+    # 3. CHÈN LOGO (NGUỒN MỚI: FIREANT)
     x_range = df_galaxy['Price'].max() - df_galaxy['Price'].min()
     y_range = df_galaxy['Pct'].max() - df_galaxy['Pct'].min()
-    base_sizex = (x_range * 0.03) if x_range > 0 else 1.0
-    base_sizey = (y_range * 0.06) if y_range > 0 else 0.5
     
-    # [FIX QUAN TRỌNG]: Đổi sang nguồn CafeF (đuôi .jpg)
-    logo_base_url = "https://s.cafef.vn/logo/"
+    # Tính base size
+    base_sizex = (x_range * 0.035) if x_range > 0 else 1.0
+    base_sizey = (y_range * 0.07) if y_range > 0 else 0.5
+    
+    # [NGUỒN MỚI] FireAnt (Server tĩnh, đuôi .png)
+    logo_base_url = "https://static.fireant.vn/symbols/"
 
     for index, row in df_galaxy.iterrows():
         ticker = row['Symbol'].strip().upper()
-        # [FIX QUAN TRỌNG]: Sửa đuôi thành .jpg
-        logo_url = f"{logo_base_url}{ticker}.jpg"
+        # FireAnt dùng ảnh PNG nền trong
+        logo_url = f"{logo_base_url}{ticker}.png"
         
+        # Scale theo Volume (Giới hạn lại để không che mất chữ)
         scale_factor = row['Vol_Ratio'] 
-        if scale_factor > 3: scale_factor = 3
+        if scale_factor > 2.5: scale_factor = 2.5
         if scale_factor < 0.8: scale_factor = 0.8
         
         final_sizex = base_sizex * scale_factor
@@ -313,28 +329,26 @@ def render_market_galaxy(df):
                 sizex=final_sizex,
                 sizey=final_sizey,
                 xanchor="center", yanchor="middle",
-                layer="above",
-                opacity=0.95
+                layer="below", # Để ảnh nằm DƯỚI chữ (Text đè lên ảnh)
+                opacity=1.0
             )
         )
 
     # 4. CẤU HÌNH GIAO DIỆN
     fig.update_layout(
         title=dict(
-            text="🌌 TOP 50 MARKET LOGOS (CAFEF SOURCE)",
+            text="🌌 TOP 50 GALAXY (FIREANT SOURCE)",
             font=dict(family="Rajdhani", size=18, color="#00f3ff")
         ),
         xaxis=dict(
             title="GIÁ (K)",
             gridcolor='rgba(255,255,255,0.1)',
-            zeroline=False,
-            fixedrange=False
+            zeroline=False, fixedrange=False
         ),
         yaxis=dict(
             title="% CHANGE",
             gridcolor='rgba(255,255,255,0.1)',
-            zeroline=True, 
-            zerolinecolor='rgba(255,255,255,0.3)',
+            zeroline=True, zerolinecolor='rgba(255,255,255,0.3)',
             fixedrange=False
         ),
         paper_bgcolor='rgba(0,0,0,0)',
@@ -344,12 +358,7 @@ def render_market_galaxy(df):
         hovermode='closest'
     )
 
-    # 5. THANH CÔNG CỤ
-    config = {
-        'scrollZoom': True,
-        'displayModeBar': True,
-        'modeBarButtonsToRemove': ['lasso2d', 'select2d'],
-        'responsive': True
-    }
+    # 5. CONFIG
+    config = {'scrollZoom': True, 'displayModeBar': True, 'responsive': True}
     
-    st.plotly_chart(fig, use_container_width=True, config=config, key="galaxy_logo_v50_cafef")
+    st.plotly_chart(fig, use_container_width=True, config=config, key="galaxy_fireant_v1")
