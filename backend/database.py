@@ -1,7 +1,7 @@
 """
 ================================================================================
 MODULE: backend/database.py
-DESCRIPTION: Hệ thống quản lý User & Portfolio (Lưu trữ bằng JSON).
+DESCRIPTION: Hệ thống quản lý User & Portfolio (Fix lỗi KeyError).
 ================================================================================
 """
 import json
@@ -15,13 +15,10 @@ DB_FILE = "user_data.json"
 # --- 1. HỆ THỐNG CƠ SỞ DỮ LIỆU ---
 def load_db():
     """Đọc dữ liệu từ file JSON"""
-    if not os.path.exists(DB_FILE):
-        return {}
+    if not os.path.exists(DB_FILE): return {}
     try:
-        with open(DB_FILE, "r", encoding="utf-8") as f:
-            return json.load(f)
-    except:
-        return {}
+        with open(DB_FILE, "r", encoding="utf-8") as f: return json.load(f)
+    except: return {}
 
 def save_db(data):
     """Lưu dữ liệu vào file JSON"""
@@ -31,17 +28,12 @@ def save_db(data):
 # --- 2. QUẢN LÝ TÀI KHOẢN (AUTH) ---
 def register_user(username, password, full_name, email):
     db = load_db()
-    if username in db:
-        return False, "⚠️ Tên đăng nhập đã tồn tại!"
+    if username in db: return False, "⚠️ Tên đăng nhập đã tồn tại!"
     
     db[username] = {
         "password": password,
-        "profile": {
-            "name": full_name,
-            "email": email,
-            "joined_date": datetime.now().strftime("%Y-%m-%d")
-        },
-        "portfolio": []  # Danh sách cổ phiếu đã mua
+        "profile": {"name": full_name, "email": email, "joined_date": datetime.now().strftime("%Y-%m-%d")},
+        "portfolio": [] 
     }
     save_db(db)
     return True, "✅ Đăng ký thành công! Hãy đăng nhập."
@@ -54,28 +46,22 @@ def login_user(username, password):
 
 # --- 3. QUẢN LÝ DANH MỤC (PORTFOLIO) ---
 def add_transaction(username, symbol, volume, price_avg):
-    """Thêm giao dịch mua vào sổ tay"""
     db = load_db()
     if username not in db: return False
     
-    # Chuẩn hóa dữ liệu
-    symbol = symbol.upper().strip()
     new_txn = {
-        "symbol": symbol,
+        "symbol": symbol.upper().strip(),
         "volume": int(volume),
         "price_avg": float(price_avg),
         "date": datetime.now().strftime("%Y-%m-%d %H:%M")
     }
-    
-    # Kiểm tra xem mã này đã có trong danh mục chưa để gộp (tùy chọn)
-    # Ở đây ta cứ thêm dòng mới cho đơn giản, sau này gộp sau
     db[username]["portfolio"].append(new_txn)
     save_db(db)
     return True
 
 def get_user_portfolio(username):
     """
-    Lấy danh mục đầu tư và TÍNH TOÁN LÃI LỖ REAL-TIME
+    Lấy danh mục đầu tư và TÍNH TOÁN LÃI LỖ REAL-TIME (SAFE MODE)
     """
     db = load_db()
     if username not in db: return pd.DataFrame()
@@ -86,32 +72,37 @@ def get_user_portfolio(username):
     # Chuyển thành DataFrame
     df = pd.DataFrame(portfolio_list)
     
-    # 1. Lấy danh sách các mã cổ phiếu trong ví
-    tickers = df['symbol'].unique().tolist()
+    # [FIX QUAN TRỌNG]: TÍNH GIÁ VỐN NGAY LẬP TỨC (Không phụ thuộc Market Data)
+    # Giá vốn = Giá TB * Khối lượng
+    df['cost_value'] = df['price_avg'] * df['volume']
     
-    # 2. Gọi hàm lấy giá thị trường (Real-time) từ backend cũ
-    # Hàm get_pro_data trả về DataFrame có cột: Symbol, Price, Pct...
+    # Khởi tạo sẵn các cột khác với giá trị 0 để tránh KeyError
+    df['market_price'] = 0.0
+    df['total_value'] = 0.0
+    df['profit_loss'] = 0.0
+    df['percent_pl'] = 0.0
+    
+    # 1. Lấy giá thị trường
+    tickers = df['symbol'].unique().tolist()
     market_data = get_pro_data(tickers)
     
+    # Nếu không lấy được giá thị trường (trả về rỗng), ta trả về DF đã có cột cost_value
     if market_data.empty:
-        return df # Trả về bảng gốc nếu không lấy được giá thị trường
+        return df 
         
-    # 3. Ghép giá thị trường vào bảng portfolio
-    # Tạo từ điển giá: {'HPG': 26.5, 'FPT': 110.2...}
+    # 2. Ghép giá thị trường
     price_map = dict(zip(market_data['Symbol'], market_data['Price']))
     
-    # Map giá vào bảng
-    df['market_price'] = df['symbol'].map(price_map).fillna(0) * 1000 # Lưu ý đơn vị (giả sử get_pro_data trả về nghìn đồng)
+    # Map giá vào bảng (Giữ nguyên đơn vị nghìn đồng để đồng bộ với input user)
+    df['market_price'] = df['symbol'].map(price_map).fillna(0)
     
-    # Nếu get_pro_data trả về đơn vị nghìn (VD: 26.5), mà giá vốn ta nhập là 26500
-    # Ta cần check kỹ đơn vị. Thường get_pro_data trả về 26.5 (tức 26,500).
-    # Để an toàn, ta quy ước Người dùng nhập giá vốn là 26.5 (nghìn đồng) cho đồng bộ.
+    # 3. Tính toán Lãi/Lỗ (Chỉ tính cho mã nào lấy được giá > 0)
+    # Nếu giá thị trường = 0 (lỗi), thì coi như chưa có lãi lỗ
+    df['total_value'] = df.apply(lambda x: (x['market_price'] * x['volume']) if x['market_price'] > 0 else x['cost_value'], axis=1)
     
-    # TÍNH TOÁN LÃI LỖ
-    # Giả sử giá nhập và giá thị trường đều đơn vị: Nghìn VND
-    df['total_value'] = df['market_price'] * df['volume']
-    df['cost_value'] = df['price_avg'] * df['volume']
     df['profit_loss'] = df['total_value'] - df['cost_value']
-    df['percent_pl'] = (df['profit_loss'] / df['cost_value']) * 100
+    
+    # Tính phần trăm (Tránh chia cho 0)
+    df['percent_pl'] = df.apply(lambda x: (x['profit_loss'] / x['cost_value'] * 100) if x['cost_value'] != 0 else 0, axis=1)
     
     return df
