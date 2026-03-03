@@ -15,6 +15,8 @@ DESCRIPTION:
 from backend.commodities import get_gold_price, get_silver_price
 # [NEW IMPORT] Module quản lý User & Portfolio
 from backend.database import register_user, login_user, add_transaction, get_user_portfolio
+# Thêm get_all_users_admin và delete_user_admin vào dòng import
+from backend.database import register_user, login_user, add_transaction, get_user_portfolio, get_all_users_admin, delete_user_admin
 import streamlit as st
 import sys
 import os
@@ -172,9 +174,46 @@ with st.sidebar:
     with st.expander("SYSTEM LOGS", expanded=True):
         st.markdown('<div style="font-family:monospace; font-size:10px; color:#555;">> SYSTEM_READY... OK<br>> DATABASE_LOADED... OK<br>> CACHE_CLEARED... OK</div>', unsafe_allow_html=True)
 
-    if st.button("TERMINATE SESSION", key="btn_logout"):
+    # ... (Code nút LOGOUT cũ nằm ở trên) ...
+    if st.button("LOGOUT / TERMINATE", key="btn_logout"):
         st.session_state['logged_in'] = False
+        st.session_state['user_info'] = {}
         st.rerun()
+
+    # ======================================================
+    # 👇 ADMIN HQ (CHỈ HIỆN NẾU LÀ ADMIN) 👇
+    # ======================================================
+    current_user = st.session_state.get('user_info', {}).get('username', '')
+    
+    # Thay 'admin' bằng tên tài khoản của Lão đại
+    if current_user == "admin": 
+        st.divider()
+        st.markdown("### 🛡️ ADMIN HQ (GOD MODE)")
+        
+        with st.expander("👥 DANH SÁCH KHÁCH HÀNG"):
+            # Lấy dữ liệu toàn bộ user
+            df_users = get_all_users_admin()
+            
+            if not df_users.empty:
+                st.dataframe(
+                    df_users, 
+                    hide_index=True,
+                    use_container_width=True
+                )
+                
+                st.markdown("---")
+                # Chức năng xóa user
+                user_to_del = st.selectbox("Chọn User để XÓA", df_users["Username"].unique())
+                if st.button(f"❌ XÓA {user_to_del}", type="primary"):
+                    if user_to_del == "admin":
+                        st.error("Không thể xóa chính mình!")
+                    else:
+                        delete_user_admin(user_to_del)
+                        st.success(f"Đã xóa {user_to_del} khỏi hệ thống!")
+                        time.sleep(1)
+                        st.rerun()
+            else:
+                st.info("Chưa có user nào.")
 
     st.divider()
     
