@@ -171,3 +171,20 @@ def delete_portfolio_stock(username, symbol):
     db[username]["portfolio"] = new_portfolio
     save_db(db)
     return True
+# --- 6. HỆ THỐNG GHI CHÚ (SCRATCHPAD) ---
+def save_user_note(username, note_content):
+    """Lưu ghi chú cá nhân của user"""
+    db = load_db()
+    if username in db:
+        # Lưu thẳng vào key 'note' trong profile của user đó
+        db[username]["note"] = note_content
+        save_db(db)
+        return True
+    return False
+
+def get_user_note(username):
+    """Lấy ghi chú đã lưu"""
+    db = load_db()
+    if username in db:
+        return db[username].get("note", "") # Nếu chưa có thì trả về rỗng
+    return ""
