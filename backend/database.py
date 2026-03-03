@@ -152,3 +152,22 @@ def delete_user_admin(username_to_delete):
 
 # [QUAN TRỌNG] Gọi hàm khởi tạo Admin ngay khi module được load
 init_admin_account()
+# --- 5. CHỨC NĂNG BÁN / XÓA CỔ PHIẾU ---
+def delete_portfolio_stock(username, symbol):
+    """
+    Xóa toàn bộ mã cổ phiếu cụ thể khỏi danh mục của User.
+    Ví dụ: Bán hết HPG -> Xóa sạch HPG khỏi ví.
+    """
+    db = load_db()
+    if username not in db: return False
+    
+    current_portfolio = db[username].get("portfolio", [])
+    
+    # Lọc lại danh sách: Chỉ giữ lại những mã KHÔNG PHẢI là mã cần xóa
+    # (Tức là loại bỏ mã symbol ra khỏi list)
+    new_portfolio = [item for item in current_portfolio if item['symbol'] != symbol]
+    
+    # Cập nhật lại DB
+    db[username]["portfolio"] = new_portfolio
+    save_db(db)
+    return True
