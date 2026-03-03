@@ -28,7 +28,8 @@ import time
 import pandas as pd
 import streamlit.components.v1 as components
 from frontend.components import render_market_galaxy
-
+# Sửa backend.stock_list thành backend.sectors
+from backend.sectors import get_full_market_list, get_all_sector_names, get_sector_list_data
 # ==============================================================================
 # 1. SYSTEM CONFIGURATION
 # ==============================================================================
@@ -144,36 +145,44 @@ with st.sidebar:
     """, unsafe_allow_html=True)
     
     st.markdown("### 📡 TARGET SCANNER")
-    st.caption("SELECT EXCHANGE DATABASE:")
-    c_hose, c_hnx, c_upcom = st.columns(3)
     
-    # Các nút chọn sàn (Có Key để tránh lỗi Duplicate ID)
-    if c_hose.button("HOSE", key="btn_hose", use_container_width=True):
-        st.session_state['scan_list'] = ", ".join(get_full_market_list("HOSE"))
-    if c_hnx.button("HNX", key="btn_hnx", use_container_width=True):
-        st.session_state['scan_list'] = ", ".join(get_full_market_list("HNX"))
-    if c_upcom.button("UPCOM", key="btn_upcom", use_container_width=True):
-        st.session_state['scan_list'] = ", ".join(get_full_market_list("UPCOM"))
-        
-    user_tickers = st.text_area("WATCHLIST", value=st.session_state['scan_list'], height=150)
-    count = len([x for x in user_tickers.split(',') if x.strip()])
-    st.caption(f"TARGETS LOCKED: {count} SYMBOLS")
+    # [TÍNH NĂNG MỚI] 1. QUÉT THEO NGÀNH (SECTOR SCAN)
+    st.markdown("<span style='color:#00f3ff; font-size:12px'>⚡ QUÉT NHANH THEO NGÀNH</span>", unsafe_allow_html=True)
     
-    if count > 50: st.warning("⚠️ High load! Scan may be slow.")
+    # Lấy danh sách tên các ngành
+    sector_options = ["-- Chọn Nhóm Ngành --"] + get_all_sector_names()
+    selected_sector = st.selectbox("Chọn Hạm Đội:", sector_options, label_visibility="collapsed")
+    
+    # Logic: Nếu chọn ngành -> Tự động điền vào ô Watchlist
+    if selected_sector != "-- Chọn Nhóm Ngành --":
+        ticker_group = get_sector_list_data(selected_sector)
+        st.session_state['scan_list'] = ", ".join(ticker_group)
 
-    # --- LOGIC QUÉT RADAR (FIXED) ---
-    # Khi bấm nút này, dữ liệu sẽ được lưu vào Session State
-    if st.button("EXECUTE SCAN", key="btn_scan", type="primary", use_container_width=True):
-        ticker_list = [t.strip().upper() for t in user_tickers.split(',') if t.strip()]
-        if ticker_list:
-            with st.spinner("SCANNING SECTOR... (THIS MAY TAKE TIME)"):
-                # Lưu kết quả vào biến toàn cục của phiên
-                st.session_state['radar_data'] = get_pro_data(ticker_list) 
-            st.success("SCAN COMPLETE.")
-            time.sleep(0.5)
-            st.rerun() # Reload để cập nhật giao diện
+    st.markdown("---") # Đường kẻ ngăn cách
+
+    # [TÍNH NĂNG CŨ] 2. QUÉT THEO SÀN (EXCHANGE SCAN)
+    st.markdown("<span style='color:#00f3ff; font-size:12px'>🏛️ HOẶC QUÉT TOÀN SÀN</span>", unsafe_allow_html=True)
+    
+    c_hose, c_hnx, c_upcom = st.columns(3)
+    if c_hose.button("HOSE", key="btn_hose"): st.session_state['scan_list'] = ", ".join(get_full_market_list("HOSE"))
+    if c_hnx.button("HNX", key="btn_hnx"): st.session_state['scan_list'] = ", ".join(get_full_market_list("HNX"))
+    if c_upcom.button("UPCOM", key="btn_upcom"): st.session_state['scan_list'] = ", ".join(get_full_market_list("UPCOM"))
         
-    st.divider()
+    # Ô INPUT HIỂN THỊ KẾT QUẢ (GIỮ NGUYÊN)
+    st.text_area("WATCHLIST HIỆN TẠI:", value=st.session_state['scan_list'], height=100, key="txt_watchlist_display", disabled=True)
+    
+    # NÚT KÍCH HOẠT QUÉT (GIỮ NGUYÊN)
+    if st.button("EXECUTE SCAN", key="btn_scan", type="primary", use_container_width=True):
+        # Lấy dữ liệu từ session_state['scan_list']
+        raw_list = st.session_state['scan_list']
+        ticker_list = [t.strip().upper() for t in raw_list.split(',') if t.strip()]
+        
+        if ticker_list:
+            with st.spinner("SCANNING TARGETS..."):
+                st.session_state['radar_data'] = get_pro_data(ticker_list) 
+            st.rerun()
+
+    # (Phần Logout giữ nguyên)
     
     with st.expander("SYSTEM LOGS", expanded=True):
         st.markdown('<div style="font-family:monospace; font-size:10px; color:#555;">> SYSTEM_READY... OK<br>> DATABASE_LOADED... OK<br>> CACHE_CLEARED... OK</div>', unsafe_allow_html=True)
