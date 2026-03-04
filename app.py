@@ -751,6 +751,29 @@ with main_tab4:
                     st.error("Lỗi lưu trữ.")
         
         st.markdown('</div>', unsafe_allow_html=True)
+  # 👇 DÁN THÊM ĐOẠN NÀY XUỐNG DƯỚI CÙNG TAB 4 👇
+    st.markdown("---")
+    st.markdown('<div class="glass-box"><h4>🌐 TRÌNH DUYỆT TÍCH HỢP (MINI BROWSER)</h4>', unsafe_allow_html=True)
+    
+    # 1. Thanh địa chỉ
+    c_browser_1, c_browser_2 = st.columns([4, 1])
+    with c_browser_1:
+        # Mặc định mở CafeF cho ngài đọc báo
+        url_input = st.text_input("Nhập địa chỉ Web:", value="https://cafef.vn", label_visibility="collapsed")
+    with c_browser_2:
+        btn_go = st.button("TRUY CẬP 🚀", use_container_width=True)
+
+    # 2. Khung hiển thị Web
+    if url_input:
+        try:
+            # Nhúng trang web vào (Chiều cao 800px cho thoải mái đọc)
+            components.iframe(url_input, height=800, scrolling=True)
+        except Exception as e:
+            st.error(f"Trang web này chặn nhúng! Hãy thử trang khác. (Lỗi: {e})")
+            # Gợi ý mở tab mới nếu bị chặn
+            st.link_button(f"👉 Mở {url_input} trong Tab mới", url_input)
+    
+    st.markdown('</div>', unsafe_allow_html=True)      
 # ==============================================================================
 # 5. FOOTER (THANH TRẠNG THÁI NGANG - CYBER COMMANDER STYLE)
 # ==============================================================================
