@@ -806,11 +806,31 @@ with main_tab4:
 
     # HIỂN THỊ WEB
     if target_url:
+        st.link_button(f"🚀 Mở {selected_web_name} trong Tab Mới", target_url)
+        
         try:
-            # Iframe giờ đây đã được ép nền trắng bởi đoạn CSS ở đầu Tab
-            components.iframe(target_url, height=900, scrolling=True)
+            # [TUYỆT CHIÊU CUỐI] Dùng HTML Wrapper để ép nền trắng
+            # Cách này tạo ra một lớp vỏ màu trắng bao quanh trang web
+            # Đảm bảo CafeF sáng trưng mà không ảnh hưởng Đồng hồ
+            html_code = f"""
+                <style>
+                    body {{ 
+                        margin: 0; 
+                        background-color: white !important; /* Nền trắng bắt buộc */
+                    }}
+                    iframe {{ 
+                        width: 100%; 
+                        height: 900px; 
+                        border: none; 
+                    }}
+                </style>
+                <iframe src="{target_url}"></iframe>
+            """
+            # Render mã HTML này (Chiều cao 900px)
+            components.html(html_code, height=900, scrolling=True)
+            
         except Exception:
-            st.error("Trang web này từ chối kết nối.")
+            st.error("Trang web này chặn kết nối.")
 # ==============================================================================
 # 5. FOOTER (THANH TRẠNG THÁI NGANG - CYBER COMMANDER STYLE)
 # ==============================================================================
