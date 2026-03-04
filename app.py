@@ -751,46 +751,57 @@ with main_tab4:
                     st.error("Lỗi lưu trữ.")
         
         st.markdown('</div>', unsafe_allow_html=True)
-  # --- PHẦN 3: TRÌNH DUYỆT TÍCH HỢP (NÂNG CẤP) ---
+  # --- PHẦN 3: TRÌNH DUYỆT (CHROME STYLE - NGUYÊN BẢN) ---
     st.markdown("---")
-    st.markdown('<div class="glass-box"><h4>🌐 TRUNG TÂM TIN TỨC (NEWS FEED)</h4>', unsafe_allow_html=True)
     
-    # Danh sách các trang web "sạch", cho phép nhúng iframe
-    # Lưu ý: FireAnt dashboard hay TradingView main site thường chặn iframe.
-    # Nên dùng các trang tin tức thuần túy.
+    # Tạo thanh công cụ giống trình duyệt Chrome
+    st.markdown("""
+    <div style="background-color:#333; padding:10px; border-radius: 10px 10px 0 0; display:flex; align-items:center;">
+        <span style="color:#ff5f57; font-size:20px; margin-right:5px;">●</span>
+        <span style="color:#febc2e; font-size:20px; margin-right:5px;">●</span>
+        <span style="color:#28c840; font-size:20px; margin-right:15px;">●</span>
+        <span style="color:white; font-weight:bold;">🌐 MINI CHROME BROWSER</span>
+    </div>
+    """, unsafe_allow_html=True)
+    
+    # 1. Danh sách Option rút gọn (Theo ý Lão đại)
     web_options = {
         "📰 CafeF (Thị trường)": "https://cafef.vn/thi-truong-chung-khoan.chn",
-        "📈 Vietstock (Tổng hợp)": "https://vietstock.vn",
         "💰 24H Money": "https://24hmoney.vn",
-        "vnexpress (kinh doanh)": "https://vnexpress.net/kinh-doanh/chung-khoan",
-        "🔗 Nhập Link Khác (Custom)": "custom"
+        "🌍 Google Chrome (Tự nhập Link)": "custom"
     }
     
-    c_web_1, c_web_2 = st.columns([3, 1])
+    c_web_1, c_web_2 = st.columns([3, 2])
     
     with c_web_1:
-        selected_web_name = st.selectbox("Chọn Kênh Tin Tức:", list(web_options.keys()))
+        selected_web_name = st.selectbox("Chọn Trang:", list(web_options.keys()), label_visibility="collapsed")
     
     target_url = ""
     
-    # Xử lý Logic chọn link
+    # 2. Xử lý Link
     if web_options[selected_web_name] == "custom":
         with c_web_2:
-            target_url = st.text_input("Dán Link vào đây:", placeholder="https://...")
+            # Ô nhập liệu tự do (Giả lập thanh địa chỉ Chrome)
+            target_url = st.text_input("Nhập địa chỉ Web (Chrome URL):", placeholder="https://...", label_visibility="collapsed")
     else:
         target_url = web_options[selected_web_name]
         with c_web_2:
-            st.info("✅ Kênh đã được xác minh")
+            st.caption(f"🔒 Đang truy cập: {selected_web_name}")
 
-    # Hiển thị trình duyệt
+    # 3. HIỂN THỊ WEB (QUAN TRỌNG: FIX MÀU SẮC)
     if target_url:
+        # Emo bỏ cái khung "glass-box" đi để Web hiển thị NGUYÊN BẢN 100%
+        # CafeF sẽ hiện nền trắng chữ đen đúng gốc, không bị ám màu tối của App
         try:
-            # Chiều cao 900px xem cho đã mắt
-            components.iframe(target_url, height=900, scrolling=True)
-        except Exception:
-            st.error("Trang web này từ chối kết nối! Hãy thử trang khác.")
+            # Tạo một khung trắng nền để chắc chắn không bị ám màu (nếu web trong suốt)
+            st.markdown('<div style="background-color: white; border-radius: 0 0 10px 10px; overflow: hidden;">', unsafe_allow_html=True)
             
-    st.markdown('</div>', unsafe_allow_html=True)    
+            components.iframe(target_url, height=900, scrolling=True)
+            
+            st.markdown('</div>', unsafe_allow_html=True)
+            
+        except Exception:
+            st.error("Trang web này từ chối kết nối (Blocked by X-Frame).")  
 # ==============================================================================
 # 5. FOOTER (THANH TRẠNG THÁI NGANG - CYBER COMMANDER STYLE)
 # ==============================================================================
