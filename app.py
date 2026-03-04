@@ -775,10 +775,13 @@ with main_tab4:
     </div>
     """, unsafe_allow_html=True)
     
+    # DANH SÁCH "ĐỘI HÌNH TRONG MƠ" (ĐÃ THÊM MASTRADE & STOCKBIZ)
     web_options = {
         "📰 CafeF (Thị trường)": "https://cafef.vn/thi-truong-chung-khoan.chn",
+        "💹 Mastrade (Mirae Asset)": "https://mastrade.mas.com.vn",  # <--- Hàng mới về
+        "🏢 Stockbiz (Dữ liệu)": "https://www.stockbiz.vn",          # <--- Hàng mới về
         "💰 24H Money": "https://24hmoney.vn",
-        "📈 Tin Nhanh Chứng Khoán": "https://tinnhanhchungkhoan.vn",
+        "📈 Tin Nhanh CK": "https://tinnhanhchungkhoan.vn",
         "🔥 FireAnt (Dashboard)": "https://fireant.vn/dashboard", 
         "🔍 Yahoo Search (VN)": "https://vn.search.yahoo.com",
         "🔗 Nhập Link Khác (Custom)": "custom"
