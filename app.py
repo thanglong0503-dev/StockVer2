@@ -688,8 +688,17 @@ with main_tab3:
 st.markdown('<div style="text-align:center; color:#444; font-size:10px; margin-top:50px;">THANG LONG TERMINAL SYSTEM V36.7 // ENCRYPTED</div>', unsafe_allow_html=True)
 # === TAB 4: CÔNG CỤ DỰ TÍNH & GHI CHÚ CHIẾN LƯỢC ===
 with main_tab4:
-    c_tools_1, c_tools_2 = st.columns([1, 1])
-    
+# Đoạn này sẽ bắt buộc mọi khung iframe phải có nền trắng, không bị ám đen nữa
+    st.markdown("""
+        <style>
+        iframe {
+            background-color: white !important; 
+            border-radius: 10px;
+        }
+        </style>
+    """, unsafe_allow_html=True)
+
+    c_tools_1, c_tools_2 = st.columns([1, 1])    
     # --- PHẦN 1: MÁY TÍNH LÃI LỖ (SIMULATOR) ---
     with c_tools_1:
         st.markdown('<div class="glass-box"><h4>🧮 MÁY TÍNH DỰ BÁO (SIMULATOR)</h4>', unsafe_allow_html=True)
@@ -751,57 +760,54 @@ with main_tab4:
                     st.error("Lỗi lưu trữ.")
         
         st.markdown('</div>', unsafe_allow_html=True)
-  # --- PHẦN 3: TRÌNH DUYỆT (CHROME STYLE - NGUYÊN BẢN) ---
+  # --- PHẦN 3: TRÌNH DUYỆT (CHROME STYLE - FIX TRẮNG) ---
     st.markdown("---")
     
-    # Tạo thanh công cụ giống trình duyệt Chrome
+    # Thanh công cụ giả lập Chrome
     st.markdown("""
     <div style="background-color:#333; padding:10px; border-radius: 10px 10px 0 0; display:flex; align-items:center;">
         <span style="color:#ff5f57; font-size:20px; margin-right:5px;">●</span>
         <span style="color:#febc2e; font-size:20px; margin-right:5px;">●</span>
         <span style="color:#28c840; font-size:20px; margin-right:15px;">●</span>
-        <span style="color:white; font-weight:bold;">🌐 MINI CHROME BROWSER</span>
+        <span style="color:white; font-weight:bold;">🌐 WEB BROWSER</span>
     </div>
     """, unsafe_allow_html=True)
     
-    # 1. Danh sách Option rút gọn (Theo ý Lão đại)
+    # Danh sách Option
     web_options = {
         "📰 CafeF (Thị trường)": "https://cafef.vn/thi-truong-chung-khoan.chn",
         "💰 24H Money": "https://24hmoney.vn",
-        "🌍 Google Chrome (Tự nhập Link)": "custom"
+        "🔍 Google/Bing (Tìm kiếm)": "https://www.bing.com", # Dùng Bing thay Google vì Google chặn nhúng
+        "🔗 Nhập Link Khác (Custom)": "custom"
     }
     
-    c_web_1, c_web_2 = st.columns([3, 2])
+    c_web_1, c_web_2 = st.columns([3, 4])
     
     with c_web_1:
         selected_web_name = st.selectbox("Chọn Trang:", list(web_options.keys()), label_visibility="collapsed")
     
     target_url = ""
     
-    # 2. Xử lý Link
+    # Xử lý Link
     if web_options[selected_web_name] == "custom":
         with c_web_2:
-            # Ô nhập liệu tự do (Giả lập thanh địa chỉ Chrome)
-            target_url = st.text_input("Nhập địa chỉ Web (Chrome URL):", placeholder="https://...", label_visibility="collapsed")
+            target_url = st.text_input("Nhập địa chỉ Web:", placeholder="https://...", label_visibility="collapsed")
     else:
         target_url = web_options[selected_web_name]
         with c_web_2:
-            st.caption(f"🔒 Đang truy cập: {selected_web_name}")
+            # Nếu chọn Google/Bing thì hiện thông báo nhỏ
+            if "Bing" in selected_web_name:
+                st.caption("ℹ️ Sử dụng Bing Search (Do Google chặn nhúng App).")
+            else:
+                st.caption(f"🔒 Đang truy cập: {selected_web_name}")
 
-    # 3. HIỂN THỊ WEB (QUAN TRỌNG: FIX MÀU SẮC)
+    # HIỂN THỊ WEB
     if target_url:
-        # Emo bỏ cái khung "glass-box" đi để Web hiển thị NGUYÊN BẢN 100%
-        # CafeF sẽ hiện nền trắng chữ đen đúng gốc, không bị ám màu tối của App
         try:
-            # Tạo một khung trắng nền để chắc chắn không bị ám màu (nếu web trong suốt)
-            st.markdown('<div style="background-color: white; border-radius: 0 0 10px 10px; overflow: hidden;">', unsafe_allow_html=True)
-            
+            # Iframe giờ đây đã được ép nền trắng bởi đoạn CSS ở đầu Tab
             components.iframe(target_url, height=900, scrolling=True)
-            
-            st.markdown('</div>', unsafe_allow_html=True)
-            
         except Exception:
-            st.error("Trang web này từ chối kết nối (Blocked by X-Frame).")  
+            st.error("Trang web này từ chối kết nối.")
 # ==============================================================================
 # 5. FOOTER (THANH TRẠNG THÁI NGANG - CYBER COMMANDER STYLE)
 # ==============================================================================
