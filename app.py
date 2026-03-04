@@ -778,7 +778,6 @@ with main_tab4:
     # DANH SÁCH "ĐỘI HÌNH TRONG MƠ" (UPDATE LINK CHUẨN)
     web_options = {
         "📰 CafeF (Thị trường)": "https://cafef.vn/thi-truong-chung-khoan.chn",
-        "💹 MasTrade (Bảng Giá MAS)": "https://mastrade.masvn.com/board/hose", # <--- Link bảng giá chuẩn
         "🏢 StockBiz (Tổng hợp)": "https://stockbiz.vn/",                       # <--- Link StockBiz chuẩn
         "💰 24H Money": "https://24hmoney.vn",
         "📈 Tin Nhanh CK": "https://tinnhanhchungkhoan.vn",
