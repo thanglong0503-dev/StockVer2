@@ -688,7 +688,8 @@ with main_tab3:
 st.markdown('<div style="text-align:center; color:#444; font-size:10px; margin-top:50px;">THANG LONG TERMINAL SYSTEM V36.7 // ENCRYPTED</div>', unsafe_allow_html=True)
 # === TAB 4: CÔNG CỤ DỰ TÍNH & GHI CHÚ CHIẾN LƯỢC ===
 with main_tab4:
-st.markdown("""
+    # 👇 Dòng này PHẢI THỤT VÀO (Khoảng 4 dấu cách) so với chữ 'with' ở trên
+    st.markdown("""
         <style>
         iframe[height="900"] {
             background-color: white !important; 
@@ -697,7 +698,8 @@ st.markdown("""
         }
         </style>
     """, unsafe_allow_html=True)
-
+    
+    # 👇 Các dòng dưới này cũng phải thẳng hàng với dòng st.markdown ở trên
     c_tools_1, c_tools_2 = st.columns([1, 1])    
     # --- PHẦN 1: MÁY TÍNH LÃI LỖ (SIMULATOR) ---
     with c_tools_1:
