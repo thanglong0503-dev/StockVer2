@@ -688,12 +688,12 @@ with main_tab3:
 st.markdown('<div style="text-align:center; color:#444; font-size:10px; margin-top:50px;">THANG LONG TERMINAL SYSTEM V36.7 // ENCRYPTED</div>', unsafe_allow_html=True)
 # === TAB 4: CÔNG CỤ DỰ TÍNH & GHI CHÚ CHIẾN LƯỢC ===
 with main_tab4:
-# Đoạn này sẽ bắt buộc mọi khung iframe phải có nền trắng, không bị ám đen nữa
-    st.markdown("""
+st.markdown("""
         <style>
-        iframe {
+        iframe[height="900"] {
             background-color: white !important; 
             border-radius: 10px;
+            border: 1px solid #444;
         }
         </style>
     """, unsafe_allow_html=True)
