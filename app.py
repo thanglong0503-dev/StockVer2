@@ -783,7 +783,6 @@ with main_tab4:
         "📈 Tin Nhanh CK": "https://tinnhanhchungkhoan.vn",
         "🔥 FireAnt (Dashboard)": "https://fireant.vn/dashboard", 
         "🔍 Yahoo Search (VN)": "https://vn.search.yahoo.com",
-        "🔗 Nhập Link Khác (Custom)": "custom"
     }
     
     c_web_1, c_web_2 = st.columns([3, 4])
