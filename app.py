@@ -773,11 +773,12 @@ with main_tab4:
     </div>
     """, unsafe_allow_html=True)
     
-    # Danh sách Option
     web_options = {
         "📰 CafeF (Thị trường)": "https://cafef.vn/thi-truong-chung-khoan.chn",
         "💰 24H Money": "https://24hmoney.vn",
-        "🔍 Google/Bing (Tìm kiếm)": "https://www.bing.com", # Dùng Bing thay Google vì Google chặn nhúng
+        "📈 Tin Nhanh Chứng Khoán": "https://tinnhanhchungkhoan.vn",
+        "🔥 FireAnt (Dashboard)": "https://fireant.vn/dashboard", 
+        "🔍 Yahoo Search (VN)": "https://vn.search.yahoo.com",
         "🔗 Nhập Link Khác (Custom)": "custom"
     }
     
