@@ -751,29 +751,46 @@ with main_tab4:
                     st.error("Lỗi lưu trữ.")
         
         st.markdown('</div>', unsafe_allow_html=True)
-  # 👇 DÁN THÊM ĐOẠN NÀY XUỐNG DƯỚI CÙNG TAB 4 👇
+  # --- PHẦN 3: TRÌNH DUYỆT TÍCH HỢP (NÂNG CẤP) ---
     st.markdown("---")
-    st.markdown('<div class="glass-box"><h4>🌐 TRÌNH DUYỆT TÍCH HỢP (MINI BROWSER)</h4>', unsafe_allow_html=True)
+    st.markdown('<div class="glass-box"><h4>🌐 TRUNG TÂM TIN TỨC (NEWS FEED)</h4>', unsafe_allow_html=True)
     
-    # 1. Thanh địa chỉ
-    c_browser_1, c_browser_2 = st.columns([4, 1])
-    with c_browser_1:
-        # Mặc định mở CafeF cho ngài đọc báo
-        url_input = st.text_input("Nhập địa chỉ Web:", value="https://cafef.vn", label_visibility="collapsed")
-    with c_browser_2:
-        btn_go = st.button("TRUY CẬP 🚀", use_container_width=True)
+    # Danh sách các trang web "sạch", cho phép nhúng iframe
+    # Lưu ý: FireAnt dashboard hay TradingView main site thường chặn iframe.
+    # Nên dùng các trang tin tức thuần túy.
+    web_options = {
+        "📰 CafeF (Thị trường)": "https://cafef.vn/thi-truong-chung-khoan.chn",
+        "📈 Vietstock (Tổng hợp)": "https://vietstock.vn",
+        "💰 24H Money": "https://24hmoney.vn",
+        "vnexpress (kinh doanh)": "https://vnexpress.net/kinh-doanh/chung-khoan",
+        "🔗 Nhập Link Khác (Custom)": "custom"
+    }
+    
+    c_web_1, c_web_2 = st.columns([3, 1])
+    
+    with c_web_1:
+        selected_web_name = st.selectbox("Chọn Kênh Tin Tức:", list(web_options.keys()))
+    
+    target_url = ""
+    
+    # Xử lý Logic chọn link
+    if web_options[selected_web_name] == "custom":
+        with c_web_2:
+            target_url = st.text_input("Dán Link vào đây:", placeholder="https://...")
+    else:
+        target_url = web_options[selected_web_name]
+        with c_web_2:
+            st.info("✅ Kênh đã được xác minh")
 
-    # 2. Khung hiển thị Web
-    if url_input:
+    # Hiển thị trình duyệt
+    if target_url:
         try:
-            # Nhúng trang web vào (Chiều cao 800px cho thoải mái đọc)
-            components.iframe(url_input, height=800, scrolling=True)
-        except Exception as e:
-            st.error(f"Trang web này chặn nhúng! Hãy thử trang khác. (Lỗi: {e})")
-            # Gợi ý mở tab mới nếu bị chặn
-            st.link_button(f"👉 Mở {url_input} trong Tab mới", url_input)
-    
-    st.markdown('</div>', unsafe_allow_html=True)      
+            # Chiều cao 900px xem cho đã mắt
+            components.iframe(target_url, height=900, scrolling=True)
+        except Exception:
+            st.error("Trang web này từ chối kết nối! Hãy thử trang khác.")
+            
+    st.markdown('</div>', unsafe_allow_html=True)    
 # ==============================================================================
 # 5. FOOTER (THANH TRẠNG THÁI NGANG - CYBER COMMANDER STYLE)
 # ==============================================================================
