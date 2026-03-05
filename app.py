@@ -55,7 +55,22 @@ try:
 except ImportError as e:
     st.error(f"❌ SYSTEM CRITICAL ERROR: MISSING MODULES. \n{e}")
     st.stop()
+# --- ĐỘ GIAO DIỆN (UI/UX CUSTOMIZATION) ---
+st.markdown("""
+<style>
+    /* Nhập font chữ góc cạnh, chuyên nghiệp từ Google Fonts */
+    @import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@600&display=swap');
 
+    /* Ép font chữ cho thanh Tabs */
+    button[data-baseweb="tab"] {
+        font-family: 'Montserrat', sans-serif !important;
+        font-size: 13px !important;
+        font-weight: 600 !important;
+        text-transform: uppercase !important; /* Ép viết hoa toàn bộ */
+        letter-spacing: 1px !important;       /* Khoảng cách chữ rộng ra nhìn cho sang */
+    }
+</style>
+""", unsafe_allow_html=True)
 # ==============================================================================
 # 2. STATE MANAGEMENT (KHỞI TẠO BỘ NHỚ ĐỆM)
 # ==============================================================================
@@ -374,14 +389,15 @@ st.markdown("<div style='height:20px'></div>", unsafe_allow_html=True)
 # ==============================================================================
 # MAIN TABS: 4 KHU VỰC CHIẾN LƯỢC
 # ==============================================================================
+# Khai báo Tab với Icon Unicode Đơn sắc (Monochromatic)
 main_tab1, main_tab2, main_tab3, main_tab4, main_tab5, main_tab6, main_tab7 = st.tabs([
-    "🚀 STOCK COMMAND CENTER", 
-    "💼 MY PORTFOLIO", 
-    "💰 TREASURE VAULT",
-    "🧮 CÔNG CỤ & GHI CHÚ",  # <--- TAB MỚI
-    "🌐 TRÌNH DUYỆT",
-    "📊 TỔNG HỢP GIAO DỊCH",
-    "⏱️ KIỂM ĐỊNH (BACKTEST)"
+    "⎈ COMMAND CENTER",     # Icon Bánh lái / Radar
+    "⌗ MY PORTFOLIO",       # Icon Lưới dữ liệu
+    "⛃ TREASURE VAULT",     # Icon Database / Khối tài sản
+    "⚙ CÔNG CỤ & GHI CHÚ",    # Icon Bánh răng hệ thống
+    "◳ TRÌNH DUYỆT",        # Icon Cửa sổ màn hình
+    "⚡ TỔNG HỢP GIAO DỊCH",   # Icon Tia chớp xung nhịp
+    "◴ KIỂM ĐỊNH (BACKTEST)" # Icon Đồng hồ thời gian
 ])
 
 # ==============================================================================
