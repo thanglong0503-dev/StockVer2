@@ -378,7 +378,8 @@ main_tab1, main_tab2, main_tab3, main_tab4 = st.tabs([
     "🚀 STOCK COMMAND CENTER", 
     "💼 MY PORTFOLIO", 
     "💰 TREASURE VAULT",
-    "🧮 CÔNG CỤ & GHI CHÚ"  # <--- TAB MỚI
+    "🧮 CÔNG CỤ & GHI CHÚ",  # <--- TAB MỚI
+    "🌐 TRÌNH DUYỆT"
 ])
 
 # ==============================================================================
@@ -686,152 +687,108 @@ with main_tab3:
     st.markdown('</div>', unsafe_allow_html=True)
 
 st.markdown('<div style="text-align:center; color:#444; font-size:10px; margin-top:50px;">THANG LONG TERMINAL SYSTEM V36.7 // ENCRYPTED</div>', unsafe_allow_html=True)
-# === TAB 4: CÔNG CỤ DỰ TÍNH & GHI CHÚ CHIẾN LƯỢC ===
+# ==============================================================================
+# === TAB 4: CÔNG CỤ (CHỈ CÒN MÁY TÍNH & SỔ TAY) ===
+# ==============================================================================
 with main_tab4:
-    # 👇 Dòng này PHẢI THỤT VÀO (Khoảng 4 dấu cách) so với chữ 'with' ở trên
-    st.markdown("""
-        <style>
-        iframe[height="900"] {
-            background-color: white !important; 
-            border-radius: 10px;
-            border: 1px solid #444;
-        }
-        </style>
-    """, unsafe_allow_html=True)
+    c_tools_1, c_tools_2 = st.columns([1, 1])
     
-    # 👇 Các dòng dưới này cũng phải thẳng hàng với dòng st.markdown ở trên
-    c_tools_1, c_tools_2 = st.columns([1, 1])    
-    # --- PHẦN 1: MÁY TÍNH LÃI LỖ (SIMULATOR) ---
+    # --- PHẦN 1: MÁY TÍNH LÃI LỖ ---
     with c_tools_1:
         st.markdown('<div class="glass-box"><h4>🧮 MÁY TÍNH DỰ BÁO (SIMULATOR)</h4>', unsafe_allow_html=True)
-        
         with st.form("calc_form"):
             col_calc_1, col_calc_2 = st.columns(2)
             with col_calc_1:
-                sim_vol = st.number_input("Số Lượng Cổ Phiếu", min_value=100, step=100, value=1000)
-                sim_price_in = st.number_input("Giá Vốn (Vào)", min_value=0.1, step=0.1, value=25.0, format="%.2f")
+                sim_vol = st.number_input("Số Lượng CP", min_value=100, step=100, value=1000)
+                sim_price_in = st.number_input("Giá Vốn", min_value=0.1, step=0.1, value=25.0, format="%.2f")
             with col_calc_2:
-                sim_price_target = st.number_input("Giá Mục Tiêu (Ra)", min_value=0.1, step=0.1, value=28.5, format="%.2f")
-                st.write("") # Căn lề
+                sim_price_target = st.number_input("Giá Mục Tiêu", min_value=0.1, step=0.1, value=28.5, format="%.2f")
+                st.write("") 
                 st.write("")
             
-            # Nút Tính Toán
-            if st.form_submit_button("🔮 DỰ TÍNH LÃI / LỖ", type="primary", use_container_width=True):
-                # Logic tính toán
-                total_cost = sim_vol * sim_price_in * 1000 # Đơn vị đồng
+            if st.form_submit_button("🔮 DỰ TÍNH", type="primary", use_container_width=True):
+                total_cost = sim_vol * sim_price_in * 1000 
                 total_rev = sim_vol * sim_price_target * 1000
                 profit = total_rev - total_cost
                 pct_change = (profit / total_cost) * 100
-                
-                # Hiển thị kết quả
                 st.divider()
                 if profit > 0:
-                    st.success(f"🎉 LÃI DỰ KIẾN: +{profit:,.0f} VND (+{pct_change:.2f}%)")
-                    st.balloons() # Thả bóng chúc mừng
+                    st.success(f"🎉 LÃI: +{profit:,.0f} Đ (+{pct_change:.2f}%)")
                 elif profit < 0:
-                    st.error(f"⚠️ LỖ DỰ KIẾN: {profit:,.0f} VND ({pct_change:.2f}%)")
+                    st.error(f"⚠️ LỖ: {profit:,.0f} Đ ({pct_change:.2f}%)")
                 else:
-                    st.warning("HÒA VỐN (BREAK EVEN)")
-
+                    st.warning("HÒA VỐN")
         st.markdown('</div>', unsafe_allow_html=True)
 
-    # --- PHẦN 2: SỔ TAY GHI CHÚ (WATCHLIST NOTES) ---
+    # --- PHẦN 2: SỔ TAY ---
     with c_tools_2:
-        st.markdown('<div class="glass-box"><h4>📝 SỔ TAY ĐIỆP VIÊN (NOTES)</h4>', unsafe_allow_html=True)
-        
+        st.markdown('<div class="glass-box"><h4>📝 SỔ TAY ĐIỆP VIÊN</h4>', unsafe_allow_html=True)
         current_user = st.session_state.get('user_info', {}).get('username', '')
-        
-        # Lấy nội dung ghi chú cũ
         saved_note = get_user_note(current_user)
-        
         with st.form("note_form"):
-            # Ô nhập liệu lớn
-            new_note = st.text_area(
-                "Ghi lại mã cần theo dõi, điểm mua/bán:", 
-                value=saved_note, 
-                height=300,
-                placeholder="- HPG: Chờ về 26.5 múc mạnh\n- CEO: Đang tạo nền, theo dõi volume..."
-            )
-            
-            if st.form_submit_button("💾 LƯU GHI CHÚ", use_container_width=True):
+            new_note = st.text_area("Ghi chú:", value=saved_note, height=180)
+            if st.form_submit_button("💾 LƯU", use_container_width=True):
                 if save_user_note(current_user, new_note):
-                    st.success("Đã lưu vào bộ nhớ mật!")
+                    st.success("Đã lưu!")
                     time.sleep(0.5)
                     st.rerun()
-                else:
-                    st.error("Lỗi lưu trữ.")
-        
         st.markdown('</div>', unsafe_allow_html=True)
-  # --- PHẦN 3: TRÌNH DUYỆT (CHROME STYLE - FIX TRẮNG) ---
-    st.markdown("---")
-    
-    # Thanh công cụ giả lập Chrome
+
+# ==============================================================================
+# === TAB 5: TRÌNH DUYỆT NGHIÊN CỨU (ĐỘC LẬP) ===
+# ==============================================================================
+with main_tab5:
     st.markdown("""
-    <div style="background-color:#333; padding:10px; border-radius: 10px 10px 0 0; display:flex; align-items:center;">
+    <div style="background-color:#222; padding:10px; border-radius: 10px 10px 0 0; display:flex; align-items:center;">
         <span style="color:#ff5f57; font-size:20px; margin-right:5px;">●</span>
         <span style="color:#febc2e; font-size:20px; margin-right:5px;">●</span>
         <span style="color:#28c840; font-size:20px; margin-right:15px;">●</span>
-        <span style="color:white; font-weight:bold;">🌐 WEB BROWSER</span>
+        <span style="color:white; font-weight:bold;">🌐 RESEARCH BROWSER CENTER</span>
     </div>
     """, unsafe_allow_html=True)
     
-    # DANH SÁCH "ĐỘI HÌNH TRONG MƠ" (UPDATE LINK CHUẨN)
+    # Danh sách các trang web an toàn
     web_options = {
         "📰 CafeF (Thị trường)": "https://cafef.vn/thi-truong-chung-khoan.chn",
-        "🏢 StockBiz (Tổng hợp)": "https://stockbiz.vn/",                       # <--- Link StockBiz chuẩn
+        "🏢 StockBiz (Tổng hợp)": "https://stockbiz.vn/",
         "💰 24H Money": "https://24hmoney.vn",
         "📈 Tin Nhanh CK": "https://tinnhanhchungkhoan.vn",
         "🔥 FireAnt (Dashboard)": "https://fireant.vn/dashboard", 
         "🔍 Yahoo Search (VN)": "https://vn.search.yahoo.com",
+        "🔗 Nhập Link Khác (Custom)": "custom"
     }
     
     c_web_1, c_web_2 = st.columns([3, 4])
     
     with c_web_1:
-        selected_web_name = st.selectbox("Chọn Trang:", list(web_options.keys()), label_visibility="collapsed")
+        selected_web_name = st.selectbox("Chọn Kênh:", list(web_options.keys()), label_visibility="collapsed")
     
     target_url = ""
     
-    # Xử lý Link
     if web_options[selected_web_name] == "custom":
         with c_web_2:
-            target_url = st.text_input("Nhập địa chỉ Web:", placeholder="https://...", label_visibility="collapsed")
+            target_url = st.text_input("Nhập Link:", placeholder="https://...", label_visibility="collapsed")
     else:
         target_url = web_options[selected_web_name]
         with c_web_2:
-            # Nếu chọn Google/Bing thì hiện thông báo nhỏ
-            if "Bing" in selected_web_name:
-                st.caption("ℹ️ Sử dụng Bing Search (Do Google chặn nhúng App).")
-            else:
-                st.caption(f"🔒 Đang truy cập: {selected_web_name}")
+            st.caption(f"Đang tải: {selected_web_name}...")
 
-    # HIỂN THỊ WEB
     if target_url:
-        st.link_button(f"🚀 Mở {selected_web_name} trong Tab Mới", target_url)
+        # Nút cứu hộ luôn ở sẵn
+        st.link_button(f"🚀 Mở {selected_web_name} ra Trình duyệt ngoài", target_url)
         
         try:
-            # [TUYỆT CHIÊU CUỐI] Dùng HTML Wrapper để ép nền trắng
-            # Cách này tạo ra một lớp vỏ màu trắng bao quanh trang web
-            # Đảm bảo CafeF sáng trưng mà không ảnh hưởng Đồng hồ
+            # Tuyệt chiêu Lồng Kính Trắng (Ép nền trắng tuyệt đối, không ảnh hưởng widget khác)
             html_code = f"""
                 <style>
-                    body {{ 
-                        margin: 0; 
-                        background-color: white !important; /* Nền trắng bắt buộc */
-                    }}
-                    iframe {{ 
-                        width: 100%; 
-                        height: 900px; 
-                        border: none; 
-                    }}
+                    body {{ margin: 0; background-color: white !important; }}
+                    iframe {{ width: 100%; height: 950px; border: none; border-radius: 0 0 10px 10px; }}
                 </style>
                 <iframe src="{target_url}"></iframe>
             """
-            # Render mã HTML này (Chiều cao 900px)
-            components.html(html_code, height=900, scrolling=True)
-            
+            components.html(html_code, height=950, scrolling=True)
         except Exception:
-            st.error("Trang web này chặn kết nối.")
+            st.error("Trang web này từ chối kết nối.")
 # ==============================================================================
 # 5. FOOTER (THANH TRẠNG THÁI NGANG - CYBER COMMANDER STYLE)
 # ==============================================================================
