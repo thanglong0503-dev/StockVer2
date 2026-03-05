@@ -792,99 +792,119 @@ with main_tab5:
 # ==============================================================================
 # ==============================================================================
 # ==============================================================================
-# === TAB 6: BÁO CÁO TỔNG HỢP GIAO DỊCH CUỐI NGÀY (REAL-TIME ENGINE) ===
+# ==============================================================================
+# === TAB 6: BÁO CÁO TỔNG HỢP GIAO DỊCH CUỐI NGÀY (PRO VERSION) ===
 # ==============================================================================
 import yfinance as yf
 import pandas as pd
 import numpy as np
 import datetime
 
-# --- HÀM TOÁN HỌC (DATA ANALYSIS) ---
+# --- CÁC HÀM TOÁN HỌC ---
 def calculate_rsi(series, period=14):
-    """Tính toán chỉ báo RSI"""
     delta = series.diff()
     gain = (delta.where(delta > 0, 0)).rolling(window=period).mean()
     loss = (-delta.where(delta < 0, 0)).rolling(window=period).mean()
     rs = gain / loss
     return 100 - (100 / (1 + rs))
 
-@st.cache_data(ttl=3600) # Lưu Cache 1 tiếng để không bị lag nếu bấm nhiều lần
+def calculate_mfi(high, low, close, volume, period=14):
+    """Tính chỉ báo dòng tiền MFI"""
+    typical_price = (high + low + close) / 3
+    money_flow = typical_price * volume
+    delta = typical_price.diff()
+    
+    pos_flow = money_flow.where(delta > 0, 0).rolling(window=period).sum()
+    neg_flow = money_flow.where(delta < 0, 0).rolling(window=period).sum()
+    
+    # Tránh lỗi chia cho 0
+    money_ratio = pos_flow / neg_flow.replace(0, np.nan)
+    mfi = 100 - (100 / (1 + money_ratio))
+    return mfi.fillna(50) # Nếu lỗi trả về 50 (Trung tính)
+
+@st.cache_data(ttl=3600)
 def scan_market_data():
-    """Hàm cào dữ liệu và lọc siêu cổ phiếu"""
-    # Danh sách quét (VN30 + Các mã chiến lược của Lão đại)
-    # Dùng đuôi .VN để yfinance hiểu là sàn Việt Nam
     symbols = ['HPG.VN', 'MBB.VN', 'VHM.VN', 'PLX.VN', 'SSI.VN', 'VND.VN', 'FPT.VN', 
                'MWG.VN', 'VCB.VN', 'CTG.VN', 'TCB.VN', 'VPB.VN', 'DIG.VN', 'DXG.VN', 
                'DGC.VN', 'GMD.VN', 'VCI.VN', 'PNJ.VN', 'VNM.VN', 'SAB.VN']
     
     results = {
-        'breakout_vol': [],
-        'overbought': [],
-        'oversold': [],
-        'break_high': [],
-        'break_low': []
+        'breakout_vol': [], # Chứa tuple (vol_ratio, text) để sort
+        'overbought': [],   # Chứa tuple (rsi, text)
+        'oversold': [],     # Chứa tuple (rsi, text)
+        'top_smg': []       # Chứa tuple (smg_pct, text)
     }
     
-    # Cào dữ liệu 60 ngày gần nhất
     end_date = datetime.date.today()
-    start_date = end_date - datetime.timedelta(days=90) # Lấy dư ra để tính MA
+    start_date = end_date - datetime.timedelta(days=90) # Lấy 90 ngày để đủ tính 60 phiên
     
     data = yf.download(symbols, start=start_date, end=end_date, progress=False)
     
     if data.empty:
         return results
 
-    # Vòng lặp phân tích từng mã
     for sym in symbols:
         try:
-            # Lấy chuỗi giá Đóng cửa và Khối lượng của mã hiện tại
-            # yfinance phiên bản mới trả về MultiIndex
             if isinstance(data.columns, pd.MultiIndex):
-                close_prices = data['Close'][sym].dropna()
-                volumes = data['Volume'][sym].dropna()
+                close_p = data['Close'][sym].dropna()
+                high_p = data['High'][sym].dropna()
+                low_p = data['Low'][sym].dropna()
+                vol = data['Volume'][sym].dropna()
             else:
-                close_prices = data['Close'].dropna()
-                volumes = data['Volume'].dropna()
+                close_p = data['Close'].dropna()
+                high_p = data['High'].dropna()
+                low_p = data['Low'].dropna()
+                vol = data['Volume'].dropna()
 
-            if len(close_prices) < 30:
+            if len(close_p) < 65:
                 continue
                 
-            # --- TÍNH TOÁN CÁC CHỈ BÁO ---
-            current_price = close_prices.iloc[-1]
-            prev_price = close_prices.iloc[-2]
+            current_price = close_p.iloc[-1]
+            prev_price = close_p.iloc[-2]
             pct_change = ((current_price - prev_price) / prev_price) * 100
             
-            current_vol = volumes.iloc[-1]
-            ma20_vol = volumes.rolling(window=20).mean().iloc[-1]
+            # Khối lượng
+            current_vol = vol.iloc[-1]
+            ma20_vol = vol.rolling(window=20).mean().iloc[-1]
+            vol_ratio = (current_vol / ma20_vol) * 100 if ma20_vol > 0 else 0
             
-            rsi_14 = calculate_rsi(close_prices, 14).iloc[-1]
+            # RSI & MFI
+            rsi_14 = calculate_rsi(close_p, 14).iloc[-1]
+            mfi_14 = calculate_mfi(high_p, low_p, close_p, vol, 14).iloc[-1]
             
-            high_60 = close_prices.rolling(window=60).max().iloc[-2] # Đỉnh 60 phiên (không tính hôm nay)
-            low_20 = close_prices.rolling(window=20).min().iloc[-2]  # Đáy 20 phiên
+            # SMG (Sức mạnh giá 60 ngày ~ 1 Quý)
+            price_60_days_ago = close_p.iloc[-60]
+            smg_pct = ((current_price - price_60_days_ago) / price_60_days_ago) * 100
             
-            clean_sym = sym.replace('.VN', '') # Bỏ chữ .VN cho đẹp
+            clean_sym = sym.replace('.VN', '')
             
-            # --- ĐƯA VÀO BỘ LỌC (SCREENER) ---
-            # 1. Bùng nổ Volume (Giá xanh & Vol > 150% MA20)
-            if pct_change > 0 and current_vol > (ma20_vol * 1.5):
-                vol_ratio = (current_vol / ma20_vol) * 100
-                results['breakout_vol'].append(f"🟢 **{clean_sym}**: Giá {current_price:.1f} (+{pct_change:.1f}%) | Vol: **{vol_ratio:.0f}%** MA20")
+            # --- 1. LỌC DÒNG TIỀN ---
+            if pct_change > 0 and vol_ratio > 150:
+                text = f"🟢 **{clean_sym}**: Giá {current_price:.1f} (+{pct_change:.1f}%) | Vol: **{vol_ratio:.0f}%** MA20"
+                results['breakout_vol'].append((vol_ratio, text))
                 
-            # 2. RSI Quá Mua / Quá Bán
-            if rsi_14 > 70:
-                results['overbought'].append(f"🔴 **{clean_sym}**: RSI {rsi_14:.1f}")
-            elif rsi_14 < 30:
-                results['oversold'].append(f"🟢 **{clean_sym}**: RSI {rsi_14:.1f}")
+            # --- 2. LỌC KÉP QUÁ MUA / QUÁ BÁN (RSI & MFI) ---
+            if rsi_14 > 70 or mfi_14 > 80:
+                text = f"🔴 **{clean_sym}**: RSI {rsi_14:.1f} | MFI {mfi_14:.1f}"
+                results['overbought'].append((rsi_14, text))
+            elif rsi_14 < 30 or mfi_14 < 20:
+                text = f"🟢 **{clean_sym}**: RSI {rsi_14:.1f} | MFI {mfi_14:.1f}"
+                results['oversold'].append((rsi_14, text))
                 
-            # 3. Phá vỡ xu hướng
-            if current_price > high_60:
-                results['break_high'].append(f"🚀 **{clean_sym}**: Vượt đỉnh 3 tháng ({current_price:.1f})")
-            elif current_price < low_20:
-                results['break_low'].append(f"📉 **{clean_sym}**: Thủng đáy 1 tháng ({current_price:.1f})")
+            # --- 3. ĐO SMG (Lấy mã tăng dương trong 3 tháng) ---
+            if smg_pct > 0:
+                text = f"🚀 **{clean_sym}**: Tăng **+{smg_pct:.1f}%** (3 tháng)"
+                results['top_smg'].append((smg_pct, text))
                 
-        except Exception as e:
-            continue # Lỗi mã nào bỏ qua mã đó, chạy tiếp
+        except Exception:
+            continue
             
+    # --- SẮP XẾP KẾT QUẢ (SORTING) ---
+    results['breakout_vol'].sort(key=lambda x: x[0], reverse=True) # Vol to nhất lên đầu
+    results['overbought'].sort(key=lambda x: x[0], reverse=True)   # RSI cao nhất lên đầu
+    results['oversold'].sort(key=lambda x: x[0])                   # RSI thấp nhất (rơi sâu nhất) lên đầu
+    results['top_smg'].sort(key=lambda x: x[0], reverse=True)      # SMG khỏe nhất lên đầu
+    
     return results
 
 # ==============================================================================
@@ -893,8 +913,8 @@ def scan_market_data():
 with main_tab6:
     st.markdown("""
     <div style="background-color:#1e1e1e; padding:15px; border-radius: 10px; border-left: 5px solid #ffbc00; margin-bottom: 20px;">
-        <h3 style="color:white; margin:0;">📡 RADAR QUÉT THỊ TRƯỜNG (VN30 + WATCHLIST)</h3>
-        <p style="color:#aaaaaa; margin:0;">Hệ thống cào dữ liệu Real-time và chạy thuật toán định lượng Pandas để phát hiện tín hiệu.</p>
+        <h3 style="color:white; margin:0;">📡 RADAR QUÉT THỊ TRƯỜNG (PRO VERSION)</h3>
+        <p style="color:#aaaaaa; margin:0;">Tích hợp: Lọc Kép (RSI/MFI) • Sức Mạnh Giá (SMG) • Tự động Xếp hạng</p>
     </div>
     """, unsafe_allow_html=True)
 
@@ -902,64 +922,59 @@ with main_tab6:
     st.markdown("---")
 
     if run_radar:
-        with st.spinner("⏳ Máy trạm đang kết nối API... Xử lý mảng dữ liệu Numpy & Pandas..."):
-            # CHẠY ĐỘNG CƠ THẬT Ở ĐÂY
+        with st.spinner("⏳ Đang quét Dòng tiền, đo MFI và xếp hạng Sức mạnh giá (SMG)..."):
             scan_results = scan_market_data()
+            current_time = datetime.datetime.now().strftime("%d/%m/%Y %H:%M:%S")
+            st.caption(f"🕒 *Dữ liệu chốt lúc: {current_time}*")
             
             col_rep1, col_rep2, col_rep3 = st.columns(3)
 
             # --- CỘT 1: DÒNG TIỀN ---
             with col_rep1:
                 st.markdown('<div class="glass-box"><h4>💥 BÙNG NỔ DÒNG TIỀN</h4>', unsafe_allow_html=True)
-                st.info("Khối lượng ĐỘT BIẾN > 150% trung bình 20 phiên.")
+                st.info("Vol đột biến > 150%. Xếp hạng từ cao xuống thấp.")
                 if scan_results['breakout_vol']:
-                    for item in scan_results['breakout_vol']:
+                    for _, item in scan_results['breakout_vol'][:7]: # Chỉ hiển thị Top 7 cho đỡ rối
                         st.markdown(item)
                 else:
-                    st.write("Không có mã nào thỏa mãn.")
+                    st.write("- Trống -")
                 st.markdown('</div>', unsafe_allow_html=True)
 
-            # --- CỘT 2: RSI ---
+            # --- CỘT 2: LỌC KÉP ---
             with col_rep2:
-                st.markdown('<div class="glass-box"><h4>⚠️ CẢNH BÁO (RSI)</h4>', unsafe_allow_html=True)
-                st.warning("Đo lường chỉ báo RSI (14) để chốt lời/bắt đáy.")
+                st.markdown('<div class="glass-box"><h4>⚠️ CẢNH BÁO (RSI/MFI)</h4>', unsafe_allow_html=True)
+                st.warning("Lọc nhiễu: RSI(14) kẹp cùng MFI(14).")
                 
-                st.markdown("**🔥 Quá Mua (RSI > 70):**")
+                st.markdown("**🔥 Quá Mua (Cẩn thận):**")
                 if scan_results['overbought']:
-                    for item in scan_results['overbought']:
+                    for _, item in scan_results['overbought'][:5]:
                         st.markdown(item)
                 else:
                     st.write("- Trống -")
                     
-                st.markdown("**🧊 Quá Bán (RSI < 30):**")
+                st.markdown("**🧊 Quá Bán (Bắt đáy):**")
                 if scan_results['oversold']:
-                    for item in scan_results['oversold']:
+                    for _, item in scan_results['oversold'][:5]:
                         st.markdown(item)
                 else:
                     st.write("- Trống -")
                 st.markdown('</div>', unsafe_allow_html=True)
 
-            # --- CỘT 3: XU HƯỚNG ---
+            # --- CỘT 3: SỨC MẠNH GIÁ (SMG) ---
             with col_rep3:
-                st.markdown('<div class="glass-box"><h4>🏆 VƯỢT ĐỈNH / THỦNG ĐÁY</h4>', unsafe_allow_html=True)
-                st.error("Các mã phá vỡ nền giá quan trọng.")
+                st.markdown('<div class="glass-box"><h4>🏆 TOP SỨC MẠNH GIÁ</h4>', unsafe_allow_html=True)
+                st.error("Ranking đà tăng trưởng mạnh nhất trong 3 tháng qua.")
                 
-                st.markdown("**🚀 Vượt Đỉnh 60 Phiên:**")
-                if scan_results['break_high']:
-                    for item in scan_results['break_high']:
-                        st.markdown(item)
-                else:
-                    st.write("- Trống -")
-                    
-                st.markdown("**📉 Thủng Đáy 20 Phiên:**")
-                if scan_results['break_low']:
-                    for item in scan_results['break_low']:
-                        st.markdown(item)
+                st.markdown("**🚀 Danh sách Siêu cổ phiếu:**")
+                if scan_results['top_smg']:
+                    # Vòng lặp lấy Top 10 mã khỏe nhất
+                    for idx, (_, item) in enumerate(scan_results['top_smg'][:10]):
+                        st.markdown(f"**#{idx+1}** {item}")
                 else:
                     st.write("- Trống -")
                 st.markdown('</div>', unsafe_allow_html=True)
             
-            st.success("✅ Thuật toán đã cào và phân tích xong dữ liệu Real-time ngày hôm nay!")
+            st.success("✅ Thuật toán đã quét xong! Các mã đã được sắp xếp chuẩn xác từ Mạnh nhất đến Yếu nhất.")
     else:
         st.info("👆 Sẵn sàng. Nhấn nút màu đỏ bên trên để khởi động Radar quét!")
 # ==============================================================================
