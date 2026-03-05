@@ -689,52 +689,91 @@ with main_tab3:
 
 st.markdown('<div style="text-align:center; color:#444; font-size:10px; margin-top:50px;">THANG LONG TERMINAL SYSTEM V36.7 // ENCRYPTED</div>', unsafe_allow_html=True)
 # ==============================================================================
-# === TAB 4: CÔNG CỤ (CHỈ CÒN MÁY TÍNH & SỔ TAY) ===
 # ==============================================================================
+# === TAB 4: CÔNG CỤ (MÁY TÍNH TÍCH SẢN & SỔ TAY) ===
+# ==============================================================================
+import pandas as pd
+
 with main_tab4:
-    c_tools_1, c_tools_2 = st.columns([1, 1])
+    st.markdown("""
+    <div style="background-color:#1e1e1e; padding:15px; border-radius: 10px; border-left: 5px solid #28c840; margin-bottom: 20px;">
+        <h3 style="color:white; margin:0;">🧰 TRUNG TÂM CÔNG CỤ & KẾ HOẠCH DÀI HẠN</h3>
+    </div>
+    """, unsafe_allow_html=True)
     
-    # --- PHẦN 1: MÁY TÍNH LÃI LỖ ---
+    c_tools_1, c_tools_2 = st.columns([1.5, 1])
+    
+    # --- PHẦN 1: CỖ MÁY GIẢ LẬP TÍCH SẢN LÃI KÉP ---
     with c_tools_1:
-        st.markdown('<div class="glass-box"><h4>🧮 MÁY TÍNH DỰ BÁO (SIMULATOR)</h4>', unsafe_allow_html=True)
-        with st.form("calc_form"):
-            col_calc_1, col_calc_2 = st.columns(2)
-            with col_calc_1:
-                sim_vol = st.number_input("Số Lượng CP", min_value=100, step=100, value=1000)
-                sim_price_in = st.number_input("Giá Vốn", min_value=0.1, step=0.1, value=25.0, format="%.2f")
-            with col_calc_2:
-                sim_price_target = st.number_input("Giá Mục Tiêu", min_value=0.1, step=0.1, value=28.5, format="%.2f")
-                st.write("") 
-                st.write("")
+        st.markdown('<div class="glass-box"><h4>💎 CỖ MÁY TÍCH SẢN LÃI KÉP</h4>', unsafe_allow_html=True)
+        st.caption("Mô phỏng sức mạnh của thời gian và kỷ luật gom hàng (HPG, MBB...).")
+        
+        col_calc_1, col_calc_2 = st.columns(2)
+        with col_calc_1:
+            initial_inv = st.number_input("Vốn ban đầu (VNĐ)", min_value=0, step=10000000, value=50000000)
+            monthly_inv = st.number_input("Góp vốn mỗi tháng (VNĐ)", min_value=0, step=1000000, value=5000000)
+        with col_calc_2:
+            cagr = st.slider("Lợi nhuận kỳ vọng/năm (%)", min_value=1.0, max_value=30.0, value=15.0, step=0.5)
+            years = st.slider("Thời gian tích sản (Năm)", min_value=1, max_value=40, value=20)
+        
+        if st.button("🔮 MÔ PHỎNG TƯƠNG LAI", type="primary", use_container_width=True):
+            years_list = list(range(1, years + 1))
+            principal_list = []
+            total_list = []
             
-            if st.form_submit_button("🔮 DỰ TÍNH", type="primary", use_container_width=True):
-                total_cost = sim_vol * sim_price_in * 1000 
-                total_rev = sim_vol * sim_price_target * 1000
-                profit = total_rev - total_cost
-                pct_change = (profit / total_cost) * 100
-                st.divider()
-                if profit > 0:
-                    st.success(f"🎉 LÃI: +{profit:,.0f} Đ (+{pct_change:.2f}%)")
-                elif profit < 0:
-                    st.error(f"⚠️ LỖ: {profit:,.0f} Đ ({pct_change:.2f}%)")
-                else:
-                    st.warning("HÒA VỐN")
+            current_total = initial_inv
+            total_principal = initial_inv
+            
+            for y in years_list:
+                yearly_cont = monthly_inv * 12
+                total_principal += yearly_cont
+                current_total = (current_total + yearly_cont) * (1 + cagr/100)
+                
+                principal_list.append(total_principal)
+                total_list.append(current_total)
+                
+            # Tạo DataFrame để vẽ biểu đồ
+            df_sim = pd.DataFrame({
+                "Năm": years_list,
+                "Vốn Gốc (Bỏ ra)": principal_list,
+                "Tổng Tài Sản": total_list
+            }).set_index("Năm")
+            
+            final_principal = principal_list[-1]
+            final_total = total_list[-1]
+            profit_earned = final_total - final_principal
+            
+            st.divider()
+            st.success(f"🎯 **KẾT QUẢ SAU {years} NĂM:**")
+            
+            # Hiển thị Metric
+            m1, m2, m3 = st.columns(3)
+            m1.metric("Tổng Vốn Đã Góp", f"{final_principal / 1e9:.2f} Tỷ")
+            m2.metric("Lãi Sinh Ra", f"{profit_earned / 1e9:.2f} Tỷ")
+            m3.metric("💰 TỔNG TÀI SẢN NAV", f"{final_total / 1e9:.2f} Tỷ")
+            
+            # Vẽ biểu đồ Lãi kép (Area Chart)
+            st.area_chart(df_sim, color=["#ff5f57", "#28c840"])
+            
         st.markdown('</div>', unsafe_allow_html=True)
 
-    # --- PHẦN 2: SỔ TAY ---
+    # --- PHẦN 2: SỔ TAY ĐIỆP VIÊN ---
     with c_tools_2:
-        st.markdown('<div class="glass-box"><h4>📝 SỔ TAY ĐIỆP VIÊN</h4>', unsafe_allow_html=True)
+        st.markdown('<div class="glass-box"><h4>📝 SỔ TAY CHIẾN LƯỢC</h4>', unsafe_allow_html=True)
         current_user = st.session_state.get('user_info', {}).get('username', '')
-        saved_note = get_user_note(current_user)
+        # Lưu ý: Ngài phải có sẵn hàm get_user_note và save_user_note ở trên đầu file nhé
+        saved_note = get_user_note(current_user) if 'get_user_note' in globals() else ""
         with st.form("note_form"):
-            new_note = st.text_area("Ghi chú:", value=saved_note, height=180)
-            if st.form_submit_button("💾 LƯU", use_container_width=True):
-                if save_user_note(current_user, new_note):
+            new_note = st.text_area("Ghi chú mã cần theo dõi:", value=saved_note, height=350)
+            if st.form_submit_button("💾 LƯU GHI CHÚ", use_container_width=True):
+                if 'save_user_note' in globals():
+                    save_user_note(current_user, new_note)
                     st.success("Đã lưu!")
                     time.sleep(0.5)
                     st.rerun()
+                else:
+                    st.info("Chưa có DB để lưu, đây là bản preview.")
         st.markdown('</div>', unsafe_allow_html=True)
-
 # ==============================================================================
 # === TAB 5: TRÌNH DUYỆT NGHIÊN CỨU (ĐỘC LẬP) ===
 # ==============================================================================
