@@ -731,22 +731,26 @@ with main_tab4:
                     st.warning("HÒA VỐN")
         st.markdown('</div>', unsafe_allow_html=True)
         
-        st.markdown("<br>", unsafe_allow_html=True) # Tạo khoảng cách cho đẹp
+        st.markdown("<br>", unsafe_allow_html=True) 
         
-        # --- PHẦN 2: CỖ MÁY GIẢ LẬP TÍCH SẢN (DÀI HẠN) ---
+        # --- PHẦN 2: CỖ MÁY GIẢ LẬP TÍCH SẢN (DÀI HẠN - ĐƠN VỊ TRIỆU VNĐ) ---
         st.markdown('<div class="glass-box"><h4>💎 CỖ MÁY TÍCH SẢN LÃI KÉP</h4>', unsafe_allow_html=True)
         st.caption("Mô phỏng sức mạnh của thời gian và kỷ luật gom hàng (HPG, MBB...).")
         
         with st.form("long_term_form"):
             col_c1, col_c2 = st.columns(2)
             with col_c1:
-                initial_inv = st.number_input("Vốn ban đầu (VNĐ)", min_value=0, step=10000000, value=50000000)
-                monthly_inv = st.number_input("Góp vốn mỗi tháng (VNĐ)", min_value=0, step=1000000, value=5000000)
+                initial_inv_m = st.number_input("Vốn ban đầu (Triệu VNĐ)", min_value=0.0, step=10.0, value=50.0, format="%.1f")
+                monthly_inv_m = st.number_input("Góp mỗi tháng (Triệu VNĐ)", min_value=0.0, step=1.0, value=5.0, format="%.1f")
             with col_c2:
                 cagr = st.slider("Lợi nhuận kỳ vọng/năm (%)", min_value=1.0, max_value=30.0, value=15.0, step=0.5)
                 years = st.slider("Thời gian tích sản (Năm)", min_value=1, max_value=40, value=20)
             
             if st.form_submit_button("🔮 MÔ PHỎNG TƯƠNG LAI", type="primary", use_container_width=True):
+                # Quy đổi Triệu VNĐ ra VNĐ để tính toán nội bộ
+                initial_inv = initial_inv_m * 1000000
+                monthly_inv = monthly_inv_m * 1000000
+
                 years_list = list(range(1, years + 1))
                 principal_list = []
                 total_list = []
@@ -789,7 +793,6 @@ with main_tab4:
         current_user = st.session_state.get('user_info', {}).get('username', '')
         saved_note = get_user_note(current_user) if 'get_user_note' in globals() else ""
         with st.form("note_form"):
-            # Kéo dài ô ghi chú ra (height=560) để cân đối với 2 cái máy tính bên trái
             new_note = st.text_area("Ghi chú mã cần theo dõi:", value=saved_note, height=560)
             if st.form_submit_button("💾 LƯU GHI CHÚ", use_container_width=True):
                 if 'save_user_note' in globals():
