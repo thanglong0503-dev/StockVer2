@@ -791,74 +791,177 @@ with main_tab5:
             st.error("Trang web này từ chối kết nối.")
 # ==============================================================================
 # ==============================================================================
-# === TAB 6: BÁO CÁO TỔNG HỢP GIAO DỊCH CUỐI NGÀY ===
+# ==============================================================================
+# === TAB 6: BÁO CÁO TỔNG HỢP GIAO DỊCH CUỐI NGÀY (REAL-TIME ENGINE) ===
+# ==============================================================================
+import yfinance as yf
+import pandas as pd
+import numpy as np
+import datetime
+
+# --- HÀM TOÁN HỌC (DATA ANALYSIS) ---
+def calculate_rsi(series, period=14):
+    """Tính toán chỉ báo RSI"""
+    delta = series.diff()
+    gain = (delta.where(delta > 0, 0)).rolling(window=period).mean()
+    loss = (-delta.where(delta < 0, 0)).rolling(window=period).mean()
+    rs = gain / loss
+    return 100 - (100 / (1 + rs))
+
+@st.cache_data(ttl=3600) # Lưu Cache 1 tiếng để không bị lag nếu bấm nhiều lần
+def scan_market_data():
+    """Hàm cào dữ liệu và lọc siêu cổ phiếu"""
+    # Danh sách quét (VN30 + Các mã chiến lược của Lão đại)
+    # Dùng đuôi .VN để yfinance hiểu là sàn Việt Nam
+    symbols = ['HPG.VN', 'MBB.VN', 'VHM.VN', 'PLX.VN', 'SSI.VN', 'VND.VN', 'FPT.VN', 
+               'MWG.VN', 'VCB.VN', 'CTG.VN', 'TCB.VN', 'VPB.VN', 'DIG.VN', 'DXG.VN', 
+               'DGC.VN', 'GMD.VN', 'VCI.VN', 'PNJ.VN', 'VNM.VN', 'SAB.VN']
+    
+    results = {
+        'breakout_vol': [],
+        'overbought': [],
+        'oversold': [],
+        'break_high': [],
+        'break_low': []
+    }
+    
+    # Cào dữ liệu 60 ngày gần nhất
+    end_date = datetime.date.today()
+    start_date = end_date - datetime.timedelta(days=90) # Lấy dư ra để tính MA
+    
+    data = yf.download(symbols, start=start_date, end=end_date, progress=False)
+    
+    if data.empty:
+        return results
+
+    # Vòng lặp phân tích từng mã
+    for sym in symbols:
+        try:
+            # Lấy chuỗi giá Đóng cửa và Khối lượng của mã hiện tại
+            # yfinance phiên bản mới trả về MultiIndex
+            if isinstance(data.columns, pd.MultiIndex):
+                close_prices = data['Close'][sym].dropna()
+                volumes = data['Volume'][sym].dropna()
+            else:
+                close_prices = data['Close'].dropna()
+                volumes = data['Volume'].dropna()
+
+            if len(close_prices) < 30:
+                continue
+                
+            # --- TÍNH TOÁN CÁC CHỈ BÁO ---
+            current_price = close_prices.iloc[-1]
+            prev_price = close_prices.iloc[-2]
+            pct_change = ((current_price - prev_price) / prev_price) * 100
+            
+            current_vol = volumes.iloc[-1]
+            ma20_vol = volumes.rolling(window=20).mean().iloc[-1]
+            
+            rsi_14 = calculate_rsi(close_prices, 14).iloc[-1]
+            
+            high_60 = close_prices.rolling(window=60).max().iloc[-2] # Đỉnh 60 phiên (không tính hôm nay)
+            low_20 = close_prices.rolling(window=20).min().iloc[-2]  # Đáy 20 phiên
+            
+            clean_sym = sym.replace('.VN', '') # Bỏ chữ .VN cho đẹp
+            
+            # --- ĐƯA VÀO BỘ LỌC (SCREENER) ---
+            # 1. Bùng nổ Volume (Giá xanh & Vol > 150% MA20)
+            if pct_change > 0 and current_vol > (ma20_vol * 1.5):
+                vol_ratio = (current_vol / ma20_vol) * 100
+                results['breakout_vol'].append(f"🟢 **{clean_sym}**: Giá {current_price:.1f} (+{pct_change:.1f}%) | Vol: **{vol_ratio:.0f}%** MA20")
+                
+            # 2. RSI Quá Mua / Quá Bán
+            if rsi_14 > 70:
+                results['overbought'].append(f"🔴 **{clean_sym}**: RSI {rsi_14:.1f}")
+            elif rsi_14 < 30:
+                results['oversold'].append(f"🟢 **{clean_sym}**: RSI {rsi_14:.1f}")
+                
+            # 3. Phá vỡ xu hướng
+            if current_price > high_60:
+                results['break_high'].append(f"🚀 **{clean_sym}**: Vượt đỉnh 3 tháng ({current_price:.1f})")
+            elif current_price < low_20:
+                results['break_low'].append(f"📉 **{clean_sym}**: Thủng đáy 1 tháng ({current_price:.1f})")
+                
+        except Exception as e:
+            continue # Lỗi mã nào bỏ qua mã đó, chạy tiếp
+            
+    return results
+
+# ==============================================================================
+# GIAO DIỆN HIỂN THỊ
 # ==============================================================================
 with main_tab6:
     st.markdown("""
     <div style="background-color:#1e1e1e; padding:15px; border-radius: 10px; border-left: 5px solid #ffbc00; margin-bottom: 20px;">
-        <h3 style="color:white; margin:0;">📡 RADAR QUÉT THỊ TRƯỜNG (VN100)</h3>
-        <p style="color:#aaaaaa; margin:0;">Hệ thống sẽ không tự động chạy để tiết kiệm tài nguyên. Hãy bấm nút Kích hoạt bên dưới để bắt đầu quét.</p>
+        <h3 style="color:white; margin:0;">📡 RADAR QUÉT THỊ TRƯỜNG (VN30 + WATCHLIST)</h3>
+        <p style="color:#aaaaaa; margin:0;">Hệ thống cào dữ liệu Real-time và chạy thuật toán định lượng Pandas để phát hiện tín hiệu.</p>
     </div>
     """, unsafe_allow_html=True)
 
-    # --- CÔNG TẮC KÍCH HOẠT (MANUAL TRIGGER) ---
-    run_radar = st.button("🚀 KÍCH HOẠT RADAR QUÉT VN100", type="primary", use_container_width=True)
+    run_radar = st.button("🚀 KÍCH HOẠT RADAR TÌM SIÊU CỔ PHIẾU", type="primary", use_container_width=True)
     st.markdown("---")
 
-    # Chỉ khi nào Lão đại bấm nút, toàn bộ code bên trong khối 'if' này mới chạy
     if run_radar:
-        with st.spinner("⏳ Đang cào dữ liệu 100 mã cổ phiếu (VN100)... Tính toán RSI, Volume đột biến..."):
-            # (Sau này Emo sẽ nhúng code Python tải dữ liệu thật vào đây)
-            time.sleep(2) # Giả lập thời gian máy chạy
+        with st.spinner("⏳ Máy trạm đang kết nối API... Xử lý mảng dữ liệu Numpy & Pandas..."):
+            # CHẠY ĐỘNG CƠ THẬT Ở ĐÂY
+            scan_results = scan_market_data()
             
-            # Khung hiển thị kết quả hiện ra SAU KHI quét xong
             col_rep1, col_rep2, col_rep3 = st.columns(3)
 
-            # --- CỘT 1: TÌM KIẾM ĐIỂM NỔ (DÒNG TIỀN) ---
+            # --- CỘT 1: DÒNG TIỀN ---
             with col_rep1:
                 st.markdown('<div class="glass-box"><h4>💥 BÙNG NỔ DÒNG TIỀN</h4>', unsafe_allow_html=True)
                 st.info("Khối lượng ĐỘT BIẾN > 150% trung bình 20 phiên.")
-                st.markdown("""
-                * 🟢 **VCI**: Giá 48.5 (+5.5%) | Vol: **250%** MA20
-                * 🟢 **DIG**: Giá 27.2 (+4.1%) | Vol: **180%** MA20
-                * 🟢 **DGC**: Giá 115.0 (+3.0%) | Vol: **210%** MA20
-                """)
+                if scan_results['breakout_vol']:
+                    for item in scan_results['breakout_vol']:
+                        st.markdown(item)
+                else:
+                    st.write("Không có mã nào thỏa mãn.")
                 st.markdown('</div>', unsafe_allow_html=True)
 
-            # --- CỘT 2: VÙNG CẢNH BÁO (RSI) ---
+            # --- CỘT 2: RSI ---
             with col_rep2:
-                st.markdown('<div class="glass-box"><h4>⚠️ CẢNH BÁO (QUÁ MUA/BÁN)</h4>', unsafe_allow_html=True)
-                st.warning("Đo lường chỉ báo RSI (14) của rổ VN100.")
-                st.markdown("""
-                **🔥 Quá Mua (RSI > 70):**
-                * 🔴 **FPT**: RSI 82.1 (Vượt dải Bollinger trên)
-                * 🔴 **CTR**: RSI 78.5 (Cẩn thận chốt lời)
-
-                **🧊 Quá Bán (RSI < 30):**
-                * 🟢 **MWG**: RSI 28.5 (Về vùng quá bán, canh gom)
-                * 🟢 **VRE**: RSI 25.0 (Đáy ngắn hạn)
-                """)
+                st.markdown('<div class="glass-box"><h4>⚠️ CẢNH BÁO (RSI)</h4>', unsafe_allow_html=True)
+                st.warning("Đo lường chỉ báo RSI (14) để chốt lời/bắt đáy.")
+                
+                st.markdown("**🔥 Quá Mua (RSI > 70):**")
+                if scan_results['overbought']:
+                    for item in scan_results['overbought']:
+                        st.markdown(item)
+                else:
+                    st.write("- Trống -")
+                    
+                st.markdown("**🧊 Quá Bán (RSI < 30):**")
+                if scan_results['oversold']:
+                    for item in scan_results['oversold']:
+                        st.markdown(item)
+                else:
+                    st.write("- Trống -")
                 st.markdown('</div>', unsafe_allow_html=True)
 
-            # --- CỘT 3: SỨC MẠNH XU HƯỚNG ---
+            # --- CỘT 3: XU HƯỚNG ---
             with col_rep3:
                 st.markdown('<div class="glass-box"><h4>🏆 VƯỢT ĐỈNH / THỦNG ĐÁY</h4>', unsafe_allow_html=True)
-                st.error("Các mã phá vỡ nền giá 60 phiên (3 tháng).")
-                st.markdown("""
-                **🚀 Vượt Đỉnh:**
-                * 🟢 **GMD**: Phá đỉnh thời đại
-                * 🟢 **KBC**: Vượt cản chéo
-
-                **📉 Thủng Đáy:**
-                * 🔴 **SAB**: Gãy nền hỗ trợ cứng
-                """)
+                st.error("Các mã phá vỡ nền giá quan trọng.")
+                
+                st.markdown("**🚀 Vượt Đỉnh 60 Phiên:**")
+                if scan_results['break_high']:
+                    for item in scan_results['break_high']:
+                        st.markdown(item)
+                else:
+                    st.write("- Trống -")
+                    
+                st.markdown("**📉 Thủng Đáy 20 Phiên:**")
+                if scan_results['break_low']:
+                    for item in scan_results['break_low']:
+                        st.markdown(item)
+                else:
+                    st.write("- Trống -")
                 st.markdown('</div>', unsafe_allow_html=True)
             
-            st.success("✅ Đã hoàn tất quét 100 mã cổ phiếu. Mời Lão đại xem báo cáo!")
-
+            st.success("✅ Thuật toán đã cào và phân tích xong dữ liệu Real-time ngày hôm nay!")
     else:
-        # Khi chưa bấm nút, hiển thị trạng thái chờ
-        st.info("👆 Sẵn sàng. Nhấn nút màu đỏ bên trên để khởi động Radar quét tìm siêu cổ phiếu!")
+        st.info("👆 Sẵn sàng. Nhấn nút màu đỏ bên trên để khởi động Radar quét!")
 # ==============================================================================
 # 5. FOOTER (THANH TRẠNG THÁI NGANG - CYBER COMMANDER STYLE)
 # ==============================================================================
