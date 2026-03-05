@@ -374,13 +374,14 @@ st.markdown("<div style='height:20px'></div>", unsafe_allow_html=True)
 # ==============================================================================
 # MAIN TABS: 4 KHU VỰC CHIẾN LƯỢC
 # ==============================================================================
-main_tab1, main_tab2, main_tab3, main_tab4, main_tab5, main_tab6 = st.tabs([
+main_tab1, main_tab2, main_tab3, main_tab4, main_tab5, main_tab6, main_tab7 = st.tabs([
     "🚀 STOCK COMMAND CENTER", 
     "💼 MY PORTFOLIO", 
     "💰 TREASURE VAULT",
     "🧮 CÔNG CỤ & GHI CHÚ",  # <--- TAB MỚI
     "🌐 TRÌNH DUYỆT",
-    "📊 TỔNG HỢP GIAO DỊCH"
+    "📊 TỔNG HỢP GIAO DỊCH",
+    "⏱️ KIỂM ĐỊNH (BACKTEST)"
 ])
 
 # ==============================================================================
@@ -1069,6 +1070,119 @@ with main_tab6:
             st.success("✅ Thuật toán đã quét xong! Tín hiệu đã được phân loại và xếp hạng chuẩn xác.")
     else:
         st.info("👆 Sẵn sàng. Nhấn nút màu đỏ bên trên để khởi động Radar quét!")
+
+# ==============================================================================
+# === TAB 7: CỖ MÁY KIỂM ĐỊNH LỊCH SỬ (BACKTESTING ENGINE) ===
+# ==============================================================================
+import yfinance as yf
+import pandas as pd
+import numpy as np
+import datetime
+
+# --- HÀM TÍNH TOÁN (Giữ nguyên hàm tính RSI nếu ngài đã có, Emo viết lại cho an toàn) ---
+def get_rsi(series, period=14):
+    delta = series.diff()
+    gain = (delta.where(delta > 0, 0)).rolling(window=period).mean()
+    loss = (-delta.where(delta < 0, 0)).rolling(window=period).mean()
+    rs = gain / loss
+    return 100 - (100 / (1 + rs))
+
+with main_tab7:
+    st.markdown("""
+    <div style="background-color:#1e1e1e; padding:15px; border-radius: 10px; border-left: 5px solid #ff3366; margin-bottom: 20px;">
+        <h3 style="color:white; margin:0;">⏱️ CỖ MÁY KIỂM ĐỊNH LỊCH SỬ (BACKTESTING ENGINE)</h3>
+        <p style="color:#aaaaaa; margin:0;">Dùng dữ liệu quá khứ để chứng minh thuật toán giao dịch của bạn có thực sự đẻ ra tiền hay không.</p>
+    </div>
+    """, unsafe_allow_html=True)
+
+    # --- KHUNG NHẬP LIỆU (THÔNG SỐ CHIẾN THUẬT) ---
+    st.markdown('<div class="glass-box"><h4>⚙️ THIẾT LẬP CHIẾN THUẬT (RSI REVERSION)</h4>', unsafe_allow_html=True)
+    with st.form("backtest_form"):
+        c1, c2, c3, c4 = st.columns(4)
+        with c1:
+            ticker = st.text_input("Mã Cổ Phiếu", value="HPG").upper()
+        with c2:
+            years_back = st.slider("Dữ liệu quá khứ (Năm)", 1, 5, 2)
+        with c3:
+            rsi_buy = st.number_input("RSI Bắt Đáy (Mua)", value=30, step=1)
+        with c4:
+            rsi_sell = st.number_input("RSI Chốt Lời (Bán)", value=70, step=1)
+            
+        run_backtest = st.form_submit_button("🚀 CHẠY KIỂM ĐỊNH (BACKTEST)", use_container_width=True, type="primary")
+    st.markdown('</div>', unsafe_allow_html=True)
+
+    # --- KHỐI XỬ LÝ TOÁN HỌC & DATA ANALYSIS ---
+    if run_backtest:
+        with st.spinner(f"⏳ Đang tải lịch sử {years_back} năm của {ticker} và mô phỏng giao dịch..."):
+            symbol = f"{ticker}.VN"
+            end_date = datetime.date.today()
+            start_date = end_date - datetime.timedelta(days=years_back * 365)
+            
+            # Kéo dữ liệu
+            df = yf.download(symbol, start=start_date, end=end_date, progress=False)
+            
+            if df.empty:
+                st.error(f"❌ Không tìm thấy dữ liệu cho mã {ticker}. Vui lòng kiểm tra lại.")
+            else:
+                # Xử lý MultiIndex của yfinance bản mới
+                if isinstance(df.columns, pd.MultiIndex):
+                    df = df['Close'].to_frame()
+                    df.columns = ['Close']
+                else:
+                    df = df[['Close']]
+                    
+                df = df.dropna()
+                
+                # 1. Tính toán RSI
+                df['RSI'] = get_rsi(df['Close'], 14)
+                
+                # 2. Sinh Tín Hiệu (Signal Generation)
+                # 1 = Mua/Nắm giữ, 0 = Bán/Đứng ngoài
+                df['Signal'] = np.nan
+                df.loc[df['RSI'] < rsi_buy, 'Signal'] = 1  # Bắt đáy
+                df.loc[df['RSI'] > rsi_sell, 'Signal'] = 0 # Chốt lời
+                
+                # Forward fill: Nắm giữ trạng thái cho đến khi có tín hiệu ngược lại
+                df['Position'] = df['Signal'].ffill().fillna(0)
+                
+                # 3. Tính toán Lợi nhuận (PnL Calculation)
+                df['Market_Return'] = df['Close'].pct_change()
+                # Shift(1) để tránh Lookahead Bias (Nhìn thấy giá hôm nay đóng cửa mới hành động vào ngày mai)
+                df['Strategy_Return'] = df['Market_Return'] * df['Position'].shift(1)
+                
+                # Tính Lãi Kép lũy kế (Cumulative Return)
+                df['Hold_Cum'] = (1 + df['Market_Return']).cumprod() * 100 # Mô phỏng vốn 100%
+                df['Strat_Cum'] = (1 + df['Strategy_Return']).cumprod() * 100
+                
+                df = df.dropna()
+                
+                # --- XUẤT BÁO CÁO KẾT QUẢ ---
+                final_hold = df['Hold_Cum'].iloc[-1] - 100
+                final_strat = df['Strat_Cum'].iloc[-1] - 100
+                
+                st.markdown("---")
+                st.success(f"✅ Đã kiểm định hoàn tất {len(df)} phiên giao dịch của **{ticker}**!")
+                
+                # Hiển thị số liệu
+                m1, m2, m3 = st.columns(3)
+                m1.metric("Lợi nhuận Mua & Vứt đó (Buy & Hold)", f"{final_hold:.2f}%")
+                m2.metric("Lợi nhuận Thuật Toán (Strategy)", f"{final_strat:.2f}%", 
+                          delta=f"{final_strat - final_hold:.2f}% so với TT", 
+                          delta_color="normal" if final_strat > final_hold else "inverse")
+                
+                # Tính số lần ra vào lệnh (Số lần Position chuyển từ 0 sang 1)
+                trades_count = (df['Position'].diff() > 0).sum()
+                m3.metric("Tổng Số Lệnh Giao Dịch", f"{trades_count} lệnh")
+                
+                # --- VẼ BIỂU ĐỒ SO SÁNH (EQUITY CURVE) ---
+                st.markdown('<h4>📈 Biểu đồ So sánh Hiệu quả Đầu tư</h4>', unsafe_allow_html=True)
+                chart_data = df[['Hold_Cum', 'Strat_Cum']].rename(
+                    columns={"Hold_Cum": "Nắm giữ dài hạn", "Strat_Cum": "Đánh theo Thuật toán RSI"}
+                )
+                # Vẽ Line Chart
+                st.line_chart(chart_data, color=["#aaaaaa", "#ffbc00"])
+                
+                st.caption("💡 *Mẹo DA: Đường màu vàng (Thuật toán) nằm trên đường màu xám (Nắm giữ) tức là hệ thống của ngài đang đánh bại thị trường!*")
 # ==============================================================================
 # 5. FOOTER (THANH TRẠNG THÁI NGANG - CYBER COMMANDER STYLE)
 # ==============================================================================
