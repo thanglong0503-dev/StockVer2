@@ -690,81 +690,107 @@ with main_tab3:
 st.markdown('<div style="text-align:center; color:#444; font-size:10px; margin-top:50px;">THANG LONG TERMINAL SYSTEM V36.7 // ENCRYPTED</div>', unsafe_allow_html=True)
 # ==============================================================================
 # ==============================================================================
-# === TAB 4: CÔNG CỤ (MÁY TÍNH TÍCH SẢN & SỔ TAY) ===
+# === TAB 4: CÔNG CỤ (MÁY TÍNH NGẮN HẠN, DÀI HẠN & SỔ TAY) ===
 # ==============================================================================
 import pandas as pd
+import time
 
 with main_tab4:
     st.markdown("""
     <div style="background-color:#1e1e1e; padding:15px; border-radius: 10px; border-left: 5px solid #28c840; margin-bottom: 20px;">
-        <h3 style="color:white; margin:0;">🧰 TRUNG TÂM CÔNG CỤ & KẾ HOẠCH DÀI HẠN</h3>
+        <h3 style="color:white; margin:0;">🧰 TRUNG TÂM CÔNG CỤ & KẾ HOẠCH TÀI CHÍNH</h3>
     </div>
     """, unsafe_allow_html=True)
     
     c_tools_1, c_tools_2 = st.columns([1.5, 1])
     
-    # --- PHẦN 1: CỖ MÁY GIẢ LẬP TÍCH SẢN LÃI KÉP ---
     with c_tools_1:
+        # --- PHẦN 1: MÁY TÍNH LÃI LỖ NGẮN HẠN (T+) ---
+        st.markdown('<div class="glass-box"><h4>🧮 TÍNH TOÁN LÃI LỖ NGẮN HẠN (T+)</h4>', unsafe_allow_html=True)
+        with st.form("short_term_form"):
+            col_calc_1, col_calc_2 = st.columns(2)
+            with col_calc_1:
+                sim_vol = st.number_input("Số Lượng CP", min_value=100, step=100, value=1000)
+                sim_price_in = st.number_input("Giá Vốn", min_value=0.1, step=0.1, value=25.0, format="%.2f")
+            with col_calc_2:
+                sim_price_target = st.number_input("Giá Mục Tiêu", min_value=0.1, step=0.1, value=28.5, format="%.2f")
+                st.write("")
+                st.write("")
+            
+            if st.form_submit_button("⚖️ DỰ TÍNH LÃI LỖ", type="primary", use_container_width=True):
+                total_cost = sim_vol * sim_price_in * 1000 
+                total_rev = sim_vol * sim_price_target * 1000
+                profit = total_rev - total_cost
+                pct_change = (profit / total_cost) * 100
+                st.divider()
+                if profit > 0:
+                    st.success(f"🎉 LÃI: +{profit:,.0f} Đ (+{pct_change:.2f}%)")
+                elif profit < 0:
+                    st.error(f"⚠️ LỖ: {profit:,.0f} Đ ({pct_change:.2f}%)")
+                else:
+                    st.warning("HÒA VỐN")
+        st.markdown('</div>', unsafe_allow_html=True)
+        
+        st.markdown("<br>", unsafe_allow_html=True) # Tạo khoảng cách cho đẹp
+        
+        # --- PHẦN 2: CỖ MÁY GIẢ LẬP TÍCH SẢN (DÀI HẠN) ---
         st.markdown('<div class="glass-box"><h4>💎 CỖ MÁY TÍCH SẢN LÃI KÉP</h4>', unsafe_allow_html=True)
         st.caption("Mô phỏng sức mạnh của thời gian và kỷ luật gom hàng (HPG, MBB...).")
         
-        col_calc_1, col_calc_2 = st.columns(2)
-        with col_calc_1:
-            initial_inv = st.number_input("Vốn ban đầu (VNĐ)", min_value=0, step=10000000, value=50000000)
-            monthly_inv = st.number_input("Góp vốn mỗi tháng (VNĐ)", min_value=0, step=1000000, value=5000000)
-        with col_calc_2:
-            cagr = st.slider("Lợi nhuận kỳ vọng/năm (%)", min_value=1.0, max_value=30.0, value=15.0, step=0.5)
-            years = st.slider("Thời gian tích sản (Năm)", min_value=1, max_value=40, value=20)
-        
-        if st.button("🔮 MÔ PHỎNG TƯƠNG LAI", type="primary", use_container_width=True):
-            years_list = list(range(1, years + 1))
-            principal_list = []
-            total_list = []
+        with st.form("long_term_form"):
+            col_c1, col_c2 = st.columns(2)
+            with col_c1:
+                initial_inv = st.number_input("Vốn ban đầu (VNĐ)", min_value=0, step=10000000, value=50000000)
+                monthly_inv = st.number_input("Góp vốn mỗi tháng (VNĐ)", min_value=0, step=1000000, value=5000000)
+            with col_c2:
+                cagr = st.slider("Lợi nhuận kỳ vọng/năm (%)", min_value=1.0, max_value=30.0, value=15.0, step=0.5)
+                years = st.slider("Thời gian tích sản (Năm)", min_value=1, max_value=40, value=20)
             
-            current_total = initial_inv
-            total_principal = initial_inv
-            
-            for y in years_list:
-                yearly_cont = monthly_inv * 12
-                total_principal += yearly_cont
-                current_total = (current_total + yearly_cont) * (1 + cagr/100)
+            if st.form_submit_button("🔮 MÔ PHỎNG TƯƠNG LAI", type="primary", use_container_width=True):
+                years_list = list(range(1, years + 1))
+                principal_list = []
+                total_list = []
                 
-                principal_list.append(total_principal)
-                total_list.append(current_total)
+                current_total = initial_inv
+                total_principal = initial_inv
                 
-            # Tạo DataFrame để vẽ biểu đồ
-            df_sim = pd.DataFrame({
-                "Năm": years_list,
-                "Vốn Gốc (Bỏ ra)": principal_list,
-                "Tổng Tài Sản": total_list
-            }).set_index("Năm")
-            
-            final_principal = principal_list[-1]
-            final_total = total_list[-1]
-            profit_earned = final_total - final_principal
-            
-            st.divider()
-            st.success(f"🎯 **KẾT QUẢ SAU {years} NĂM:**")
-            
-            # Hiển thị Metric
-            m1, m2, m3 = st.columns(3)
-            m1.metric("Tổng Vốn Đã Góp", f"{final_principal / 1e9:.2f} Tỷ")
-            m2.metric("Lãi Sinh Ra", f"{profit_earned / 1e9:.2f} Tỷ")
-            m3.metric("💰 TỔNG TÀI SẢN NAV", f"{final_total / 1e9:.2f} Tỷ")
-            
-            # Vẽ biểu đồ Lãi kép (Area Chart)
-            st.area_chart(df_sim, color=["#ff5f57", "#28c840"])
-            
+                for y in years_list:
+                    yearly_cont = monthly_inv * 12
+                    total_principal += yearly_cont
+                    current_total = (current_total + yearly_cont) * (1 + cagr/100)
+                    
+                    principal_list.append(total_principal)
+                    total_list.append(current_total)
+                    
+                df_sim = pd.DataFrame({
+                    "Năm": years_list,
+                    "Vốn Gốc (Bỏ ra)": principal_list,
+                    "Tổng Tài Sản": total_list
+                }).set_index("Năm")
+                
+                final_principal = principal_list[-1]
+                final_total = total_list[-1]
+                profit_earned = final_total - final_principal
+                
+                st.divider()
+                st.success(f"🎯 **KẾT QUẢ SAU {years} NĂM:**")
+                
+                m1, m2, m3 = st.columns(3)
+                m1.metric("Tổng Vốn Đã Góp", f"{final_principal / 1e9:.2f} Tỷ")
+                m2.metric("Lãi Sinh Ra", f"{profit_earned / 1e9:.2f} Tỷ")
+                m3.metric("💰 TỔNG TÀI SẢN NAV", f"{final_total / 1e9:.2f} Tỷ")
+                
+                st.area_chart(df_sim, color=["#ff5f57", "#28c840"])
         st.markdown('</div>', unsafe_allow_html=True)
 
-    # --- PHẦN 2: SỔ TAY ĐIỆP VIÊN ---
+    # --- PHẦN 3: SỔ TAY ĐIỆP VIÊN ---
     with c_tools_2:
         st.markdown('<div class="glass-box"><h4>📝 SỔ TAY CHIẾN LƯỢC</h4>', unsafe_allow_html=True)
         current_user = st.session_state.get('user_info', {}).get('username', '')
-        # Lưu ý: Ngài phải có sẵn hàm get_user_note và save_user_note ở trên đầu file nhé
         saved_note = get_user_note(current_user) if 'get_user_note' in globals() else ""
         with st.form("note_form"):
-            new_note = st.text_area("Ghi chú mã cần theo dõi:", value=saved_note, height=350)
+            # Kéo dài ô ghi chú ra (height=560) để cân đối với 2 cái máy tính bên trái
+            new_note = st.text_area("Ghi chú mã cần theo dõi:", value=saved_note, height=560)
             if st.form_submit_button("💾 LƯU GHI CHÚ", use_container_width=True):
                 if 'save_user_note' in globals():
                     save_user_note(current_user, new_note)
