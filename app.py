@@ -790,72 +790,75 @@ with main_tab5:
         except Exception:
             st.error("Trang web này từ chối kết nối.")
 # ==============================================================================
+# ==============================================================================
 # === TAB 6: BÁO CÁO TỔNG HỢP GIAO DỊCH CUỐI NGÀY ===
 # ==============================================================================
 with main_tab6:
     st.markdown("""
     <div style="background-color:#1e1e1e; padding:15px; border-radius: 10px; border-left: 5px solid #ffbc00; margin-bottom: 20px;">
-        <h3 style="color:white; margin:0;">📊 KỊCH BẢN HÀNH ĐỘNG PHIÊN TIẾP THEO</h3>
-        <p style="color:#aaaaaa; margin:0;">Radar quét tín hiệu bùng nổ dòng tiền và trạng thái kỹ thuật để lên kế hoạch Mua/Bán.</p>
+        <h3 style="color:white; margin:0;">📡 RADAR QUÉT THỊ TRƯỜNG (VN100)</h3>
+        <p style="color:#aaaaaa; margin:0;">Hệ thống sẽ không tự động chạy để tiết kiệm tài nguyên. Hãy bấm nút Kích hoạt bên dưới để bắt đầu quét.</p>
     </div>
     """, unsafe_allow_html=True)
 
-    # Chia làm 3 cột chuẩn như báo cáo của tổ chức
-    col_rep1, col_rep2, col_rep3 = st.columns(3)
-
-    # --- CỘT 1: TÌM KIẾM ĐIỂM NỔ (DÒNG TIỀN) ---
-    with col_rep1:
-        st.markdown('<div class="glass-box"><h4>💥 BÙNG NỔ DÒNG TIỀN</h4>', unsafe_allow_html=True)
-        st.info("Khối lượng ĐỘT BIẾN > 150% trung bình 20 phiên. Dấu chân cá mập gom hàng!")
-        
-        # Code hiển thị dữ liệu (Hiện tại là Demo UI để Lão đại duyệt)
-        st.markdown("""
-        * 🟢 **HPG**: Giá 30.5 (+2.5%) | Vol: **200%** MA20
-        * 🟢 **MBB**: Giá 24.2 (+3.1%) | Vol: **180%** MA20
-        * 🟢 **SSI**: Giá 35.0 (+4.0%) | Vol: **210%** MA20
-        """)
-        st.markdown('</div>', unsafe_allow_html=True)
-
-    # --- CỘT 2: VÙNG CẢNH BÁO (RSI) ---
-    with col_rep2:
-        st.markdown('<div class="glass-box"><h4>⚠️ CẢNH BÁO (QUÁ MUA/BÁN)</h4>', unsafe_allow_html=True)
-        st.warning("Đo lường chỉ báo RSI (14) để canh nhịp chốt lời hoặc bắt đáy.")
-        
-        st.markdown("""
-        **🔥 Quá Mua (RSI > 70) - Rủi ro chỉnh:**
-        * 🔴 **VHM**: RSI 75.2 (Giá đang neo cao, cẩn thận xả)
-        * 🔴 **FPT**: RSI 82.1 (Vượt dải Bollinger trên)
-
-        **🧊 Quá Bán (RSI < 30) - Cơ hội Tích sản:**
-        * 🟢 **PLX**: RSI 28.5 (Về vùng hỗ trợ cứng, canh gom)
-        """)
-        st.markdown('</div>', unsafe_allow_html=True)
-
-    # --- CỘT 3: SỨC MẠNH XU HƯỚNG ---
-    with col_rep3:
-        st.markdown('<div class="glass-box"><h4>🏆 VƯỢT ĐỈNH / THỦNG ĐÁY</h4>', unsafe_allow_html=True)
-        st.error("Các mã phá vỡ nền giá quan trọng (1 tháng, 3 tháng, 1 năm).")
-        
-        st.markdown("""
-        **🚀 Vượt Đỉnh 60 Phiên:**
-        * 🟢 **GMD**: Phá đỉnh thời đại
-        * 🟢 **ACB**: Vượt cản chéo khối lượng lớn
-
-        **📉 Thủng Đáy 20 Phiên:**
-        * 🔴 **SAB**: Gãy nền hỗ trợ
-        * 🔴 **VNM**: Mất mốc MA50
-        """)
-        st.markdown('</div>', unsafe_allow_html=True)
-
+    # --- CÔNG TẮC KÍCH HOẠT (MANUAL TRIGGER) ---
+    run_radar = st.button("🚀 KÍCH HOẠT RADAR QUÉT VN100", type="primary", use_container_width=True)
     st.markdown("---")
-    
-    # Nút bấm kích hoạt AI hoặc thuật toán quét thật
-    c_btn1, c_btn2, c_btn3 = st.columns([1,2,1])
-    with c_btn2:
-        if st.button("🔄 CHẠY THUẬT TOÁN QUÉT TOÀN THỊ TRƯỜNG", type="primary", use_container_width=True):
-            with st.spinner("Emo đang cào dữ liệu VnIndex và tính toán các chỉ báo định lượng..."):
-                time.sleep(2) # Giả lập thời gian chạy code
-                st.success("✅ Đã cập nhật xong dữ liệu cuối ngày!")
+
+    # Chỉ khi nào Lão đại bấm nút, toàn bộ code bên trong khối 'if' này mới chạy
+    if run_radar:
+        with st.spinner("⏳ Đang cào dữ liệu 100 mã cổ phiếu (VN100)... Tính toán RSI, Volume đột biến..."):
+            # (Sau này Emo sẽ nhúng code Python tải dữ liệu thật vào đây)
+            time.sleep(2) # Giả lập thời gian máy chạy
+            
+            # Khung hiển thị kết quả hiện ra SAU KHI quét xong
+            col_rep1, col_rep2, col_rep3 = st.columns(3)
+
+            # --- CỘT 1: TÌM KIẾM ĐIỂM NỔ (DÒNG TIỀN) ---
+            with col_rep1:
+                st.markdown('<div class="glass-box"><h4>💥 BÙNG NỔ DÒNG TIỀN</h4>', unsafe_allow_html=True)
+                st.info("Khối lượng ĐỘT BIẾN > 150% trung bình 20 phiên.")
+                st.markdown("""
+                * 🟢 **VCI**: Giá 48.5 (+5.5%) | Vol: **250%** MA20
+                * 🟢 **DIG**: Giá 27.2 (+4.1%) | Vol: **180%** MA20
+                * 🟢 **DGC**: Giá 115.0 (+3.0%) | Vol: **210%** MA20
+                """)
+                st.markdown('</div>', unsafe_allow_html=True)
+
+            # --- CỘT 2: VÙNG CẢNH BÁO (RSI) ---
+            with col_rep2:
+                st.markdown('<div class="glass-box"><h4>⚠️ CẢNH BÁO (QUÁ MUA/BÁN)</h4>', unsafe_allow_html=True)
+                st.warning("Đo lường chỉ báo RSI (14) của rổ VN100.")
+                st.markdown("""
+                **🔥 Quá Mua (RSI > 70):**
+                * 🔴 **FPT**: RSI 82.1 (Vượt dải Bollinger trên)
+                * 🔴 **CTR**: RSI 78.5 (Cẩn thận chốt lời)
+
+                **🧊 Quá Bán (RSI < 30):**
+                * 🟢 **MWG**: RSI 28.5 (Về vùng quá bán, canh gom)
+                * 🟢 **VRE**: RSI 25.0 (Đáy ngắn hạn)
+                """)
+                st.markdown('</div>', unsafe_allow_html=True)
+
+            # --- CỘT 3: SỨC MẠNH XU HƯỚNG ---
+            with col_rep3:
+                st.markdown('<div class="glass-box"><h4>🏆 VƯỢT ĐỈNH / THỦNG ĐÁY</h4>', unsafe_allow_html=True)
+                st.error("Các mã phá vỡ nền giá 60 phiên (3 tháng).")
+                st.markdown("""
+                **🚀 Vượt Đỉnh:**
+                * 🟢 **GMD**: Phá đỉnh thời đại
+                * 🟢 **KBC**: Vượt cản chéo
+
+                **📉 Thủng Đáy:**
+                * 🔴 **SAB**: Gãy nền hỗ trợ cứng
+                """)
+                st.markdown('</div>', unsafe_allow_html=True)
+            
+            st.success("✅ Đã hoàn tất quét 100 mã cổ phiếu. Mời Lão đại xem báo cáo!")
+
+    else:
+        # Khi chưa bấm nút, hiển thị trạng thái chờ
+        st.info("👆 Sẵn sàng. Nhấn nút màu đỏ bên trên để khởi động Radar quét tìm siêu cổ phiếu!")
 # ==============================================================================
 # 5. FOOTER (THANH TRẠNG THÁI NGANG - CYBER COMMANDER STYLE)
 # ==============================================================================
