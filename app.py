@@ -55,19 +55,31 @@ try:
 except ImportError as e:
     st.error(f"❌ SYSTEM CRITICAL ERROR: MISSING MODULES. \n{e}")
     st.stop()
-# --- ĐỘ GIAO DIỆN (UI/UX CUSTOMIZATION) ---
+# --- ĐỘ GIAO DIỆN (UI/UX CUSTOMIZATION PRO) ---
 st.markdown("""
 <style>
-    /* Nhập font chữ góc cạnh, chuyên nghiệp từ Google Fonts */
-    @import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@600&display=swap');
+    @import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@500;600;700&display=swap');
 
-    /* Ép font chữ cho thanh Tabs */
+    /* 1. Ép font cho toàn bộ thanh Tabs */
     button[data-baseweb="tab"] {
         font-family: 'Montserrat', sans-serif !important;
         font-size: 13px !important;
         font-weight: 600 !important;
-        text-transform: uppercase !important; /* Ép viết hoa toàn bộ */
-        letter-spacing: 1px !important;       /* Khoảng cách chữ rộng ra nhìn cho sang */
+        text-transform: uppercase !important;
+        letter-spacing: 1px !important;
+    }
+
+    /* 2. Ép font cho tất cả các Tiêu đề (H1 - H6) trong App và Sidebar */
+    h1, h2, h3, h4, h5, h6 {
+        font-family: 'Montserrat', sans-serif !important;
+        text-transform: uppercase !important; /* Viết hoa toàn bộ cho ngầu */
+        letter-spacing: 1px !important;
+    }
+    
+    /* 3. Chỉnh nhẹ màu cho các chữ nổi bật */
+    .stMarkdown p strong {
+        font-family: 'Montserrat', sans-serif !important;
+        letter-spacing: 0.5px !important;
     }
 </style>
 """, unsafe_allow_html=True)
