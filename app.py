@@ -164,7 +164,7 @@ render_header()
 
 # --- SIDEBAR CONTROL ---
 with st.sidebar:
-    st.markdown("### 🎛️ SYSTEM CONTROL")
+    st.markdown("### ⎛ SYSTEM CONTROL")
     st.markdown("""
     <div style="display:flex; align-items:center; gap:10px; margin-bottom:20px; background:#111; padding:10px; border:1px solid #333;">
         <div style="width:10px; height:10px; background:#00ff41; border-radius:50%; box-shadow:0 0 5px #00ff41;"></div>
@@ -172,10 +172,10 @@ with st.sidebar:
     </div>
     """, unsafe_allow_html=True)
     
-    st.markdown("### 📡 TARGET SCANNER")
+    st.markdown("### ⌖ TARGET SCANNER")
     
     # 1. QUÉT THEO NGÀNH (Logic Fix: Chỉ cập nhật khi thay đổi lựa chọn)
-    st.markdown("<span style='color:#00f3ff; font-size:12px'>⚡ QUÉT NHANH THEO NGÀNH</span>", unsafe_allow_html=True)
+    st.markdown("<span style='color:#00f3ff; font-size:12px'>⟁ QUÉT NHANH THEO NGÀNH</span>", unsafe_allow_html=True)
     
     # Khởi tạo biến theo dõi nếu chưa có
     if 'prev_sector' not in st.session_state: st.session_state['prev_sector'] = "NONE"
@@ -194,7 +194,7 @@ with st.sidebar:
     st.markdown("---")
 
     # 2. QUÉT THEO SÀN (Nút bấm được ưu tiên)
-    st.markdown("<span style='color:#00f3ff; font-size:12px'>🏛️ HOẶC QUÉT TOÀN SÀN</span>", unsafe_allow_html=True)
+    st.markdown("<span style='color:#00f3ff; font-size:12px'>▤ HOẶC QUÉT TOÀN SÀN</span>", unsafe_allow_html=True)
     
     c_hose, c_hnx, c_upcom = st.columns(3)
     
@@ -420,7 +420,7 @@ with main_tab1:
 
     # === LEFT PANE: RADAR (HIỂN THỊ TỪ BỘ NHỚ) ===
     with col_radar:
-        st.markdown('<div class="glass-box"><h4>📡 MARKET RADAR</h4>', unsafe_allow_html=True)
+        st.markdown('<div class="glass-box"><h4>⌖ MARKET RADAR</h4>', unsafe_allow_html=True)
         
         df_radar = st.session_state['radar_data']
         
@@ -522,7 +522,7 @@ with main_tab1:
                     st.write("") # Căn lề cho nút bấm thẳng hàng
                     st.write("")
                     # Nút bấm kích hoạt
-                    if st.button(f"🚀 KÍCH HOẠT AI ({selected_days} NGÀY)", key="btn_ai", type="primary"):
+                    if st.button(f"⎋ KÍCH HOẠT AI ({selected_days} NGÀY)", key="btn_ai", type="primary"):
                         with st.spinner(f"ĐANG TÍNH TOÁN DỰ BÁO {selected_days} NGÀY TỚI..."):
                             # Truyền số ngày (selected_days) vào hàm AI
                             fig_ai = run_prophet_ai(hist_df, periods=selected_days)
@@ -1039,7 +1039,7 @@ with main_tab6:
 
             # --- CỘT 1: DÒNG TIỀN ---
             with col_rep1:
-                st.markdown('<div class="glass-box"><h4>💥 BÙNG NỔ DÒNG TIỀN</h4>', unsafe_allow_html=True)
+                st.markdown('<div class="glass-box"><h4>✸ BÙNG NỔ DÒNG TIỀN</h4>', unsafe_allow_html=True)
                 st.info("Vol đột biến > 150%. Xếp hạng từ cao xuống thấp.")
                 if scan_results['breakout_vol']:
                     for _, item in scan_results['breakout_vol'][:7]: 
@@ -1050,7 +1050,7 @@ with main_tab6:
 
             # --- CỘT 2: LỌC KÉP ---
             with col_rep2:
-                st.markdown('<div class="glass-box"><h4>⚠️ CẢNH BÁO (RSI/MFI)</h4>', unsafe_allow_html=True)
+                st.markdown('<div class="glass-box"><h4>◬ CẢNH BÁO (RSI/MFI)</h4>', unsafe_allow_html=True)
                 st.warning("Lọc nhiễu: RSI(14) kẹp cùng MFI(14).")
                 
                 st.markdown("**🔥 Quá Mua (Cẩn thận):**")
@@ -1209,7 +1209,7 @@ with main_tab7:
                     columns={"Hold_Cum": "Nắm giữ dài hạn", "Strat_Cum": "Đánh theo Thuật toán RSI"}
                 )
                 st.line_chart(chart_data, color=["#aaaaaa", "#ffbc00"])
-                st.caption("💡 *Mẹo DA: Đường màu vàng (Thuật toán) nằm trên đường màu xám (Nắm giữ) tức là hệ thống của ngài đang đánh bại thị trường!*")
+                st.caption("💡 *Mẹo DA: Đường màu vàng (Thuật toán) nằm trên đường màu xám (Nắm giữ) tức là hệ thống đang đánh bại thị trường!*")
 # ==============================================================================
 # 5. FOOTER (THANH TRẠNG THÁI NGANG - CYBER COMMANDER STYLE)
 # ==============================================================================
