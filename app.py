@@ -836,7 +836,7 @@ def scan_market_data():
     }
     
     end_date = datetime.date.today()
-    start_date = end_date - datetime.timedelta(days=90) # Lấy 90 ngày để đủ tính 60 phiên
+    start_date = end_date - datetime.timedelta(days=150) # Kéo hẳn 150 ngày dương lịch để dư sức có đủ 60 phiên
     
     data = yf.download(symbols, start=start_date, end=end_date, progress=False)
     
@@ -856,7 +856,7 @@ def scan_market_data():
                 low_p = data['Low'].dropna()
                 vol = data['Volume'].dropna()
 
-            if len(close_p) < 65:
+            if len(close_p) < 61:
                 continue
                 
             current_price = close_p.iloc[-1]
