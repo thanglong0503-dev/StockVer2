@@ -1072,6 +1072,7 @@ with main_tab6:
         st.info("👆 Sẵn sàng. Nhấn nút màu đỏ bên trên để khởi động Radar quét!")
 
 # ==============================================================================
+# ==============================================================================
 # === TAB 7: CỖ MÁY KIỂM ĐỊNH LỊCH SỬ (BACKTESTING ENGINE) ===
 # ==============================================================================
 import yfinance as yf
@@ -1079,7 +1080,7 @@ import pandas as pd
 import numpy as np
 import datetime
 
-# --- HÀM TÍNH TOÁN (Giữ nguyên hàm tính RSI nếu ngài đã có, Emo viết lại cho an toàn) ---
+# --- HÀM TÍNH TOÁN ---
 def get_rsi(series, period=14):
     delta = series.diff()
     gain = (delta.where(delta > 0, 0)).rolling(window=period).mean()
@@ -1124,12 +1125,16 @@ with main_tab7:
             if df.empty:
                 st.error(f"❌ Không tìm thấy dữ liệu cho mã {ticker}. Vui lòng kiểm tra lại.")
             else:
-                # Xử lý MultiIndex của yfinance bản mới
+                # --- ĐÃ VÁ LỖI YFINANCE MULTIINDEX TẠI ĐÂY ---
                 if isinstance(df.columns, pd.MultiIndex):
-                    df = df['Close'].to_frame()
-                    df.columns = ['Close']
+                    temp_close = df['Close']
+                    if isinstance(temp_close, pd.Series):
+                        df = temp_close.to_frame(name='Close')
+                    else:
+                        df = temp_close.copy()
+                        df.columns = ['Close']
                 else:
-                    df = df[['Close']]
+                    df = df[['Close']].copy()
                     
                 df = df.dropna()
                 
@@ -1137,21 +1142,20 @@ with main_tab7:
                 df['RSI'] = get_rsi(df['Close'], 14)
                 
                 # 2. Sinh Tín Hiệu (Signal Generation)
-                # 1 = Mua/Nắm giữ, 0 = Bán/Đứng ngoài
                 df['Signal'] = np.nan
                 df.loc[df['RSI'] < rsi_buy, 'Signal'] = 1  # Bắt đáy
                 df.loc[df['RSI'] > rsi_sell, 'Signal'] = 0 # Chốt lời
                 
-                # Forward fill: Nắm giữ trạng thái cho đến khi có tín hiệu ngược lại
+                # Forward fill
                 df['Position'] = df['Signal'].ffill().fillna(0)
                 
                 # 3. Tính toán Lợi nhuận (PnL Calculation)
                 df['Market_Return'] = df['Close'].pct_change()
-                # Shift(1) để tránh Lookahead Bias (Nhìn thấy giá hôm nay đóng cửa mới hành động vào ngày mai)
+                # Shift(1) chống gian lận dữ liệu tương lai
                 df['Strategy_Return'] = df['Market_Return'] * df['Position'].shift(1)
                 
-                # Tính Lãi Kép lũy kế (Cumulative Return)
-                df['Hold_Cum'] = (1 + df['Market_Return']).cumprod() * 100 # Mô phỏng vốn 100%
+                # Tính Lãi Kép lũy kế
+                df['Hold_Cum'] = (1 + df['Market_Return']).cumprod() * 100 
                 df['Strat_Cum'] = (1 + df['Strategy_Return']).cumprod() * 100
                 
                 df = df.dropna()
@@ -1163,25 +1167,20 @@ with main_tab7:
                 st.markdown("---")
                 st.success(f"✅ Đã kiểm định hoàn tất {len(df)} phiên giao dịch của **{ticker}**!")
                 
-                # Hiển thị số liệu
                 m1, m2, m3 = st.columns(3)
                 m1.metric("Lợi nhuận Mua & Vứt đó (Buy & Hold)", f"{final_hold:.2f}%")
                 m2.metric("Lợi nhuận Thuật Toán (Strategy)", f"{final_strat:.2f}%", 
                           delta=f"{final_strat - final_hold:.2f}% so với TT", 
                           delta_color="normal" if final_strat > final_hold else "inverse")
                 
-                # Tính số lần ra vào lệnh (Số lần Position chuyển từ 0 sang 1)
                 trades_count = (df['Position'].diff() > 0).sum()
                 m3.metric("Tổng Số Lệnh Giao Dịch", f"{trades_count} lệnh")
                 
-                # --- VẼ BIỂU ĐỒ SO SÁNH (EQUITY CURVE) ---
                 st.markdown('<h4>📈 Biểu đồ So sánh Hiệu quả Đầu tư</h4>', unsafe_allow_html=True)
                 chart_data = df[['Hold_Cum', 'Strat_Cum']].rename(
                     columns={"Hold_Cum": "Nắm giữ dài hạn", "Strat_Cum": "Đánh theo Thuật toán RSI"}
                 )
-                # Vẽ Line Chart
                 st.line_chart(chart_data, color=["#aaaaaa", "#ffbc00"])
-                
                 st.caption("💡 *Mẹo DA: Đường màu vàng (Thuật toán) nằm trên đường màu xám (Nắm giữ) tức là hệ thống của ngài đang đánh bại thị trường!*")
 # ==============================================================================
 # 5. FOOTER (THANH TRẠNG THÁI NGANG - CYBER COMMANDER STYLE)
