@@ -374,7 +374,7 @@ st.markdown("<div style='height:20px'></div>", unsafe_allow_html=True)
 # ==============================================================================
 # MAIN TABS: 4 KHU VỰC CHIẾN LƯỢC
 # ==============================================================================
-main_tab1, main_tab2, main_tab3, main_tab4 = st.tabs([
+main_tab1, main_tab2, main_tab3, main_tab4, main_tab5 = st.tabs([
     "🚀 STOCK COMMAND CENTER", 
     "💼 MY PORTFOLIO", 
     "💰 TREASURE VAULT",
