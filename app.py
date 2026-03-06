@@ -31,6 +31,48 @@ import streamlit.components.v1 as components
 from frontend.components import render_market_galaxy
 # Sửa backend.stock_list thành backend.sectors
 from backend.sectors import get_full_market_list, get_all_sector_names, get_sector_list_data
+
+# --- ĐỘNG CƠ TÍNH CHỈ BÁO SỢ HÃI & THAM LAM ---
+@st.cache_data(ttl=1800) # Cứ 30 phút cập nhật tâm lý 1 lần cho nhẹ máy
+def get_fear_greed_index():
+    try:
+        # Lấy 5 mã trụ lớn nhất sòng để đo tâm lý
+        symbols = ['VCB.VN', 'VHM.VN', 'VIC.VN', 'HPG.VN', 'FPT.VN']
+        end_date = datetime.date.today()
+        start_date = end_date - datetime.timedelta(days=45)
+        
+        data = yf.download(symbols, start=start_date, end=end_date, progress=False)
+        if data.empty: return 50, "TRUNG TÍNH", "#aaaaaa"
+        
+        rsi_list = []
+        for sym in symbols:
+            if isinstance(data.columns, pd.MultiIndex):
+                close_p = data['Close'][sym].dropna()
+            else:
+                close_p = data['Close'].dropna()
+                
+            if len(close_p) > 15:
+                # Dùng lại hàm tính RSI
+                delta = close_p.diff()
+                gain = (delta.where(delta > 0, 0)).rolling(window=14).mean()
+                loss = (-delta.where(delta < 0, 0)).rolling(window=14).mean()
+                rs = gain / loss
+                rsi = 100 - (100 / (1 + rs))
+                rsi_list.append(rsi.iloc[-1])
+                
+        if not rsi_list: return 50, "TRUNG TÍNH", "#aaaaaa"
+        
+        # Tính điểm trung bình (0 - 100)
+        score = int(sum(rsi_list) / len(rsi_list))
+        
+        # Phân loại tâm lý và gán màu dạ quang
+        if score <= 30: return score, "SỢ HÃI TỘT ĐỘ", "#ff3366"  # Đỏ rực
+        elif score <= 45: return score, "SỢ HÃI", "#ffbc00"       # Cam
+        elif score <= 55: return score, "TRUNG TÍNH", "#aaaaaa"     # Xám bạc
+        elif score <= 70: return score, "THAM LAM", "#28c840"       # Xanh lá
+        else: return score, "THAM LAM TỘT ĐỘ", "#00d2ff"           # Xanh lam
+    except Exception:
+        return 50, "TRUNG TÍNH", "#aaaaaa"
 # ==============================================================================
 # 1. SYSTEM CONFIGURATION
 # ==============================================================================
