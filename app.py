@@ -199,10 +199,16 @@ if not st.session_state['logged_in']:
     render_auth_screen()      # <-- Thay bằng dòng mới này
     st.stop()
 # ==============================================================================
+# ==============================================================================
 # 4. MAIN COMMAND CENTER
 # ==============================================================================
 load_hardcore_css()
-render_header()
+
+# Gọi AI tính điểm Tâm lý trước
+fg_score, fg_label, fg_color = get_fear_greed_index()
+
+# Truyền kết quả sang cho file UI vẽ ra màn hình
+render_header(fg_score, fg_label, fg_color)
 
 # --- SIDEBAR CONTROL ---
 with st.sidebar:
