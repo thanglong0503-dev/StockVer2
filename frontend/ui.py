@@ -196,18 +196,19 @@ def render_header(fg_score=50, fg_label="TRUNG TÍNH", fg_color="#aaaaaa"):
             <span style="color: white; font-family: 'Montserrat', sans-serif; font-size: 28px; font-weight: 300; letter-spacing: 2px;"> TERMINAL</span>
         </div>""", unsafe_allow_html=True)
 
-    # --- PHẢI: KÉN TÂM LÝ & ĐỒNG HỒ ---
+    # --- PHẢI: KÉN TÂM LÝ & ĐỒNG HỒ (ĐÃ FIX MÚI GIỜ VN) ---
     with col_header_right:
-        current_time_str = datetime.datetime.now().strftime("%H:%M:%S")
-        current_date_str = datetime.datetime.now().strftime("%a, %b %d, %Y").upper()
+        # Ép múi giờ: Lấy giờ quốc tế (UTC) cộng thêm 7 tiếng cho Việt Nam
+        vn_time = datetime.datetime.utcnow() + datetime.timedelta(hours=7)
+        current_time_str = vn_time.strftime("%H:%M:%S")
+        current_date_str = vn_time.strftime("%a, %b %d, %Y").upper()
 
-        # [QUAN TRỌNG] Không được để dòng trống trong khối HTML này để tránh lỗi Streamlit
         st.markdown(f"""<div style="display: flex; justify-content: flex-end; align-items: center; gap: 15px; margin-top: 5px;">
             <div style="background-color: {fg_color}15; border: 1px solid {fg_color}; padding: 4px 12px; border-radius: 20px;">
                 <span style="color: {fg_color}; font-family: 'Montserrat', sans-serif; font-size: 11px; font-weight: 700; letter-spacing: 1px;">❖ {fg_label} [{fg_score}]</span>
             </div>
             <div style="text-align: right; line-height: 1.1;">
-                <div style="color: #888; font-family: 'Montserrat', sans-serif; font-size: 10px; font-weight: 600; letter-spacing: 1px;">{current_date_str}</div>
+                <div style="color: #888; font-family: 'Montserrat', sans-serif; font-size: 10px; font-weight: 600; letter-spacing: 1px;">LAST UPDATED: {current_date_str}</div>
                 <div style="color: white; font-family: 'Montserrat', sans-serif; font-size: 22px; font-weight: 700; letter-spacing: 2px;">{current_time_str}</div>
             </div>
         </div>""", unsafe_allow_html=True)
