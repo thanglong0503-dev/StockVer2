@@ -182,29 +182,42 @@ def render_clock_js():
         height=60
     )
 
-def render_header():
-    """Header ứng dụng tối giản, không icon thừa."""
-    c1, c2 = st.columns([4, 1])
-    with c1:
+import streamlit as st
+import datetime
+
+# Các hàm khác như load_hardcore_css()... giữ nguyên
+
+def render_header(fg_score=50, fg_label="TRUNG TÍNH", fg_color="#aaaaaa"):
+    """Render phần Đầu trang: Logo và Đồng hồ + Kén Tâm lý"""
+    col_logo, col_header_right = st.columns([1, 1])
+
+    # --- TRÁI: LOGO ĐẲNG CẤP ---
+    with col_logo:
         st.markdown("""
-        <div style="padding: 10px 0;">
-            <div style="
-                font-weight: 700; 
-                font-size: 24px; 
-                color: #e6edf3; 
-                letter-spacing: -0.5px;
-            ">
-                THANG LONG <span style="color: #2f81f7; font-weight: 400;">TERMINAL</span>
+        <div style="margin-top: 10px;">
+            <span style="color: #ffbc00; font-family: 'Montserrat', sans-serif; font-size: 28px; font-weight: 800; letter-spacing: 2px;">THANG LONG</span>
+            <span style="color: white; font-family: 'Montserrat', sans-serif; font-size: 28px; font-weight: 300; letter-spacing: 2px;"> TERMINAL</span>
+        </div>
+        """, unsafe_allow_html=True)
+
+    # --- PHẢI: KÉN TÂM LÝ & ĐỒNG HỒ ---
+    with col_header_right:
+        current_time_str = datetime.datetime.now().strftime("%H:%M:%S")
+        current_date_str = datetime.datetime.now().strftime("%a, %b %d, %Y").upper()
+
+        st.markdown(f"""
+        <div style="display: flex; justify-content: flex-end; align-items: center; gap: 15px; margin-top: 5px;">
+            <div style="background-color: {fg_color}15; border: 1px solid {fg_color}; padding: 4px 12px; border-radius: 20px;">
+                <span style="color: {fg_color}; font-family: 'Montserrat', sans-serif; font-size: 11px; font-weight: 700; letter-spacing: 1px;">
+                    ❖ {fg_label} [{fg_score}]
+                </span>
             </div>
-            <div style="
-                color: #8b949e; 
-                font-size: 12px; 
-                font-weight: 400; 
-                margin-top: 2px;
-            ">
-                Financial Market Intelligence System
+            
+            <div style="text-align: right; line-height: 1.1;">
+                <div style="color: #888; font-family: 'Montserrat', sans-serif; font-size: 10px; font-weight: 600; letter-spacing: 1px;">{current_date_str}</div>
+                <div style="color: white; font-family: 'Montserrat', sans-serif; font-size: 22px; font-weight: 700; letter-spacing: 2px;">{current_time_str}</div>
             </div>
         </div>
         """, unsafe_allow_html=True)
-    with c2:
-        render_clock_js()
+        
+    st.markdown("<br>", unsafe_allow_html=True)
