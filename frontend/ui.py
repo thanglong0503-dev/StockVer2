@@ -185,10 +185,8 @@ def render_clock_js():
 import streamlit as st
 import datetime
 
-# Các hàm khác như load_hardcore_css()... giữ nguyên
-
 def render_header(fg_score=50, fg_label="TRUNG TÍNH", fg_color="#aaaaaa"):
-    """Render phần Đầu trang: Logo và Đồng hồ + Kén Tâm lý"""
+    """Render phần Đầu trang: Logo, Kén Tâm lý và Đồng hồ"""
     col_logo, col_header_right = st.columns([1, 1])
 
     # --- TRÁI: LOGO ĐẲNG CẤP ---
