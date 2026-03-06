@@ -185,6 +185,8 @@ def render_clock_js():
 import streamlit as st
 import datetime
 
+# (Các hàm khác của ngài như load_hardcore_css... vẫn giữ nguyên ở trên)
+
 def render_header(fg_score=50, fg_label="TRUNG TÍNH", fg_color="#aaaaaa"):
     """Render phần Đầu trang: Logo, Kén Tâm lý và Đồng hồ"""
     col_logo, col_header_right = st.columns([1, 1])
@@ -203,8 +205,10 @@ def render_header(fg_score=50, fg_label="TRUNG TÍNH", fg_color="#aaaaaa"):
         current_time_str = datetime.datetime.now().strftime("%H:%M:%S")
         current_date_str = datetime.datetime.now().strftime("%a, %b %d, %Y").upper()
 
+        # ĐOẠN NÀY ĐÃ ĐƯỢC BẬT CHÌA KHÓA UNSAFE_ALLOW_HTML
         st.markdown(f"""
         <div style="display: flex; justify-content: flex-end; align-items: center; gap: 15px; margin-top: 5px;">
+            
             <div style="background-color: {fg_color}15; border: 1px solid {fg_color}; padding: 4px 12px; border-radius: 20px;">
                 <span style="color: {fg_color}; font-family: 'Montserrat', sans-serif; font-size: 11px; font-weight: 700; letter-spacing: 1px;">
                     ❖ {fg_label} [{fg_score}]
@@ -215,6 +219,7 @@ def render_header(fg_score=50, fg_label="TRUNG TÍNH", fg_color="#aaaaaa"):
                 <div style="color: #888; font-family: 'Montserrat', sans-serif; font-size: 10px; font-weight: 600; letter-spacing: 1px;">{current_date_str}</div>
                 <div style="color: white; font-family: 'Montserrat', sans-serif; font-size: 22px; font-weight: 700; letter-spacing: 2px;">{current_time_str}</div>
             </div>
+            
         </div>
         """, unsafe_allow_html=True)
         
