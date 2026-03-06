@@ -204,10 +204,10 @@ if not st.session_state['logged_in']:
 # ==============================================================================
 load_hardcore_css()
 
-# Gọi AI tính điểm Tâm lý trước
+# Gọi tính toán
 fg_score, fg_label, fg_color = get_fear_greed_index()
 
-# Truyền kết quả sang cho file UI vẽ ra màn hình
+# Truyền vào hàm để tự nó vẽ
 render_header(fg_score, fg_label, fg_color)
 
 # --- SIDEBAR CONTROL ---
