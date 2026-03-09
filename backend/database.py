@@ -80,6 +80,7 @@ def login_user(username, password):
     return False, {}
 
 # ==============================================================================
+# ==============================================================================
 # 3. QUẢN LÝ DANH MỤC VÀ GIAO DỊCH (ĐỌC/GHI SHEET 'Transactions')
 # ==============================================================================
 def add_transaction(username, symbol, volume, price):
@@ -87,7 +88,16 @@ def add_transaction(username, symbol, volume, price):
     if not sheet: return False
     
     date_str = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-    sheet.append_row([username, symbol.upper(), volume, price, date_str])
+    
+    # [BẢN VÁ LỖI]: Ép cứng kiểu chuỗi (String) để Google Sheets KHÔNG ĐƯỢC tự định dạng
+    vol_str = str(float(volume))
+    price_str = str(float(price))
+    
+    # Dùng value_input_option='RAW' để cấm Google "lanh chanh" đổi dấu chấm thành dấu phẩy
+    sheet.append_row(
+        [username, symbol.upper(), vol_str, price_str, date_str], 
+        value_input_option='RAW'
+    )
     return True
 
 def get_user_portfolio(username):
@@ -98,11 +108,17 @@ def get_user_portfolio(username):
     if not records: return pd.DataFrame()
     
     df = pd.DataFrame(records)
+    # Lọc giao dịch của user hiện tại
     df = df[df['Username'] == username]
     if df.empty: return pd.DataFrame()
     
-    df['Volume'] = pd.to_numeric(df['Volume'], errors='coerce')
-    df['Price'] = pd.to_numeric(df['Price'], errors='coerce')
+    # [BẢN VÁ LỖI]: Quét dọn sạch sẽ mọi dấu phẩy do Google tự sinh ra trước khi tính
+    df['Volume'] = df['Volume'].astype(str).str.replace(',', '.').str.strip()
+    df['Price'] = df['Price'].astype(str).str.replace(',', '.').str.strip()
+    
+    df['Volume'] = pd.to_numeric(df['Volume'], errors='coerce').fillna(0)
+    df['Price'] = pd.to_numeric(df['Price'], errors='coerce').fillna(0)
+    
     df['Total_Cost'] = df['Volume'] * df['Price']
     
     portfolio = df.groupby('Symbol').agg(
@@ -110,24 +126,21 @@ def get_user_portfolio(username):
         total_cost=('Total_Cost', 'sum')
     ).reset_index()
     
+    # Lọc bỏ những mã đã bán hết (volume <= 0)
     portfolio = portfolio[portfolio['volume'] > 0].copy()
     if portfolio.empty: return pd.DataFrame()
     
     portfolio['price_avg'] = portfolio['total_cost'] / portfolio['volume']
     
-    # ==========================================================
-    # 🔴 ĐOẠN ĐÃ ĐƯỢC FIX LỖI ĐƠN VỊ YFINANCE
-    # ==========================================================
+    # Kéo giá thị trường realtime từ yfinance (đã chia 1000 để chuẩn hóa)
     market_prices = []
     for sym in portfolio['Symbol']:
         try:
             ticker = yf.Ticker(f"{sym}.VN")
-            # [SỬA Ở ĐÂY]: Chia 1000 để giá thị trường (VD: 29300) biến thành Nghìn VNĐ (29.3)
             current_price = ticker.history(period="1d")['Close'].iloc[-1] / 1000.0
             market_prices.append(current_price)
         except Exception:
             market_prices.append(0.0)
-    # ==========================================================
             
     portfolio['market_price'] = market_prices
     portfolio['cost_value'] = portfolio['volume'] * portfolio['price_avg']
@@ -135,6 +148,7 @@ def get_user_portfolio(username):
     portfolio['profit_loss'] = portfolio['total_value'] - portfolio['cost_value']
     portfolio['percent_pl'] = (portfolio['profit_loss'] / portfolio['cost_value']) * 100
     
+    # Đổi tên cột cho khớp với App.py
     portfolio = portfolio.rename(columns={"Symbol": "symbol"})
     return portfolio
 
@@ -146,7 +160,6 @@ def delete_portfolio_stock(username, symbol):
     records = sheet.get_all_records()
     for idx in range(len(records) - 1, -1, -1):
         if records[idx].get('Username') == username and records[idx].get('Symbol') == symbol:
-            # Index của Google Sheets bắt đầu từ 2 (do có dòng Header)
             sheet.delete_rows(idx + 2)
     return True
 
