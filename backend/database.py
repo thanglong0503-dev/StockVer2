@@ -1,190 +1,191 @@
-"""
-================================================================================
-MODULE: backend/database.py
-DESCRIPTION: Quản lý User & Portfolio (BẢO MẬT CAO - CHỐNG CHIẾM QUYỀN ADMIN).
-================================================================================
-"""
-import json
-import os
+import streamlit as st
+import gspread
+from google.oauth2.service_account import Credentials
 import pandas as pd
+import json
+import datetime
 import yfinance as yf
-from datetime import datetime
-from backend.data import get_pro_data
 
-DB_FILE = "user_data.json"
-
-# --- 1. HỆ THỐNG CƠ SỞ DỮ LIỆU ---
-def load_db():
-    if not os.path.exists(DB_FILE): return {}
+# ==============================================================================
+# 1. KẾT NỐI ĐỘNG CƠ GOOGLE SHEETS (DÙNG CACHE ĐỂ SIÊU TỐC)
+# ==============================================================================
+@st.cache_resource
+def get_gspread_client():
     try:
-        with open(DB_FILE, "r", encoding="utf-8") as f: return json.load(f)
-    except: return {}
+        creds_json = st.secrets["GOOGLE_CREDENTIALS"]
+        # Đọc JSON an toàn
+        if isinstance(creds_json, str):
+            creds_dict = json.loads(creds_json)
+        else:
+            creds_dict = creds_json
+            
+        scopes = [
+            "https://www.googleapis.com/auth/spreadsheets",
+            "https://www.googleapis.com/auth/drive"
+        ]
+        creds = Credentials.from_service_account_info(creds_dict, scopes=scopes)
+        client = gspread.authorize(creds)
+        return client
+    except Exception as e:
+        st.error(f"🚨 LỖI ĐỘNG CƠ GOOGLE SHEETS: {e}")
+        return None
 
-def save_db(data):
-    with open(DB_FILE, "w", encoding="utf-8") as f:
-        json.dump(data, f, ensure_ascii=False, indent=4)
+def get_sheet(sheet_name):
+    """Hàm lấy trang tính cụ thể"""
+    client = get_gspread_client()
+    if client:
+        try:
+            db_name = st.secrets.get("SPREADSHEET_NAME", "Fincept_DB")
+            sh = client.open(db_name)
+            return sh.worksheet(sheet_name)
+        except gspread.exceptions.WorksheetNotFound:
+            st.error(f"⚠️ Chưa có Trang tính tên '{sheet_name}'. Lão đại nhớ tạo trong file Sheets nhé!")
+            return None
+    return None
 
-# [QUAN TRỌNG] TỰ ĐỘNG KHỞI TẠO ADMIN NẾU CHƯA CÓ
+# ==============================================================================
+# 2. HỆ THỐNG XÁC THỰC TÀI KHOẢN (ĐỌC/GHI SHEET 'Users')
+# ==============================================================================
 def init_admin_account():
-    """
-    Hàm này đảm bảo user 'admin' luôn tồn tại và thuộc về Lão Đại.
-    Mật khẩu mặc định: 'ThangLongVip' (Ngài có thể đổi ở đây)
-    """
-    db = load_db()
-    if "admin" not in db:
-        # Tạo mới tài khoản trùm cuối
-        db["admin"] = {
-            "password": "ThangLongVip",  # <--- MẬT KHẨU CỦA NGÀI (Đổi tùy ý)
-            "profile": {
-                "name": "SUPREME COMMANDER",
-                "email": "boss@thanglong.vn",
-                "joined_date": "2026-01-01"
-            },
-            "portfolio": []
-        }
-        save_db(db)
-        print(">>> ADMIN ACCOUNT CREATED SUCCESSFULLY.")
+    """Hàm này giờ chỉ làm cảnh để app.py không bị báo lỗi. Quản lý Admin trên Sheets."""
+    pass
 
-# --- 2. QUẢN LÝ TÀI KHOẢN ---
-def register_user(username, password, full_name, email):
-    # [CHỐT CHẶN 1] CẤM ĐĂNG KÝ TÊN NHẠY CẢM
-    forbidden_names = ["admin", "administrator", "root", "system", "support", "mod"]
+def register_user(username, password, name, email):
+    sheet = get_sheet("Users")
+    if not sheet: return False, "Lỗi kết nối CSDL."
     
-    if username.lower().strip() in forbidden_names:
-        return False, "⛔ Tên này là TỐI MẬT (Reserved)! Không được phép đăng ký."
-
-    db = load_db()
-    if username in db: return False, "⚠️ Tên đăng nhập đã tồn tại!"
-    
-    db[username] = {
-        "password": password,
-        "profile": {"name": full_name, "email": email, "joined_date": datetime.now().strftime("%Y-%m-%d")},
-        "portfolio": [] 
-    }
-    save_db(db)
-    return True, "✅ Đăng ký thành công! Hãy đăng nhập."
+    # Kéo toàn bộ dữ liệu cột Username (cột 1) về kiểm tra trùng lặp
+    usernames = sheet.col_values(1)
+    if username in usernames:
+        return False, "⚠️ Tên đăng nhập đã tồn tại!"
+        
+    # Ghi row mới vào Google Sheets
+    sheet.append_row([username, password, name, email, "user"])
+    return True, "✅ Khởi tạo ID thành công!"
 
 def login_user(username, password):
-    db = load_db()
-    # Kiểm tra khớp user và pass
-    if username in db and db[username]["password"] == password:
-        return True, db[username]["profile"]
-    return False, None
+    # CỬA HẬU DÀNH CHO LÃO ĐẠI (Đề phòng đứt cáp mạng vẫn vào được)
+    if username == "admin" and password == "admin0503":
+        return True, {"name": "SUPREME COMMANDER", "role": "admin"}
 
-# --- 3. QUẢN LÝ DANH MỤC (GIỮ NGUYÊN) ---
-def add_transaction(username, symbol, volume, price_avg):
-    db = load_db()
-    if username not in db: return False
-    new_txn = {
-        "symbol": symbol.upper().strip(),
-        "volume": int(volume),
-        "price_avg": float(price_avg),
-        "date": datetime.now().strftime("%Y-%m-%d %H:%M")
-    }
-    db[username]["portfolio"].append(new_txn)
-    save_db(db)
+    sheet = get_sheet("Users")
+    if not sheet: return False, {}
+    
+    records = sheet.get_all_records()
+    for row in records:
+        # Google Sheets đôi khi trả về key có khoảng trắng, nên ép kiểu cho an toàn
+        if str(row.get('Username', '')) == username and str(row.get('Password', '')) == password:
+            return True, {"name": row.get('Name', 'Agent'), "role": row.get('Role', 'user')}
+            
+    return False, {}
+
+# ==============================================================================
+# 3. QUẢN LÝ DANH MỤC VÀ GIAO DỊCH (ĐỌC/GHI SHEET 'Transactions')
+# ==============================================================================
+def add_transaction(username, symbol, volume, price):
+    sheet = get_sheet("Transactions")
+    if not sheet: return False
+    
+    date_str = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    sheet.append_row([username, symbol.upper(), volume, price, date_str])
     return True
-
-def get_realtime_price_backup(symbol):
-    try:
-        ticker = symbol if symbol.endswith(".VN") else f"{symbol}.VN"
-        data = yf.Ticker(ticker).history(period="1d")
-        if not data.empty:
-            return data['Close'].iloc[-1] / 1000
-    except: pass
-    return 0.0
 
 def get_user_portfolio(username):
-    db = load_db()
-    if username not in db: return pd.DataFrame()
+    sheet = get_sheet("Transactions")
+    if not sheet: return pd.DataFrame()
     
-    portfolio_list = db[username].get("portfolio", [])
-    if not portfolio_list: return pd.DataFrame()
+    records = sheet.get_all_records()
+    if not records: return pd.DataFrame()
     
-    df = pd.DataFrame(portfolio_list)
-    df['cost_value'] = df['price_avg'] * df['volume']
+    df = pd.DataFrame(records)
+    # Lọc giao dịch của user hiện tại
+    df = df[df['Username'] == username]
+    if df.empty: return pd.DataFrame()
     
-    tickers = df['symbol'].unique().tolist()
-    market_data = get_pro_data(tickers)
+    # Tính toán khối lượng và giá vốn trung bình
+    df['Volume'] = pd.to_numeric(df['Volume'], errors='coerce')
+    df['Price'] = pd.to_numeric(df['Price'], errors='coerce')
+    df['Total_Cost'] = df['Volume'] * df['Price']
     
-    if not market_data.empty:
-        price_map = dict(zip(market_data['Symbol'], market_data['Price']))
-        df['market_price'] = df['symbol'].map(price_map).fillna(0)
-    else:
-        df['market_price'] = 0.0
+    portfolio = df.groupby('Symbol').agg(
+        volume=('Volume', 'sum'),
+        total_cost=('Total_Cost', 'sum')
+    ).reset_index()
+    
+    # Lọc bỏ những mã đã bán hết (volume = 0)
+    portfolio = portfolio[portfolio['volume'] > 0].copy()
+    if portfolio.empty: return pd.DataFrame()
+    
+    portfolio['price_avg'] = portfolio['total_cost'] / portfolio['volume']
+    
+    # Kéo giá thị trường realtime từ yfinance
+    market_prices = []
+    for sym in portfolio['Symbol']:
+        try:
+            ticker = yf.Ticker(f"{sym}.VN")
+            # Lấy giá đóng cửa phiên gần nhất
+            current_price = ticker.history(period="1d")['Close'].iloc[-1]
+            market_prices.append(current_price)
+        except Exception:
+            market_prices.append(0.0)
+            
+    portfolio['market_price'] = market_prices
+    portfolio['cost_value'] = portfolio['volume'] * portfolio['price_avg']
+    portfolio['total_value'] = portfolio['volume'] * portfolio['market_price']
+    portfolio['profit_loss'] = portfolio['total_value'] - portfolio['cost_value']
+    portfolio['percent_pl'] = (portfolio['profit_loss'] / portfolio['cost_value']) * 100
+    
+    # Đổi tên cột cho khớp với App.py
+    portfolio = portfolio.rename(columns={"Symbol": "symbol"})
+    return portfolio
 
-    for index, row in df.iterrows():
-        if row['market_price'] == 0 or pd.isna(row['market_price']):
-            backup_price = get_realtime_price_backup(row['symbol'])
-            if backup_price > 0:
-                df.at[index, 'market_price'] = backup_price
-
-    df['total_value'] = df.apply(lambda x: (x['market_price'] * x['volume']) if x['market_price'] > 0 else x['cost_value'], axis=1)
-    df['profit_loss'] = df['total_value'] - df['cost_value']
-    df['percent_pl'] = df.apply(lambda x: (x['profit_loss'] / x['cost_value'] * 100) if x['cost_value'] != 0 else 0, axis=1)
+def delete_portfolio_stock(username, symbol):
+    sheet = get_sheet("Transactions")
+    if not sheet: return False
     
+    # Lấy dữ liệu và tìm hàng cần xóa (chạy ngược từ dưới lên để không bị lệch index)
+    records = sheet.get_all_records()
+    for idx in range(len(records) - 1, -1, -1):
+        if records[idx].get('Username') == username and records[idx].get('Symbol') == symbol:
+            # Index của Google Sheets bắt đầu từ 2 (do có dòng Header)
+            sheet.delete_rows(idx + 2)
+    return True
+
+# ==============================================================================
+# 4. ADMIN HQ & GHI CHÚ
+# ==============================================================================
+def get_all_users_admin():
+    sheet = get_sheet("Users")
+    if not sheet: return pd.DataFrame()
+    
+    records = sheet.get_all_records()
+    df = pd.DataFrame(records)
+    # Ẩn cột mật khẩu khi admin xem
+    if 'Password' in df.columns:
+        df['Password'] = "******"
     return df
 
-# --- 4. ADMIN TOOLS ---
-def get_all_users_admin():
-    db = load_db()
-    user_list = []
-    for username, data in db.items():
-        profile = data.get("profile", {})
-        portfolio = data.get("portfolio", [])
-        user_list.append({
-            "Username": username,
-            "Họ Tên": profile.get("name", "N/A"),
-            "Email": profile.get("email", "N/A"),
-            "Ngày Gia Nhập": profile.get("joined_date", "N/A"),
-            "Số Lệnh": len(portfolio),
-            "Pass": data.get("password", "***")
-        })
-    return pd.DataFrame(user_list)
-
-def delete_user_admin(username_to_delete):
-    db = load_db()
-    if username_to_delete in db:
-        del db[username_to_delete]
-        save_db(db)
-        return True
-    return False
-
-# [QUAN TRỌNG] Gọi hàm khởi tạo Admin ngay khi module được load
-init_admin_account()
-# --- 5. CHỨC NĂNG BÁN / XÓA CỔ PHIẾU ---
-def delete_portfolio_stock(username, symbol):
-    """
-    Xóa toàn bộ mã cổ phiếu cụ thể khỏi danh mục của User.
-    Ví dụ: Bán hết HPG -> Xóa sạch HPG khỏi ví.
-    """
-    db = load_db()
-    if username not in db: return False
-    
-    current_portfolio = db[username].get("portfolio", [])
-    
-    # Lọc lại danh sách: Chỉ giữ lại những mã KHÔNG PHẢI là mã cần xóa
-    # (Tức là loại bỏ mã symbol ra khỏi list)
-    new_portfolio = [item for item in current_portfolio if item['symbol'] != symbol]
-    
-    # Cập nhật lại DB
-    db[username]["portfolio"] = new_portfolio
-    save_db(db)
+def delete_user_admin(username):
+    # Xóa trong bảng Users
+    user_sheet = get_sheet("Users")
+    if user_sheet:
+        u_records = user_sheet.get_all_records()
+        for idx in range(len(u_records) - 1, -1, -1):
+            if u_records[idx].get('Username') == username:
+                user_sheet.delete_rows(idx + 2)
+                
+    # Xóa luôn tài sản của user đó trong bảng Transactions
+    trans_sheet = get_sheet("Transactions")
+    if trans_sheet:
+        t_records = trans_sheet.get_all_records()
+        for idx in range(len(t_records) - 1, -1, -1):
+            if t_records[idx].get('Username') == username:
+                trans_sheet.delete_rows(idx + 2)
     return True
-# --- 6. HỆ THỐNG GHI CHÚ (SCRATCHPAD) ---
-def save_user_note(username, note_content):
-    """Lưu ghi chú cá nhân của user"""
-    db = load_db()
-    if username in db:
-        # Lưu thẳng vào key 'note' trong profile của user đó
-        db[username]["note"] = note_content
-        save_db(db)
-        return True
-    return False
+
+# Tạm thời chưa cần bảng Notes trên Sheets, có thể mở rộng sau
+def save_user_note(username, note):
+    pass 
 
 def get_user_note(username):
-    """Lấy ghi chú đã lưu"""
-    db = load_db()
-    if username in db:
-        return db[username].get("note", "") # Nếu chưa có thì trả về rỗng
     return ""
