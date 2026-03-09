@@ -195,9 +195,39 @@ def delete_user_admin(username):
                 trans_sheet.delete_rows(idx + 2)
     return True
 
-# Tạm thời chưa cần bảng Notes trên Sheets, có thể mở rộng sau
+# Tích hợp Hệ thống Ghi chú Đám mây (Đọc/Ghi Sheet 'Notes')
 def save_user_note(username, note):
-    pass 
+    sheet = get_sheet("Notes")
+    if not sheet: return False
+    
+    date_str = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    records = sheet.get_all_records()
+    
+    # Radar dò tìm xem Lão đại (hoặc user) đã có dòng ghi chú nào trong Sheets chưa
+    cell_row = None
+    for idx, row in enumerate(records):
+        if str(row.get('Username', '')) == username:
+            # Cộng 2 vì index của Python bắt đầu từ 0, và Dòng 1 là tiêu đề (Header)
+            cell_row = idx + 2 
+            break
+            
+    if cell_row:
+        # Nếu đã có, thì GHI ĐÈ nội dung mới vào ô đó (Cột 2 là Note, Cột 3 là Thời gian)
+        sheet.update_cell(cell_row, 2, note)
+        sheet.update_cell(cell_row, 3, date_str)
+    else:
+        # Nếu chưa có, tạo hẳn một hàng mới tinh
+        sheet.append_row([username, note, date_str], value_input_option='RAW')
+        
+    return True
 
 def get_user_note(username):
+    sheet = get_sheet("Notes")
+    if not sheet: return ""
+    
+    records = sheet.get_all_records()
+    for row in records:
+        if str(row.get('Username', '')) == username:
+            return str(row.get('Note_Content', ''))
+            
     return ""
