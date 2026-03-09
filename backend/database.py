@@ -98,11 +98,9 @@ def get_user_portfolio(username):
     if not records: return pd.DataFrame()
     
     df = pd.DataFrame(records)
-    # Lọc giao dịch của user hiện tại
     df = df[df['Username'] == username]
     if df.empty: return pd.DataFrame()
     
-    # Tính toán khối lượng và giá vốn trung bình
     df['Volume'] = pd.to_numeric(df['Volume'], errors='coerce')
     df['Price'] = pd.to_numeric(df['Price'], errors='coerce')
     df['Total_Cost'] = df['Volume'] * df['Price']
@@ -112,22 +110,24 @@ def get_user_portfolio(username):
         total_cost=('Total_Cost', 'sum')
     ).reset_index()
     
-    # Lọc bỏ những mã đã bán hết (volume = 0)
     portfolio = portfolio[portfolio['volume'] > 0].copy()
     if portfolio.empty: return pd.DataFrame()
     
     portfolio['price_avg'] = portfolio['total_cost'] / portfolio['volume']
     
-    # Kéo giá thị trường realtime từ yfinance
+    # ==========================================================
+    # 🔴 ĐOẠN ĐÃ ĐƯỢC FIX LỖI ĐƠN VỊ YFINANCE
+    # ==========================================================
     market_prices = []
     for sym in portfolio['Symbol']:
         try:
             ticker = yf.Ticker(f"{sym}.VN")
-            # Lấy giá đóng cửa phiên gần nhất
-            current_price = ticker.history(period="1d")['Close'].iloc[-1]
+            # [SỬA Ở ĐÂY]: Chia 1000 để giá thị trường (VD: 29300) biến thành Nghìn VNĐ (29.3)
+            current_price = ticker.history(period="1d")['Close'].iloc[-1] / 1000.0
             market_prices.append(current_price)
         except Exception:
             market_prices.append(0.0)
+    # ==========================================================
             
     portfolio['market_price'] = market_prices
     portfolio['cost_value'] = portfolio['volume'] * portfolio['price_avg']
@@ -135,7 +135,6 @@ def get_user_portfolio(username):
     portfolio['profit_loss'] = portfolio['total_value'] - portfolio['cost_value']
     portfolio['percent_pl'] = (portfolio['profit_loss'] / portfolio['cost_value']) * 100
     
-    # Đổi tên cột cho khớp với App.py
     portfolio = portfolio.rename(columns={"Symbol": "symbol"})
     return portfolio
 
