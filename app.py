@@ -44,46 +44,72 @@ from backend.database import (
 
 # Gọi hàm này để chắc chắn Admin luôn tồn tại
 init_admin_account()
-# --- ĐỘNG CƠ TÍNH CHỈ BÁO SỢ HÃI & THAM LAM ---
+# --- ĐỘNG CƠ TÍNH CHỈ BÁO SỢ HÃI & THAM LAM (ĐÃ NÂNG CẤP ĐỘ NHẠY) ---
+import numpy as np # Đảm bảo trên đầu file app.py của ngài có import numpy as np
+
 @st.cache_data(ttl=1800) # Cứ 30 phút cập nhật tâm lý 1 lần cho nhẹ máy
 def get_fear_greed_index():
     try:
-        # Lấy 5 mã trụ lớn nhất sòng để đo tâm lý
-        symbols = ['VCB.VN', 'VHM.VN', 'VIC.VN', 'HPG.VN', 'FPT.VN']
+        # Lấy 4 trụ lớn nhất + Thêm SSI (Ông hoàng nhạy sóng ngành Chứng khoán)
+        symbols = ['VCB.VN', 'VHM.VN', 'VIC.VN', 'HPG.VN', 'SSI.VN']
         end_date = datetime.date.today()
         start_date = end_date - datetime.timedelta(days=45)
         
         data = yf.download(symbols, start=start_date, end=end_date, progress=False)
         if data.empty: return 50, "TRUNG TÍNH", "#aaaaaa"
         
-        rsi_list = []
+        # Lấy đúng cột Close bất chấp định dạng cũ hay mới của yfinance
+        if 'Close' in data:
+            close_df = data['Close']
+        else:
+            return 50, "TRUNG TÍNH", "#aaaaaa"
+            
+        score_list = []
         for sym in symbols:
-            if isinstance(data.columns, pd.MultiIndex):
-                close_p = data['Close'][sym].dropna()
-            else:
-                close_p = data['Close'].dropna()
-                
-            if len(close_p) > 15:
-                # Dùng lại hàm tính RSI
-                delta = close_p.diff()
-                gain = (delta.where(delta > 0, 0)).rolling(window=14).mean()
-                loss = (-delta.where(delta < 0, 0)).rolling(window=14).mean()
-                rs = gain / loss
-                rsi = 100 - (100 / (1 + rs))
-                rsi_list.append(rsi.iloc[-1])
-                
-        if not rsi_list: return 50, "TRUNG TÍNH", "#aaaaaa"
+            # Bỏ qua nếu mã này bị lỗi không có dữ liệu
+            if sym not in close_df.columns: continue 
+            close_p = close_df[sym].dropna()
+            if len(close_p) < 15: continue
+            
+            # 1. TÍNH CHỈ SỐ NỀN TẢNG (RSI 14)
+            delta = close_p.diff()
+            gain = delta.clip(lower=0).rolling(window=14).mean()
+            loss = -delta.clip(upper=0).rolling(window=14).mean()
+            
+            # Thay thế 0 bằng NaN để tránh lỗi chia cho 0 (Silent Error)
+            rs = gain / loss.replace(0, np.nan)
+            rsi = 100 - (100 / (1 + rs))
+            current_rsi = rsi.iloc[-1]
+            if pd.isna(current_rsi): current_rsi = 50
+            
+            # 2. TÍNH CÚ SỐC TÂM LÝ (MOMENTUM SHOCK)
+            # Biến động % của ngày hôm nay so với hôm qua
+            daily_return = (close_p.iloc[-1] - close_p.iloc[-2]) / close_p.iloc[-2] * 100
+            
+            # Hệ số nhân: Giảm 1% -> trừ 5 điểm tâm lý. Sàn (-7%) -> Trừ thẳng 35 điểm tâm lý!
+            shock_factor = daily_return * 5 
+            
+            # Trộn lẫn Xu hướng (RSI) và Cảm xúc (Shock)
+            final_sym_score = current_rsi + shock_factor
+            
+            # Ép điểm số không được vượt quá 100 hoặc nhỏ hơn 0
+            final_sym_score = max(0, min(100, final_sym_score))
+            score_list.append(final_sym_score)
+            
+        if not score_list: return 50, "TRUNG TÍNH", "#aaaaaa"
         
         # Tính điểm trung bình (0 - 100)
-        score = int(sum(rsi_list) / len(rsi_list))
+        score = int(sum(score_list) / len(score_list))
         
-        # Phân loại tâm lý và gán màu dạ quang
-        if score <= 30: return score, "SỢ HÃI TỘT ĐỘ", "#ff3366"  # Đỏ rực
+        # Phân loại tâm lý (Tinh chỉnh biên độ hẹp lại để nhạy bén hơn)
+        if score <= 25: return score, "SỢ HÃI TỘT ĐỘ", "#ff3366"  # Đỏ rực
         elif score <= 45: return score, "SỢ HÃI", "#ffbc00"       # Cam
-        elif score <= 55: return score, "TRUNG TÍNH", "#aaaaaa"     # Xám bạc
-        elif score <= 70: return score, "THAM LAM", "#28c840"       # Xanh lá
-        else: return score, "THAM LAM TỘT ĐỘ", "#00d2ff"           # Xanh lam
-    except Exception:
+        elif score <= 55: return score, "TRUNG TÍNH", "#aaaaaa"   # Xám bạc
+        elif score <= 75: return score, "THAM LAM", "#28c840"     # Xanh lá
+        else: return score, "THAM LAM TỘT ĐỘ", "#00d2ff"          # Xanh lam
+        
+    except Exception as e:
+        # Nếu có lỗi lặt vặt thì mặc định báo Trung tính để app không bị sập
         return 50, "TRUNG TÍNH", "#aaaaaa"
 # ==============================================================================
 # 1. SYSTEM CONFIGURATION
