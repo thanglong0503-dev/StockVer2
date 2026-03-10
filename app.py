@@ -576,9 +576,39 @@ with main_tab1:
             # TAB 1: CHART (Crosshair Neon)
             with t1: render_interactive_chart(hist_df, target_symbol)
             
-            # TAB 2: TV
+            # TAB 2: TRADINGVIEW ĐỘC LẬP (KHÔNG ĂN THEO MAIN SEARCH)
             with t2:
-                components.html(f"""<div class="tradingview-widget-container"><div id="tv_widget"></div><script type="text/javascript" src="https://s3.tradingview.com/tv.js"></script><script>new TradingView.widget({{"width":"100%","height":550,"symbol":"HOSE:{target_symbol}","interval":"D","theme":"dark","style":"1","locale":"en","toolbar_bg":"#f1f3f6","enable_publishing":false,"container_id":"tv_widget"}});</script></div>""", height=560)
+                # 1. Ô tìm kiếm riêng biệt chỉ dành cho Tab này
+                tv_input = st.text_input("🔍 Tra cứu độc lập (VD: VNINDEX, BTCUSD, VHM...):", value="VNINDEX", key="tv_independent_search").upper()
+                
+                # 2. Xử lý thông minh: Tự động thêm tiền tố HOSE: nếu ngài gõ 3 chữ cái chứng khoán VN
+                if len(tv_input) == 3 and tv_input.isalpha():
+                    tv_symbol_final = f"HOSE:{tv_input}"
+                else:
+                    tv_symbol_final = tv_input # Giữ nguyên để ngài gõ được Crypto, Forex, Chứng Mỹ
+
+                # 3. Kích hoạt Widget Độc lập (Đã bật thêm tính năng allow_symbol_change)
+                components.html(f"""
+                <div class="tradingview-widget-container">
+                    <div id="tv_widget"></div>
+                    <script type="text/javascript" src="https://s3.tradingview.com/tv.js"></script>
+                    <script>
+                        new TradingView.widget({{
+                            "width": "100%",
+                            "height": 550,
+                            "symbol": "{tv_symbol_final}",
+                            "interval": "D",
+                            "theme": "dark",
+                            "style": "1",
+                            "locale": "en",
+                            "toolbar_bg": "#1e1e1e",
+                            "enable_publishing": false,
+                            "allow_symbol_change": true,
+                            "container_id": "tv_widget"
+                        }});
+                    </script>
+                </div>
+                """, height=560)
             
             # TAB 3: AI (Crosshair Neon + Time Selector)
             with t3:
