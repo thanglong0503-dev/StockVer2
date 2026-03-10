@@ -290,34 +290,39 @@ def get_search_history(username, limit=5):
 # 6. THƯ VIỆN DỰ BÁO AI PROPHET (ĐỌC/GHI SHEET 'AI_Library')
 # ==============================================================================
 def save_prophet_forecast(username, symbol, timeframe, forecast_df):
-    """Nén toàn bộ Dataframe dự báo thành chuỗi JSON và cất lên Mây"""
+    """Làm tròn số, Nén Zlib + Base64 và cất lên Mây để lách luật 50k ký tự của Google"""
     sheet = get_sheet("AI_Library")
     if not sheet: return False
     
-    # Ép kiểu dữ liệu thời gian về chuẩn chuỗi để JSON không bị lỗi
+    # 1. Cắt tỉa dữ liệu: Làm tròn 2 số thập phân và rút gọn định dạng ngày
     df_clean = forecast_df[['ds', 'yhat', 'yhat_lower', 'yhat_upper']].copy()
-    df_clean['ds'] = df_clean['ds'].astype(str)
+    df_clean['ds'] = pd.to_datetime(df_clean['ds']).dt.strftime('%Y-%m-%d')
+    df_clean['yhat'] = df_clean['yhat'].round(2)
+    df_clean['yhat_lower'] = df_clean['yhat_lower'].round(2)
+    df_clean['yhat_upper'] = df_clean['yhat_upper'].round(2)
     
-    # Đóng gói thành JSON
-    json_data = df_clean.to_json(orient='records')
+    # 2. Đóng gói JSON
+    raw_json = df_clean.to_json(orient='records')
+    
+    # 3. Kích hoạt Nén Zlib & Mã hóa Base64 (Ép xẹp 85% dung lượng)
+    compressed_data = base64.b64encode(zlib.compress(raw_json.encode('utf-8'))).decode('utf-8')
+    
     date_str = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-    
     records = sheet.get_all_records()
     cell_row = None
     
-    # Radar dò xem user này đã lưu mã này ở khung thời gian này chưa (Upsert)
     for idx, row in enumerate(records):
         if str(row.get('Username', '')) == username and str(row.get('Symbol', '')).upper() == symbol.upper() and str(row.get('Timeframe', '')) == str(timeframe):
             cell_row = idx + 2
             break
             
     if cell_row:
-        # Nếu có rồi thì Cập nhật lại bản dự báo mới nhất
-        sheet.update_cell(cell_row, 4, json_data)
+        # Cập nhật bằng cục data đã nén
+        sheet.update_cell(cell_row, 4, compressed_data)
         sheet.update_cell(cell_row, 5, date_str)
     else:
-        # Nếu chưa có thì Lưu mới
-        sheet.append_row([username, symbol.upper(), str(timeframe), json_data, date_str], value_input_option='RAW')
+        # Lưu mới
+        sheet.append_row([username, symbol.upper(), str(timeframe), compressed_data, date_str], value_input_option='RAW')
         
     return True
 
