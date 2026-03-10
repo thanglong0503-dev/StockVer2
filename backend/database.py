@@ -242,3 +242,46 @@ def get_user_note(username):
             return str(row.get('Note_Content', ''))
             
     return ""
+# ==============================================================================
+# 5. HỆ THỐNG LƯU TRỮ LỊCH SỬ TÌM KIẾM (ĐỌC/GHI SHEET 'Search_History')
+# ==============================================================================
+def save_search_history(username, symbol):
+    if not symbol: return False
+    
+    sheet = get_sheet("Search_History")
+    if not sheet: return False
+    
+    date_str = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    records = sheet.get_all_records()
+    
+    # Quét xem user này đã từng search mã này chưa
+    cell_row = None
+    for idx, row in enumerate(records):
+        if str(row.get('Username', '')) == username and str(row.get('Symbol', '')).upper() == symbol.upper():
+            cell_row = idx + 2 # +2 vì index bắt đầu từ 0 và dòng 1 là Header
+            break
+            
+    if cell_row:
+        # Nếu đã từng search, chỉ cần CẬP NHẬT lại thời gian mới nhất (để nó nhảy lên đầu)
+        sheet.update_cell(cell_row, 3, date_str)
+    else:
+        # Nếu là mã mới toanh, thêm hẳn một dòng mới
+        sheet.append_row([username, symbol.upper(), date_str], value_input_option='RAW')
+        
+    return True
+
+def get_search_history(username, limit=5):
+    """Lôi ra danh sách các mã (Symbol) mà user vừa tìm kiếm gần đây nhất"""
+    sheet = get_sheet("Search_History")
+    if not sheet: return []
+    
+    records = sheet.get_all_records()
+    # Lọc ra lịch sử của đúng user này
+    user_searches = [row for row in records if str(row.get('Username', '')) == username]
+    
+    # Sắp xếp theo Thời gian gần nhất (Giảm dần)
+    user_searches.sort(key=lambda x: str(x.get('Last_Searched_Time', '')), reverse=True)
+    
+    # Chỉ lấy tên Mã (Symbol) và giới hạn số lượng (mặc định lấy 5 mã gần nhất)
+    recent_symbols = [row.get('Symbol', '') for row in user_searches[:limit]]
+    return recent_symbols    
