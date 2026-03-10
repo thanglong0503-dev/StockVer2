@@ -44,27 +44,29 @@ def get_sheet(sheet_name):
     return None
 
 # ==============================================================================
+# ==============================================================================
 # 2. HỆ THỐNG XÁC THỰC TÀI KHOẢN (ĐỌC/GHI SHEET 'Users')
 # ==============================================================================
 def init_admin_account():
-    """Hàm này giờ chỉ làm cảnh để app.py không bị báo lỗi. Quản lý Admin trên Sheets."""
     pass
 
 def register_user(username, password, name, email):
     sheet = get_sheet("Users")
     if not sheet: return False, "Lỗi kết nối CSDL."
     
-    # Kéo toàn bộ dữ liệu cột Username (cột 1) về kiểm tra trùng lặp
     usernames = sheet.col_values(1)
     if username in usernames:
         return False, "⚠️ Tên đăng nhập đã tồn tại!"
         
-    # Ghi row mới vào Google Sheets
-    sheet.append_row([username, password, name, email, "user"])
+    # Ghi nhận thời gian tạo tài khoản ngay lúc đăng ký
+    reg_time = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    
+    # Thêm reg_time vào cột thứ 6 (Last_Login)
+    sheet.append_row([username, password, name, email, "user", reg_time])
     return True, "✅ Khởi tạo ID thành công!"
 
 def login_user(username, password):
-    # CỬA HẬU DÀNH CHO LÃO ĐẠI (Đề phòng đứt cáp mạng vẫn vào được)
+    # CỬA HẬU DÀNH CHO LÃO ĐẠI 
     if username == "admin" and password == "admin0503":
         return True, {"name": "SUPREME COMMANDER", "role": "admin"}
 
@@ -72,9 +74,18 @@ def login_user(username, password):
     if not sheet: return False, {}
     
     records = sheet.get_all_records()
-    for row in records:
-        # Google Sheets đôi khi trả về key có khoảng trắng, nên ép kiểu cho an toàn
+    for idx, row in enumerate(records):
         if str(row.get('Username', '')) == username and str(row.get('Password', '')) == password:
+            
+            # [CHIP THEO DÕI]: Cập nhật thời gian mỗi lần User đăng nhập thành công
+            login_time = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+            try:
+                # idx + 2: Vị trí hàng hiện tại của User trên Sheets
+                # 6: Vị trí Cột 'Last_Login' (Cột F)
+                sheet.update_cell(idx + 2, 6, login_time)
+            except Exception as e:
+                pass # Lỗi lặt vặt mạng mẽo bỏ qua, vẫn cho đăng nhập bình thường
+                
             return True, {"name": row.get('Name', 'Agent'), "role": row.get('Role', 'user')}
             
     return False, {}
