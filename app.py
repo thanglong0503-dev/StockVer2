@@ -10,29 +10,38 @@ DESCRIPTION:
     - Features: AI Prophet Crosshair, Monte Carlo, Zoomable Charts.
     - NEW: TREASURE VAULT (Gold & Silver Realtime Price).
 ================================================================================
-"""
-# [NEW IMPORT]
-from backend.commodities import get_gold_price, get_silver_price
-# [NEW IMPORT] Module quản lý User & Portfolio
-from backend.database import register_user, login_user, add_transaction, get_user_portfolio
-# Thêm get_all_users_admin và delete_user_admin vào dòng import
-# Thêm init_admin_account vào import
-from backend.database import save_search_history, get_search_history
-# Thêm save_user_note và get_user_note vào dòng import
-from backend.database import register_user, login_user, add_transaction, get_user_portfolio, get_all_users_admin, delete_user_admin, init_admin_account, delete_portfolio_stock, save_user_note, get_user_note
-# Gọi hàm này ngay đầu file để chắc chắn Admin luôn tồn tại
-init_admin_account()
 import streamlit as st
 import sys
 import os
 import time
 import pandas as pd
 import streamlit.components.v1 as components
+
+# ==============================================================================
+# QUẢN LÝ IMPORT MODULES CỦA HỆ THỐNG
+# ==============================================================================
 from frontend.components import render_market_galaxy
-# Sửa backend.stock_list thành backend.sectors
+from backend.commodities import get_gold_price, get_silver_price
 from backend.sectors import get_full_market_list, get_all_sector_names, get_sector_list_data
-from backend.database import save_prophet_forecast, get_saved_prophet_list
-from backend.ai import rebuild_prophet_chart_from_json
+
+# Gộp toàn bộ hàm Database vào 1 khối cho gọn, XÓA SẠCH đồ thừa của Prophet
+from backend.database import (
+    init_admin_account, 
+    register_user, 
+    login_user, 
+    get_all_users_admin, 
+    delete_user_admin,
+    add_transaction, 
+    get_user_portfolio, 
+    delete_portfolio_stock,
+    save_user_note, 
+    get_user_note,
+    save_search_history, 
+    get_search_history
+)
+
+# Gọi hàm này để chắc chắn Admin luôn tồn tại
+init_admin_account()
 # --- ĐỘNG CƠ TÍNH CHỈ BÁO SỢ HÃI & THAM LAM ---
 @st.cache_data(ttl=1800) # Cứ 30 phút cập nhật tâm lý 1 lần cho nhẹ máy
 def get_fear_greed_index():
