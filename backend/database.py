@@ -285,3 +285,56 @@ def get_search_history(username, limit=5):
     # Chỉ lấy tên Mã (Symbol) và giới hạn số lượng (mặc định lấy 5 mã gần nhất)
     recent_symbols = [row.get('Symbol', '') for row in user_searches[:limit]]
     return recent_symbols    
+# ==============================================================================
+# 6. THƯ VIỆN DỰ BÁO AI PROPHET (ĐỌC/GHI SHEET 'AI_Library')
+# ==============================================================================
+def save_prophet_forecast(username, symbol, timeframe, forecast_df):
+    """Nén toàn bộ Dataframe dự báo thành chuỗi JSON và cất lên Mây"""
+    sheet = get_sheet("AI_Library")
+    if not sheet: return False
+    
+    # Ép kiểu dữ liệu thời gian về chuẩn chuỗi để JSON không bị lỗi
+    df_clean = forecast_df[['ds', 'yhat', 'yhat_lower', 'yhat_upper']].copy()
+    df_clean['ds'] = df_clean['ds'].astype(str)
+    
+    # Đóng gói thành JSON
+    json_data = df_clean.to_json(orient='records')
+    date_str = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    
+    records = sheet.get_all_records()
+    cell_row = None
+    
+    # Radar dò xem user này đã lưu mã này ở khung thời gian này chưa (Upsert)
+    for idx, row in enumerate(records):
+        if str(row.get('Username', '')) == username and str(row.get('Symbol', '')).upper() == symbol.upper() and str(row.get('Timeframe', '')) == str(timeframe):
+            cell_row = idx + 2
+            break
+            
+    if cell_row:
+        # Nếu có rồi thì Cập nhật lại bản dự báo mới nhất
+        sheet.update_cell(cell_row, 4, json_data)
+        sheet.update_cell(cell_row, 5, date_str)
+    else:
+        # Nếu chưa có thì Lưu mới
+        sheet.append_row([username, symbol.upper(), str(timeframe), json_data, date_str], value_input_option='RAW')
+        
+    return True
+
+def get_saved_prophet_list(username):
+    """Lấy danh sách các mã đã được lưu dự báo (Để làm Menu kéo xuống)"""
+    sheet = get_sheet("AI_Library")
+    if not sheet: return []
+    
+    records = sheet.get_all_records()
+    saved_list = []
+    for row in records:
+        if str(row.get('Username', '')) == username:
+            saved_list.append({
+                'Symbol': row.get('Symbol', ''),
+                'Timeframe': row.get('Timeframe', ''),
+                'Saved_At': row.get('Saved_At', ''),
+                'JSON_Data': row.get('Forecast_JSON', '')
+            })
+    # Sắp xếp theo thời gian lưu gần nhất
+    saved_list.sort(key=lambda x: str(x['Saved_At']), reverse=True)
+    return saved_list
