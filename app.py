@@ -17,7 +17,7 @@ from backend.commodities import get_gold_price, get_silver_price
 from backend.database import register_user, login_user, add_transaction, get_user_portfolio
 # Thêm get_all_users_admin và delete_user_admin vào dòng import
 # Thêm init_admin_account vào import
-
+from backend.database import save_search_history, get_search_history
 # Thêm save_user_note và get_user_note vào dòng import
 from backend.database import register_user, login_user, add_transaction, get_user_portfolio, get_all_users_admin, delete_user_admin, init_admin_account, delete_portfolio_stock, save_user_note, get_user_note
 # Gọi hàm này ngay đầu file để chắc chắn Admin luôn tồn tại
@@ -1258,6 +1258,46 @@ with main_tab7:
                 )
                 st.line_chart(chart_data, color=["#aaaaaa", "#ffbc00"])
                 st.caption("💡 *Mẹo DA: Đường màu vàng (Thuật toán) nằm trên đường màu xám (Nắm giữ) tức là hệ thống đang đánh bại thị trường!*")
+ st.subheader("⚙️ KIỂM ĐỊNH CHIẾN LƯỢC (BACKTEST)")
+        
+        # ==========================================================
+        # 🟢 THANH LỊCH SỬ TÌM KIẾM THÔNG MINH (BACKTEST)
+        # ==========================================================
+        # 0. Khởi tạo bộ nhớ tạm nếu chưa có để tránh lỗi
+        if 'backtest_symbol_fill' not in st.session_state:
+            st.session_state['backtest_symbol_fill'] = ""
+
+        # 1. Kéo 5 mã tìm kiếm gần nhất của User này từ Google Sheets
+        recent_searches = get_search_history(st.session_state['username'], limit=5)
+        
+        # 2. Dàn hàng ngang các nút bấm (Tags)
+        if recent_searches:
+            st.write("🕒 **Lịch sử kiểm định gần đây:**")
+            cols = st.columns(len(recent_searches) + 2) # Dư vài cột cho thoáng
+            for i, sym in enumerate(recent_searches):
+                # Khi User bấm vào tag này, lưu mã đó vào bộ nhớ tạm
+                if cols[i].button(f"🏷️ {sym}", key=f"bt_hist_{sym}"):
+                    st.session_state['backtest_symbol_fill'] = sym
+        else:
+            st.write("🕒 **Lịch sử kiểm định gần đây:**")
+            st.caption("Chưa có dữ liệu.")
+
+        # ==========================================================
+        # 🔵 Ô NHẬP LIỆU VÀ NÚT CHẠY CỦA NGÀI
+        # ==========================================================
+        # Ô text_input sẽ tự động lấy giá trị từ bộ nhớ tạm (nếu user vừa bấm nút)
+        bt_symbol_input = st.text_input(
+            "Nhập Mã Chứng Khoán cần kiểm định:", 
+            value=st.session_state['backtest_symbol_fill']
+        ).upper()
+
+        if st.button("▶️ BẮT ĐẦU BACKTEST"):
+            if bt_symbol_input:
+                # [CHIP THEO DÕI]: Lưu ngay mã này lên Google Sheets!
+                save_search_history(st.session_state['username'], bt_symbol_input)
+                
+                # ... (GIAO DIỆN VÀ CODE TÍNH TOÁN BACKTEST CỦA NGÀI NẰM Ở ĐÂY) ...
+                st.success(f"Đang chạy thuật toán kiểm định cho {bt_symbol_input}...")               
 # ==============================================================================
 # 5. FOOTER (THANH TRẠNG THÁI NGANG - CYBER COMMANDER STYLE)
 # ==============================================================================
