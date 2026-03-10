@@ -9,15 +9,13 @@ DESCRIPTION:
     - Style: Blue River (Smooth Line + Tiny Dots) on Dark Mode.
 ================================================================================
 """
-import zlib
-import base64
+
 import numpy as np
 import pandas as pd
 import plotly.graph_objects as go
 import plotly.express as px
 from datetime import datetime, timedelta
 from typing import Tuple, Optional, Dict
-import io # THÊM VÀO ĐỂ XỬ LÝ NÉN JSON MƯỢT MÀ
 
 # ==============================================================================
 # 1. MONTE CARLO SIMULATION ENGINE
@@ -128,13 +126,12 @@ class ProphetPredictor:
     def __init__(self, df: pd.DataFrame):
         self.df = df
         
-    # [ĐÃ UPDATE]: Trả về 2 món - Bức tranh (Figure) và Bản vẽ Kỹ thuật (DataFrame)
-    def predict(self, periods: int = 60) -> Tuple[Optional[go.Figure], Optional[pd.DataFrame]]:
+    def predict(self, periods: int = 60) -> Optional[go.Figure]:
         try:
             from prophet import Prophet
-        except ImportError: return None, None
+        except ImportError: return None
             
-        if self.df.empty or len(self.df) < 60: return None, None
+        if self.df.empty or len(self.df) < 60: return None
         
         # Prepare Data
         df_p = self.df.reset_index()[['Date', 'Close']].copy()
@@ -219,59 +216,14 @@ class ProphetPredictor:
             legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1)
         )
         
-        # [ĐÃ UPDATE]: Nhả cả hình ảnh và bộ số liệu để nén JSON
-        return fig, forecast
+        return fig
 
 # ==============================================================================
-# WRAPPERS VÀ HÀM TÁI TẠO ĐỒ THỊ SIÊU TỐC TỪ ĐÁM MÂY
+# WRAPPERS
 # ==============================================================================
 def run_monte_carlo(df: pd.DataFrame) -> Tuple:
     return MonteCarloSimulator(df).run()
 
-def run_prophet_ai(df: pd.DataFrame, periods: int = 60) -> Tuple[Optional[go.Figure], Optional[pd.DataFrame]]:
+def run_prophet_ai(df: pd.DataFrame, periods: int = 60) -> Optional[go.Figure]:
     # Truyền tham số periods vào bên trong
     return ProphetPredictor(df).predict(periods=periods)
-
-def rebuild_prophet_chart_from_json(json_data: str, symbol: str) -> go.Figure:
-    """Giải nén cục data Base64 từ Mây và vẽ lại đồ thị trong 0.1 giây"""
-    # GIẢI NÉN DỮ LIỆU
-    try:
-        # Giải mã Base64 và bung nén Zlib
-        decompressed_str = zlib.decompress(base64.b64decode(json_data)).decode('utf-8')
-    except Exception:
-        # Đề phòng ngài đang lưu cục JSON cũ chưa nén, hệ thống tự động fallback
-        decompressed_str = json_data
-        
-    # Đọc lại thành DataFrame
-    df_forecast = pd.read_json(io.StringIO(decompressed_str), orient='records')
-    
-    fig = go.Figure()
-    
-    # 1. Vẽ lại VÙNG RỦI RO (CLOUD)
-    fig.add_trace(go.Scatter(
-        x=pd.concat([df_forecast['ds'], df_forecast['ds'][::-1]]),
-        y=pd.concat([df_forecast['yhat_upper'], df_forecast['yhat_lower'][::-1]]),
-        fill='toself', fillcolor='rgba(0, 180, 216, 0.2)',
-        line=dict(color='rgba(255,255,255,0)'),
-        hoverinfo="skip", name='Biên độ dao động'
-    ))
-
-    # 2. Vẽ lại ĐƯỜNG CHỈ XUYÊN SUỐT (AI TREND LINE)
-    fig.add_trace(go.Scatter(
-        x=df_forecast['ds'], y=df_forecast['yhat'],
-        mode='lines', name='AI Trend Line',
-        line=dict(color='#0077b6', width=2.5) 
-    ))
-    
-    # Ép lại form dáng chuẩn Blue River
-    fig.update_layout(
-        title=dict(text=f"📂 THƯ VIỆN ĐÁM MÂY: DỰ BÁO {symbol}", font=dict(family="Rajdhani", size=18)),
-        yaxis_title="Giá", template="plotly_dark", height=500, hovermode="x unified",
-        margin=dict(l=20, r=40, t=50, b=20),
-        paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)',
-        dragmode='pan',
-        xaxis=dict(showgrid=True, gridcolor='rgba(255,255,255,0.1)'),
-        yaxis=dict(showgrid=True, gridcolor='rgba(255,255,255,0.1)', side='right')
-    )
-    
-    return fig
