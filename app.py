@@ -10,6 +10,8 @@ DESCRIPTION:
     - Features: AI Prophet Crosshair, Monte Carlo, Zoomable Charts.
     - NEW: TREASURE VAULT (Gold & Silver Realtime Price).
 ================================================================================
+"""
+
 import streamlit as st
 import sys
 import os
