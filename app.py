@@ -1258,7 +1258,7 @@ with main_tab7:
                 )
                 st.line_chart(chart_data, color=["#aaaaaa", "#ffbc00"])
                 st.caption("💡 *Mẹo DA: Đường màu vàng (Thuật toán) nằm trên đường màu xám (Nắm giữ) tức là hệ thống đang đánh bại thị trường!*")
- st.subheader("⚙️ KIỂM ĐỊNH CHIẾN LƯỢC (BACKTEST)")
+                st.subheader("⚙️ KIỂM ĐỊNH CHIẾN LƯỢC (BACKTEST)")
         
         # ==========================================================
         # 🟢 THANH LỊCH SỬ TÌM KIẾM THÔNG MINH (BACKTEST)
