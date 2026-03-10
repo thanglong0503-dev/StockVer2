@@ -5,7 +5,8 @@ import pandas as pd
 import json
 import datetime
 import yfinance as yf
-
+import zlib
+import base64
 # ==============================================================================
 # 1. KẾT NỐI ĐỘNG CƠ GOOGLE SHEETS (DÙNG CACHE ĐỂ SIÊU TỐC)
 # ==============================================================================
