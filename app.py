@@ -31,7 +31,8 @@ import streamlit.components.v1 as components
 from frontend.components import render_market_galaxy
 # Sửa backend.stock_list thành backend.sectors
 from backend.sectors import get_full_market_list, get_all_sector_names, get_sector_list_data
-
+from backend.database import save_prophet_forecast, get_saved_prophet_list
+from backend.ai import rebuild_prophet_chart_from_json
 # --- ĐỘNG CƠ TÍNH CHỈ BÁO SỢ HÃI & THAM LAM ---
 @st.cache_data(ttl=1800) # Cứ 30 phút cập nhật tâm lý 1 lần cho nhẹ máy
 def get_fear_greed_index():
@@ -542,43 +543,98 @@ with main_tab1:
             with t2:
                 components.html(f"""<div class="tradingview-widget-container"><div id="tv_widget"></div><script type="text/javascript" src="https://s3.tradingview.com/tv.js"></script><script>new TradingView.widget({{"width":"100%","height":550,"symbol":"HOSE:{target_symbol}","interval":"D","theme":"dark","style":"1","locale":"en","toolbar_bg":"#f1f3f6","enable_publishing":false,"container_id":"tv_widget"}});</script></div>""", height=560)
             
-            # TAB 3: AI (Crosshair Neon + Time Selector)
+            # TAB 3: AI (Crosshair Neon + Time Selector & Cloud Library)
             with t3:
-                st.markdown("### 🔮 NEURAL NETWORK FORECAST")
+                st.markdown("### 🔮 NEURAL NETWORK FORECAST & CLOUD LIBRARY")
                 
-                # [NEW] CHỌN KHUNG THỜI GIAN DỰ BÁO
-                c_ai_1, c_ai_2 = st.columns([1, 3])
-                
-                with c_ai_1:
-                    # Hộp chọn thời gian
-                    time_option = st.selectbox(
-                        "⏳ TẦM NHÌN (TIMEFRAME)",
-                        ["3 Tháng (90 ngày)", "6 Tháng (180 ngày)", "12 Tháng (1 Năm)", "1 Tháng (30 ngày)"],
-                        index=0 # Mặc định chọn 3 tháng
-                    )
-                    
-                    # Mapping từ chữ sang số ngày
-                    days_map = {
-                        "1 Tháng (30 ngày)": 30,
-                        "3 Tháng (90 ngày)": 90,
-                        "6 Tháng (180 ngày)": 180,
-                        "12 Tháng (1 Năm)": 365
-                    }
-                    selected_days = days_map[time_option]
+                # 0. Khởi tạo bộ nhớ tạm để giữ trạng thái Thư viện
+                if 'viewing_library_json' not in st.session_state:
+                    st.session_state['viewing_library_json'] = None
+                if 'viewing_library_symbol' not in st.session_state:
+                    st.session_state['viewing_library_symbol'] = None
 
-                with c_ai_2:
-                    st.write("") # Căn lề cho nút bấm thẳng hàng
-                    st.write("")
-                    # Nút bấm kích hoạt
-                    if st.button(f"⎋ KÍCH HOẠT AI ({selected_days} NGÀY)", key="btn_ai", type="primary"):
-                        with st.spinner(f"ĐANG TÍNH TOÁN DỰ BÁO {selected_days} NGÀY TỚI..."):
-                            # Truyền số ngày (selected_days) vào hàm AI
-                            fig_ai = run_prophet_ai(hist_df, periods=selected_days)
-                            
-                            if fig_ai: 
-                                st.plotly_chart(fig_ai, use_container_width=True, config={'scrollZoom': True, 'displayModeBar': True})
-                            else: 
-                                st.error("DỮ LIỆU KHÔNG ĐỦ ĐỂ DỰ BÁO XA")
+                # 1. CHẺ ĐÔI MÀN HÌNH: Trái (Thư viện) - Phải (Động cơ)
+                col_lib, col_main = st.columns([1, 3])
+                
+                # --- NỬA TRÁI: DANH SÁCH LỊCH SỬ TỪ ĐÁM MÂY ---
+                with col_lib:
+                    st.markdown("#### 📂 KÉT SẮT DỰ BÁO")
+                    current_user = st.session_state.get('username', 'Unknown')
+                    
+                    # Rút danh sách từ Google Sheets
+                    saved_list = get_saved_prophet_list(current_user)
+                    
+                    if not saved_list:
+                        st.caption("Chưa có dự báo nào được lưu.")
+                    else:
+                        for item in saved_list:
+                            # Nút bấm từng mã. Bấm vào là đổi state để hiển thị
+                            btn_label = f"🏷️ {item['Symbol']} ({item['Timeframe']}D)"
+                            if st.button(btn_label, key=f"lib_{item['Symbol']}_{item['Timeframe']}_{item['Saved_At']}", help=f"Lưu lúc: {item['Saved_At']}"):
+                                st.session_state['viewing_library_json'] = item['JSON_Data']
+                                st.session_state['viewing_library_symbol'] = item['Symbol']
+
+                # --- NỬA PHẢI: MÀN HÌNH HIỂN THỊ CHÍNH ---
+                with col_main:
+                    # ==========================================================
+                    # KỊCH BẢN 1: NGÀI ĐANG XEM LẠI LỊCH SỬ (TỐC ĐỘ 0.1 GIÂY)
+                    # ==========================================================
+                    if st.session_state['viewing_library_json']:
+                        c_head1, c_head2 = st.columns([3, 1])
+                        c_head1.success(f"⚡ Đang xem dự báo **{st.session_state['viewing_library_symbol']}** tải trực tiếp từ Đám mây!")
+                        
+                        # Nút đóng thư viện để quay về màn hình Chạy AI
+                        if c_head2.button("❌ ĐÓNG THƯ VIỆN", type="secondary"):
+                            st.session_state['viewing_library_json'] = None
+                            st.session_state['viewing_library_symbol'] = None
+                            st.rerun() # F5 lại màn hình ngay lập tức
+                        
+                        # Tái tạo bản vẽ Blue River từ chuỗi JSON
+                        fig_rebuilt = rebuild_prophet_chart_from_json(
+                            st.session_state['viewing_library_json'], 
+                            st.session_state['viewing_library_symbol']
+                        )
+                        st.plotly_chart(fig_rebuilt, use_container_width=True, config={'scrollZoom': True, 'displayModeBar': True})
+
+                    # ==========================================================
+                    # KỊCH BẢN 2: CHẠY AI MỚI (GIAO DIỆN CŨ CỦA NGÀI)
+                    # ==========================================================
+                    else:
+                        c_ai_1, c_ai_2 = st.columns([1, 3])
+                        
+                        with c_ai_1:
+                            time_option = st.selectbox(
+                                "⏳ TẦM NHÌN (TIMEFRAME)",
+                                ["3 Tháng (90 ngày)", "6 Tháng (180 ngày)", "12 Tháng (1 Năm)", "1 Tháng (30 ngày)"],
+                                index=0 
+                            )
+                            days_map = {
+                                "1 Tháng (30 ngày)": 30, "3 Tháng (90 ngày)": 90,
+                                "6 Tháng (180 ngày)": 180, "12 Tháng (1 Năm)": 365
+                            }
+                            selected_days = days_map[time_option]
+
+                        with c_ai_2:
+                            st.write("") 
+                            st.write("")
+                            if st.button(f"⎋ KÍCH HOẠT AI ({selected_days} NGÀY)", key="btn_ai", type="primary"):
+                                with st.spinner(f"ĐANG TÍNH TOÁN DỰ BÁO {selected_days} NGÀY TỚI..."):
+                                    
+                                    # [CHÚ Ý]: Hứng cả 2 giá trị là hình ảnh và Data (fig_ai, forecast_df)
+                                    fig_ai, forecast_df = run_prophet_ai(hist_df, periods=selected_days)
+                                    
+                                    if fig_ai and forecast_df is not None: 
+                                        st.plotly_chart(fig_ai, use_container_width=True, config={'scrollZoom': True, 'displayModeBar': True})
+                                        
+                                        # LƯU TỰ ĐỘNG VÀO DATABASE
+                                        # Lấy tên mã cổ phiếu ngài đang phân tích (Giả định là biến symbol_input từ Tab 1)
+                                        current_symbol = symbol_input if 'symbol_input' in locals() else "UNKNOWN_SYMBOL"
+                                        
+                                        save_prophet_forecast(current_user, current_symbol, selected_days, forecast_df)
+                                        st.success("💾 Đã tự động chụp Data và ném vào Két sắt Đám mây! Lần sau xem lại chỉ tốn 0.1 giây.")
+                                        
+                                    else: 
+                                        st.error("DỮ LIỆU KHÔNG ĐỦ ĐỂ DỰ BÁO XA")
             
             # TAB 4: MONTE CARLO
             with t4:
