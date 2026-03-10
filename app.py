@@ -576,39 +576,44 @@ with main_tab1:
             # TAB 1: CHART (Crosshair Neon)
             with t1: render_interactive_chart(hist_df, target_symbol)
             
-            # TAB 2: TRADINGVIEW ĐỘC LẬP (KHÔNG ĂN THEO MAIN SEARCH)
+            # TAB 2: TRADINGVIEW BẢN FULL (ADVANCED CHART ĐỘC LẬP)
             with t2:
-                # 1. Ô tìm kiếm riêng biệt chỉ dành cho Tab này
-                tv_input = st.text_input("🔍 Tra cứu độc lập (VD: VNINDEX, BTCUSD, VHM...):", value="VNINDEX", key="tv_independent_search").upper()
-                
-                # 2. Xử lý thông minh: Tự động thêm tiền tố HOSE: nếu ngài gõ 3 chữ cái chứng khoán VN
-                if len(tv_input) == 3 and tv_input.isalpha():
-                    tv_symbol_final = f"HOSE:{tv_input}"
-                else:
-                    tv_symbol_final = tv_input # Giữ nguyên để ngài gõ được Crypto, Forex, Chứng Mỹ
-
-                # 3. Kích hoạt Widget Độc lập (Đã bật thêm tính năng allow_symbol_change)
-                components.html(f"""
-                <div class="tradingview-widget-container">
-                    <div id="tv_widget"></div>
-                    <script type="text/javascript" src="https://s3.tradingview.com/tv.js"></script>
-                    <script>
-                        new TradingView.widget({{
-                            "width": "100%",
-                            "height": 550,
-                            "symbol": "{tv_symbol_final}",
-                            "interval": "D",
-                            "theme": "dark",
-                            "style": "1",
-                            "locale": "en",
-                            "toolbar_bg": "#1e1e1e",
-                            "enable_publishing": false,
-                            "allow_symbol_change": true,
-                            "container_id": "tv_widget"
-                        }});
-                    </script>
+                # Không cần st.text_input nữa, dùng luôn thanh Search của chính TradingView!
+                components.html("""
+                <div class="tradingview-widget-container" style="height:100%;width:100%">
+                  <div id="tradingview_advanced" style="height:750px;width:100%"></div>
+                  <script type="text/javascript" src="https://s3.tradingview.com/tv.js"></script>
+                  <script type="text/javascript">
+                  new TradingView.widget(
+                  {
+                  "autosize": true,
+                  "symbol": "BINANCE:BTCUSDT",
+                  "interval": "D",
+                  "timezone": "Asia/Ho_Chi_Minh",
+                  "theme": "dark",
+                  "style": "1",
+                  "locale": "vi_VN",
+                  "enable_publishing": false,
+                  "backgroundColor": "#131722",
+                  "gridColor": "#1f293d",
+                  "hide_top_toolbar": false,
+                  "hide_legend": false,
+                  "save_image": false,
+                  "container_id": "tradingview_advanced",
+                  "withdateranges": true,
+                  "hide_side_toolbar": false,
+                  "allow_symbol_change": true,
+                  "details": true,
+                  "hotlist": true,
+                  "calendar": false,
+                  "show_popup_button": true,
+                  "popup_width": "1000",
+                  "popup_height": "650"
+                }
+                  );
+                  </script>
                 </div>
-                """, height=560)
+                """, height=800)
             
             # TAB 3: AI (Crosshair Neon + Time Selector)
             with t3:
