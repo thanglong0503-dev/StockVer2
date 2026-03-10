@@ -9,7 +9,8 @@ DESCRIPTION:
     - Style: Blue River (Smooth Line + Tiny Dots) on Dark Mode.
 ================================================================================
 """
-
+import zlib
+import base64
 import numpy as np
 import pandas as pd
 import plotly.graph_objects as go
@@ -232,9 +233,17 @@ def run_prophet_ai(df: pd.DataFrame, periods: int = 60) -> Tuple[Optional[go.Fig
     return ProphetPredictor(df).predict(periods=periods)
 
 def rebuild_prophet_chart_from_json(json_data: str, symbol: str) -> go.Figure:
-    """Đọc cục JSON từ Mây và vẽ lại đồ thị trong 0.1 giây"""
-    # Giải nén JSON thành DataFrame
-    df_forecast = pd.read_json(io.StringIO(json_data), orient='records')
+    """Giải nén cục data Base64 từ Mây và vẽ lại đồ thị trong 0.1 giây"""
+    # GIẢI NÉN DỮ LIỆU
+    try:
+        # Giải mã Base64 và bung nén Zlib
+        decompressed_str = zlib.decompress(base64.b64decode(json_data)).decode('utf-8')
+    except Exception:
+        # Đề phòng ngài đang lưu cục JSON cũ chưa nén, hệ thống tự động fallback
+        decompressed_str = json_data
+        
+    # Đọc lại thành DataFrame
+    df_forecast = pd.read_json(io.StringIO(decompressed_str), orient='records')
     
     fig = go.Figure()
     
