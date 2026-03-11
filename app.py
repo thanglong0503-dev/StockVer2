@@ -835,21 +835,33 @@ with main_tab1:
                         # 2. Đường % Lợi nhuận (Biến động chuẩn hóa Base 0 so với 90 ngày trước)
                         pct_df = (close_df / close_df.iloc[0] - 1) * 100
                         
-                        # --- HIỂN THỊ CHẺ ĐÔI ---
+                        # --- HIỂN THỊ CHẺ ĐÔI (ĐÃ MỞ KHÓA ZOOM & KÉO THẢ) ---
                         c_chart1, c_chart2 = st.columns(2)
                         
                         with c_chart1:
                             # Biểu đồ 1: Các đường Line của từng cổ phiếu
                             fig1 = px.line(pct_df, title="📈 % Hiệu suất từng mã (3 Tháng)", template="plotly_dark")
-                            fig1.update_layout(height=350, margin=dict(l=10, r=10, t=40, b=10), yaxis_title="% Lợi nhuận", showlegend=False)
-                            st.plotly_chart(fig1, use_container_width=True, config={'displayModeBar': False})
+                            fig1.update_layout(
+                                height=350, margin=dict(l=10, r=10, t=40, b=10), 
+                                yaxis_title="% Lợi nhuận", showlegend=False,
+                                hovermode="x unified", # Gióng hàng ngang dọc khi trỏ chuột
+                                dragmode="zoom"        # Chế độ mặc định là bôi đen để zoom
+                            )
+                            # BẬT SCROLL ZOOM & TOOLBAR
+                            st.plotly_chart(fig1, use_container_width=True, config={'scrollZoom': True, 'displayModeBar': True})
                             
                         with c_chart2:
                             # Biểu đồ 2: Tăng trưởng Tổng tài sản có đổ bóng mờ (Area Line)
                             fig2 = px.line(x=nav_series.index, y=nav_series.values, title="💰 Tăng trưởng NAV Quy Chiếu", template="plotly_dark")
-                            fig2.update_traces(line_color='#00f3ff', fill='tozeroy', fillcolor='rgba(0, 243, 255, 0.1)') # Đổ bóng màu Cyan Cyberpunk
-                            fig2.update_layout(height=350, margin=dict(l=10, r=10, t=40, b=10), yaxis_title="Nghìn VNĐ", xaxis_title="")
-                            st.plotly_chart(fig2, use_container_width=True, config={'displayModeBar': False})
+                            fig2.update_traces(line_color='#00f3ff', fill='tozeroy', fillcolor='rgba(0, 243, 255, 0.1)') 
+                            fig2.update_layout(
+                                height=350, margin=dict(l=10, r=10, t=40, b=10), 
+                                yaxis_title="Nghìn VNĐ", xaxis_title="",
+                                hovermode="x unified", # Gióng hàng ngang dọc khi trỏ chuột
+                                dragmode="zoom"        # Chế độ mặc định là bôi đen để zoom
+                            )
+                            # BẬT SCROLL ZOOM & TOOLBAR
+                            st.plotly_chart(fig2, use_container_width=True, config={'scrollZoom': True, 'displayModeBar': True})
                             
                     except Exception as e:
                         st.caption("Đang tải dữ liệu để vẽ biểu đồ, xin chờ giây lát...")
