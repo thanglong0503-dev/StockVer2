@@ -371,7 +371,7 @@ with st.sidebar:
             if target_user:
                 st.markdown(f"Danh mục của: **{target_user}**")
                 # Gọi hàm lấy portfolio của user đó (kèm tính lãi lỗ real-time luôn)
-                df_target = get_user_portfolio(target_user)
+                df_target, _ = get_user_portfolio(target_user)
                 
                 if not df_target.empty:
                     # Tính tổng tài sản của khách
