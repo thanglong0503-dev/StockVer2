@@ -779,30 +779,7 @@ with main_tab1:
             # --- CỘT PHẢI: BẢNG DANH MỤC & BIỂU ĐỒ HIỆU SUẤT ---
             with col_table:
                 if not df_port.empty:
-                    # Tự động vẽ Biểu đồ Cột ngang (Bar Chart) hiển thị Hiệu suất %
-                    import plotly.express as px
-                    
-                    df_chart = df_port.sort_values(by="percent_pl")
-                    # Gán màu: Lãi màu Xanh, Lỗ màu Đỏ
-                    df_chart['Color'] = df_chart['percent_pl'].apply(lambda x: '#28c840' if x > 0 else '#ff3366')
-                    
-                    fig_port = px.bar(
-                        df_chart, x='percent_pl', y='symbol', orientation='h',
-                        text='percent_pl', 
-                        color='Color', color_discrete_map="identity"
-                    )
-                    
-                    fig_port.update_traces(texttemplate='%{text:.2f}%', textposition='outside')
-                    fig_port.update_layout(
-                        title="📊 HIỆU SUẤT TỪNG MÃ (%)",
-                        template="plotly_dark", height=300, 
-                        margin=dict(l=0, r=40, t=40, b=0),
-                        paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)',
-                        xaxis_title="", yaxis_title=""
-                    )
-                    st.plotly_chart(fig_port, use_container_width=True, config={'displayModeBar': False})
-                    
-                    # Bảng chi tiết
+                    # 1. ĐƯA BẢNG CHI TIẾT LÊN TRÊN (Để ngài dễ nhìn số liệu thực tế trước)
                     st.dataframe(
                         df_port[['symbol', 'volume', 'price_avg', 'market_price', 'profit_loss', 'percent_pl']],
                         column_config={
@@ -815,6 +792,68 @@ with main_tab1:
                         },
                         hide_index=True, use_container_width=True
                     )
+
+                    st.markdown("<br>", unsafe_allow_html=True)
+                    
+                    # 2. VẼ 2 BIỂU ĐỒ DẠNG LINE (TĂNG TRƯỞNG & NAV)
+                    import plotly.express as px
+                    import yfinance as yf
+                    import datetime
+                    
+                    symbols = df_port['symbol'].tolist()
+                    volumes = df_port.set_index('symbol')['volume'].to_dict()
+                    
+                    # Lấy dữ liệu 3 tháng (90 ngày) gần nhất để vẽ đường
+                    end_date = datetime.datetime.now()
+                    start_date = end_date - datetime.timedelta(days=90)
+                    
+                    try:
+                        tickers = [f"{sym}.VN" for sym in symbols]
+                        hist_data = yf.download(tickers, start=start_date, end=end_date, progress=False)
+                        
+                        if 'Close' in hist_data:
+                            close_df = hist_data['Close']
+                        else:
+                            close_df = hist_data
+                            
+                        # Nếu ví chỉ có 1 mã thì yfinance trả về Series, cần bọc lại thành DataFrame
+                        if isinstance(close_df, pd.Series):
+                            close_df = close_df.to_frame(name=tickers[0])
+                            
+                        # Dọn dẹp tên cột và quy đổi giá về Nghìn VNĐ
+                        close_df.columns = [c.replace('.VN', '') for c in close_df.columns]
+                        close_df = close_df / 1000.0
+                        close_df = close_df.ffill() # Điền dữ liệu rỗng cho các ngày T7, CN
+                        
+                        # --- TÍNH TOÁN ĐƯỜNG CHỈ SỐ ---
+                        # 1. Đường Tổng Tài Sản (NAV = Số lượng hiện tại * Giá từng ngày trong quá khứ)
+                        nav_series = pd.Series(0.0, index=close_df.index)
+                        for sym in symbols:
+                            if sym in close_df.columns:
+                                nav_series += close_df[sym] * volumes[sym]
+                                
+                        # 2. Đường % Lợi nhuận (Biến động chuẩn hóa Base 0 so với 90 ngày trước)
+                        pct_df = (close_df / close_df.iloc[0] - 1) * 100
+                        
+                        # --- HIỂN THỊ CHẺ ĐÔI ---
+                        c_chart1, c_chart2 = st.columns(2)
+                        
+                        with c_chart1:
+                            # Biểu đồ 1: Các đường Line của từng cổ phiếu
+                            fig1 = px.line(pct_df, title="📈 % Hiệu suất từng mã (3 Tháng)", template="plotly_dark")
+                            fig1.update_layout(height=350, margin=dict(l=10, r=10, t=40, b=10), yaxis_title="% Lợi nhuận", showlegend=False)
+                            st.plotly_chart(fig1, use_container_width=True, config={'displayModeBar': False})
+                            
+                        with c_chart2:
+                            # Biểu đồ 2: Tăng trưởng Tổng tài sản có đổ bóng mờ (Area Line)
+                            fig2 = px.line(x=nav_series.index, y=nav_series.values, title="💰 Tăng trưởng NAV Quy Chiếu", template="plotly_dark")
+                            fig2.update_traces(line_color='#00f3ff', fill='tozeroy', fillcolor='rgba(0, 243, 255, 0.1)') # Đổ bóng màu Cyan Cyberpunk
+                            fig2.update_layout(height=350, margin=dict(l=10, r=10, t=40, b=10), yaxis_title="Nghìn VNĐ", xaxis_title="")
+                            st.plotly_chart(fig2, use_container_width=True, config={'displayModeBar': False})
+                            
+                    except Exception as e:
+                        st.caption("Đang tải dữ liệu để vẽ biểu đồ, xin chờ giây lát...")
+
                 else:
                     st.info("Ví trống. Hãy nhập lệnh MUA bên trái để bắt đầu theo dõi tài sản!")
 
