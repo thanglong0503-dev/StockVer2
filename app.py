@@ -687,94 +687,138 @@ with main_tab1:
                     if not divs.empty: st.bar_chart(divs.head(10))
 
         st.markdown('</div>', unsafe_allow_html=True)
-# === TAB 2: MY PORTFOLIO (SỔ TAY ĐẦU TƯ) - [CÓ NÚT BÁN] ===
-with main_tab2:
-    st.markdown('<div class="glass-box">', unsafe_allow_html=True)
-    
-    # Import hàm xóa mới (Lưu ý: Ngài nhớ thêm delete_portfolio_stock vào dòng import đầu file app.py nhé)
-    from backend.database import delete_portfolio_stock 
-    
-    user_name = st.session_state.get('user_info', {}).get('name', 'Unknown')
-    current_user = st.session_state.get('user_info', {}).get('username', '')
-
-    # Header
-    c_p1, c_p2 = st.columns([3, 1])
-    with c_p1: st.markdown(f"### 💼 DANH MỤC ĐẦU TƯ CỦA: <span style='color:#00f3ff'>{user_name}</span>", unsafe_allow_html=True)
-    with c_p2: 
-        if st.button("🔄 CẬP NHẬT P/L", use_container_width=True): st.rerun()
-
-    col_input, col_table = st.columns([1, 2])
-    
-    # --- CỘT TRÁI: KHU VỰC GIAO DỊCH ---
-    with col_input:
-        # Chia làm 2 tab con: MUA và BÁN
-        tab_buy, tab_sell = st.tabs(["🟢 NHẬP MUA", "🔴 BÁN / XÓA"])
-        
-        # 1. FORM MUA (Code cũ)
-        with tab_buy:
-            with st.form("portfolio_add"):
-                p_symbol = st.text_input("Mã CK (VD: HPG)", max_chars=3).upper()
-                p_vol = st.number_input("Khối lượng", min_value=10, step=100)
-                p_price = st.number_input("Giá vốn (Nghìn VNĐ)", min_value=0.0, step=0.1, format="%.2f")
-                
-                if st.form_submit_button("LƯU VÀO VÍ", type="primary", use_container_width=True):
-                    if p_symbol and p_vol > 0:
-                        ok = add_transaction(current_user, p_symbol, p_vol, p_price)
-                        if ok: st.success(f"Đã mua {p_symbol}!")
-                        else: st.error("Lỗi hệ thống.")
-                        time.sleep(1)
-                        st.rerun()
-
-        # 2. FORM BÁN (MỚI TINH)
-        with tab_sell:
-            st.info("Chọn mã cổ phiếu đã bán để xóa khỏi danh sách theo dõi.")
+# === TAB 2: MY PORTFOLIO (SỔ TAY ĐẦU TƯ) - [BẢN NÂNG CẤP ASSET MANAGEMENT] ===
+        with main_tab2:
+            st.markdown('<div class="glass-box">', unsafe_allow_html=True)
             
-            # Lấy danh sách các mã đang có trong ví để hiển thị vào Selectbox
-            df_temp = get_user_portfolio(current_user)
-            if not df_temp.empty:
-                my_stock_list = df_temp['symbol'].unique().tolist()
-                stock_to_sell = st.selectbox("Chọn mã cần xóa", my_stock_list)
-                
-                if st.button(f"🗑️ XÓA {stock_to_sell} KHỎI VÍ", type="secondary", use_container_width=True):
-                    delete_portfolio_stock(current_user, stock_to_sell)
-                    st.success(f"Đã xóa {stock_to_sell} thành công!")
-                    time.sleep(1)
-                    st.rerun()
-            else:
-                st.warning("Ví đang trống, chưa có gì để bán.")
-
-    # --- CỘT PHẢI: BẢNG DANH MỤC (GIỮ NGUYÊN) ---
-    with col_table:
-        st.markdown("#### 📊 HIỆU SUẤT REAL-TIME")
-        
-        if current_user:
-            df_port = get_user_portfolio(current_user)
+            from backend.database import delete_portfolio_stock 
             
+            user_name = st.session_state.get('user_info', {}).get('name', 'Unknown')
+            current_user = st.session_state.get('user_info', {}).get('username', '')
+
+            # Header
+            c_p1, c_p2 = st.columns([3, 1])
+            with c_p1: st.markdown(f"### 💼 TỔNG TÀI SẢN (NAV): <span style='color:#00f3ff'>{user_name}</span>", unsafe_allow_html=True)
+            with c_p2: 
+                if st.button("🔄 LÀM MỚI BẢNG GIÁ", use_container_width=True): st.rerun()
+
+            # Lấy dữ liệu từ Database mới (Bây giờ nó nhả ra 2 biến)
+            df_port, total_realized_pl = get_user_portfolio(current_user)
+
+            # --- KHU VỰC 1: BẢNG TỔNG QUAN (DASHBOARD) ---
             if not df_port.empty:
                 total_invest = df_port['cost_value'].sum()
-                total_pl = df_port['profit_loss'].sum()
-                total_pct = (total_pl / total_invest * 100) if total_invest > 0 else 0
+                total_unrealized_pl = df_port['profit_loss'].sum()
+                total_nav = total_invest + total_unrealized_pl + total_realized_pl # NAV = Giá trị cổ phiếu + Tiền lãi đã chốt
+                total_pct = (total_unrealized_pl / total_invest * 100) if total_invest > 0 else 0
                 
-                m1, m2 = st.columns(2)
-                m1.metric("TỔNG VỐN", f"{total_invest:,.0f} K")
-                m2.metric("LÃI/LỖ TỔNG", f"{total_pl:,.0f} K", f"{total_pct:.2f}%")
+                # 4 Ô Metric hoành tráng
+                m1, m2, m3, m4 = st.columns(4)
+                m1.metric("💰 TỔNG NAV", f"{total_nav:,.0f} K")
+                m2.metric("💳 VỐN ĐẦU TƯ", f"{total_invest:,.0f} K")
+                m3.metric("📈 ĐANG TẠM LÃI/LỖ", f"{total_unrealized_pl:,.0f} K", f"{total_pct:.2f}%")
+                m4.metric("🏦 ĐÃ CHỐT LỜI/LỖ", f"{total_realized_pl:,.0f} K")
                 
-                st.dataframe(
-                    df_port,
-                    column_config={
-                        "symbol": "Mã CK",
-                        "volume": "Khối lượng",
-                        "price_avg": st.column_config.NumberColumn("Giá Vốn", format="%.2f"),
-                        "market_price": st.column_config.NumberColumn("Giá TT", format="%.2f"),
-                        "profit_loss": st.column_config.NumberColumn("Lãi/Lỗ", format="%.0f"),
-                        "percent_pl": st.column_config.NumberColumn("% Lãi", format="%.2f %%"),
-                    },
-                    hide_index=True, use_container_width=True
-                )
-            else:
-                st.info("Ví trống. Hãy nhập lệnh mua bên trái!")
+                st.markdown("---")
 
-    st.markdown('</div>', unsafe_allow_html=True)
+            col_input, col_table = st.columns([1, 2])
+            
+            # --- CỘT TRÁI: KHU VỰC GIAO DỊCH (NHẬP MUA / BÁN) ---
+            with col_input:
+                tab_buy, tab_sell, tab_delete = st.tabs(["🟢 MUA", "🔴 BÁN", "🗑️ XÓA LỖI"])
+                
+                # 1. FORM MUA
+                with tab_buy:
+                    with st.form("portfolio_buy"):
+                        p_symbol = st.text_input("Mã CK (VD: HPG)", max_chars=3).upper()
+                        p_vol = st.number_input("Khối lượng MUA", min_value=10, step=100)
+                        p_price = st.number_input("Giá vốn (Nghìn VNĐ)", min_value=0.0, step=0.1, format="%.2f")
+                        if st.form_submit_button("XÁC NHẬN MUA", type="primary", use_container_width=True):
+                            if p_symbol and p_vol > 0:
+                                ok = add_transaction(current_user, p_symbol, p_vol, p_price, action="BUY")
+                                if ok: st.success(f"Đã mua {p_vol} {p_symbol}!")
+                                else: st.error("Lỗi hệ thống.")
+                                time.sleep(1)
+                                st.rerun()
+
+                # 2. FORM BÁN CHỐT LỜI (Ghi nhận Realized P/L)
+                with tab_sell:
+                    if not df_port.empty:
+                        with st.form("portfolio_sell"):
+                            # Lấy danh sách mã đang cầm
+                            my_stock_list = df_port['symbol'].unique().tolist()
+                            sell_symbol = st.selectbox("Chọn mã BÁN", my_stock_list)
+                            
+                            # Hiển thị số lượng tối đa đang có (gợi ý)
+                            max_vol = int(df_port[df_port['symbol'] == sell_symbol]['volume'].iloc[0])
+                            
+                            sell_vol = st.number_input(f"Khối lượng BÁN (Tối đa: {max_vol})", min_value=10, max_value=max_vol, step=100)
+                            sell_price = st.number_input("Giá bán (Nghìn VNĐ)", min_value=0.0, step=0.1, format="%.2f")
+                            
+                            if st.form_submit_button("XÁC NHẬN BÁN", type="primary", use_container_width=True):
+                                if sell_vol > 0 and sell_price > 0:
+                                    ok = add_transaction(current_user, sell_symbol, sell_vol, sell_price, action="SELL")
+                                    if ok: st.success(f"Đã chốt {sell_vol} {sell_symbol}!")
+                                    else: st.error("Lỗi hệ thống.")
+                                    time.sleep(1)
+                                    st.rerun()
+                    else:
+                        st.warning("Ví đang trống, không có hàng để bán.")
+                        
+                # 3. FORM XÓA (Chỉ dùng khi nhập sai)
+                with tab_delete:
+                    if not df_port.empty:
+                        del_symbol = st.selectbox("Chọn mã XÓA BỎ HOÀN TOÀN", df_port['symbol'].unique().tolist())
+                        st.caption("⚠️ Nút này sẽ xóa toàn bộ lịch sử mua/bán của mã này. Chỉ dùng khi nhập sai.")
+                        if st.button(f"🗑️ XÓA SẠCH {del_symbol}", type="secondary", use_container_width=True):
+                            delete_portfolio_stock(current_user, del_symbol)
+                            st.success("Đã xóa hoàn toàn!")
+                            time.sleep(1)
+                            st.rerun()
+
+            # --- CỘT PHẢI: BẢNG DANH MỤC & BIỂU ĐỒ HIỆU SUẤT ---
+            with col_table:
+                if not df_port.empty:
+                    # Tự động vẽ Biểu đồ Cột ngang (Bar Chart) hiển thị Hiệu suất %
+                    import plotly.express as px
+                    
+                    df_chart = df_port.sort_values(by="percent_pl")
+                    # Gán màu: Lãi màu Xanh, Lỗ màu Đỏ
+                    df_chart['Color'] = df_chart['percent_pl'].apply(lambda x: '#28c840' if x > 0 else '#ff3366')
+                    
+                    fig_port = px.bar(
+                        df_chart, x='percent_pl', y='symbol', orientation='h',
+                        text='percent_pl', 
+                        color='Color', color_discrete_map="identity"
+                    )
+                    
+                    fig_port.update_traces(texttemplate='%{text:.2f}%', textposition='outside')
+                    fig_port.update_layout(
+                        title="📊 HIỆU SUẤT TỪNG MÃ (%)",
+                        template="plotly_dark", height=300, 
+                        margin=dict(l=0, r=40, t=40, b=0),
+                        paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)',
+                        xaxis_title="", yaxis_title=""
+                    )
+                    st.plotly_chart(fig_port, use_container_width=True, config={'displayModeBar': False})
+                    
+                    # Bảng chi tiết
+                    st.dataframe(
+                        df_port[['symbol', 'volume', 'price_avg', 'market_price', 'profit_loss', 'percent_pl']],
+                        column_config={
+                            "symbol": "Mã CK",
+                            "volume": "Số lượng",
+                            "price_avg": st.column_config.NumberColumn("Giá Vốn", format="%.2f"),
+                            "market_price": st.column_config.NumberColumn("Giá TT", format="%.2f"),
+                            "profit_loss": st.column_config.NumberColumn("Tạm Lãi/Lỗ", format="%.0f"),
+                            "percent_pl": st.column_config.NumberColumn("% Hiệu suất", format="%.2f %%"),
+                        },
+                        hide_index=True, use_container_width=True
+                    )
+                else:
+                    st.info("Ví trống. Hãy nhập lệnh MUA bên trái để bắt đầu theo dõi tài sản!")
+
+            st.markdown('</div>', unsafe_allow_html=True)
 # ==============================================================================
 # === TAB 3: TREASURE VAULT (CODE CŨ CỦA NGÀI - CHUYỂN TỪ main_tab2 SANG main_tab3) ===
 with main_tab3:
