@@ -842,11 +842,15 @@ with main_tab1:
                         with c_chart1:
                             # Biểu đồ 1: Các đường Line của từng cổ phiếu
                             fig1 = px.line(pct_df, title="📈 % Hiệu suất từng mã (3 Tháng)", template="plotly_dark")
+                            
+                            # [TÍNH NĂNG MỚI]: Kẻ đường ranh giới sinh tử (Mốc 0%) màu Vàng Đậm
+                            fig1.add_hline(y=0, line_width=3, line_color="#FFD700", opacity=0.9)
+                            
                             fig1.update_layout(
                                 height=350, margin=dict(l=10, r=10, t=40, b=10), 
                                 yaxis_title="% Lợi nhuận", showlegend=False,
                                 hovermode="x unified", 
-                                dragmode="pan"  # <--- ĐỔI THÀNH PAN (Bàn tay kéo thả)
+                                dragmode="pan"  
                             )
                             st.plotly_chart(fig1, use_container_width=True, config={'scrollZoom': True, 'displayModeBar': True})
                             
