@@ -93,60 +93,106 @@ def login_user(username, password):
 
 # ==============================================================================
 # ==============================================================================
+# ==============================================================================
 # 3. QUẢN LÝ DANH MỤC VÀ GIAO DỊCH (ĐỌC/GHI SHEET 'Transactions')
 # ==============================================================================
-def add_transaction(username, symbol, volume, price):
+def add_transaction(username, symbol, volume, price, action="BUY"):
+    """
+    Nâng cấp: Ghi nhận cả Mua và Bán. Bán sẽ lưu số lượng ÂM.
+    Thêm cột Action để dễ truy xuất lịch sử.
+    """
     sheet = get_sheet("Transactions")
     if not sheet: return False
     
     date_str = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
     
-    # [BẢN VÁ LỖI]: Ép cứng kiểu chuỗi (String) để Google Sheets KHÔNG ĐƯỢC tự định dạng
-    vol_str = str(float(volume))
+    # Ép kiểu và xử lý dấu
+    vol_float = float(volume)
+    if action == "SELL": vol_float = -abs(vol_float) # Bán là số lượng ÂM
+        
+    vol_str = str(vol_float)
     price_str = str(float(price))
     
-    # Dùng value_input_option='RAW' để cấm Google "lanh chanh" đổi dấu chấm thành dấu phẩy
+    # Cấu trúc mới cần thêm 1 cột "Action" trên Google Sheets (Cột thứ 6)
     sheet.append_row(
-        [username, symbol.upper(), vol_str, price_str, date_str], 
+        [username, symbol.upper(), vol_str, price_str, date_str, action], 
         value_input_option='RAW'
     )
     return True
 
 def get_user_portfolio(username):
+    """
+    Nâng cấp: Tính toán Giá vốn trung bình (Average Cost) và Lãi/Lỗ đã chốt (Realized PnL)
+    dựa trên Lịch sử Giao dịch (Trade History).
+    """
     sheet = get_sheet("Transactions")
-    if not sheet: return pd.DataFrame()
+    if not sheet: return pd.DataFrame(), 0.0 # Trả về DF và con số Realized PnL tổng
     
     records = sheet.get_all_records()
-    if not records: return pd.DataFrame()
+    if not records: return pd.DataFrame(), 0.0
     
     df = pd.DataFrame(records)
-    # Lọc giao dịch của user hiện tại
-    df = df[df['Username'] == username]
-    if df.empty: return pd.DataFrame()
+    df = df[df['Username'] == username].copy()
+    if df.empty: return pd.DataFrame(), 0.0
     
-    # [BẢN VÁ LỖI]: Quét dọn sạch sẽ mọi dấu phẩy do Google tự sinh ra trước khi tính
-    df['Volume'] = df['Volume'].astype(str).str.replace(',', '.').str.strip()
-    df['Price'] = df['Price'].astype(str).str.replace(',', '.').str.strip()
+    df['Volume'] = pd.to_numeric(df['Volume'].astype(str).str.replace(',', '.').str.strip(), errors='coerce').fillna(0)
+    df['Price'] = pd.to_numeric(df['Price'].astype(str).str.replace(',', '.').str.strip(), errors='coerce').fillna(0)
     
-    df['Volume'] = pd.to_numeric(df['Volume'], errors='coerce').fillna(0)
-    df['Price'] = pd.to_numeric(df['Price'], errors='coerce').fillna(0)
+    # Sắp xếp theo ngày để tính FIFO (hoặc Average Cost) cho chuẩn
+    if 'Date' in df.columns:
+        df = df.sort_values(by='Date')
+        
+    portfolio_data = []
+    total_realized_pl = 0.0 # Khởi tạo Két sắt đếm tiền chốt lãi
     
-    df['Total_Cost'] = df['Volume'] * df['Price']
+    # Duyệt qua từng mã cổ phiếu để tính sổ kế toán
+    for sym, group in df.groupby('Symbol'):
+        current_vol = 0.0
+        total_cost = 0.0
+        realized_pl = 0.0
+        
+        for index, row in group.iterrows():
+            trade_vol = row['Volume']
+            trade_price = row['Price']
+            
+            if trade_vol > 0: # MUA
+                total_cost += trade_vol * trade_price
+                current_vol += trade_vol
+            elif trade_vol < 0: # BÁN
+                sell_vol = abs(trade_vol)
+                if current_vol > 0:
+                    # Giá vốn trung bình của lượng hàng đang cầm
+                    avg_cost = total_cost / current_vol 
+                    # Lãi lỗ của riêng cái deal này
+                    deal_pl = (trade_price - avg_cost) * sell_vol 
+                    realized_pl += deal_pl
+                    
+                    # Giảm trừ kho hàng và giá vốn
+                    current_vol -= sell_vol
+                    total_cost -= sell_vol * avg_cost
+                else:
+                    # Bán khống (Short Sell) - Hiện tại tạm thời bỏ qua logic này
+                    pass
+        
+        # Chỉ hiển thị những mã còn cầm hàng lên danh mục
+        if current_vol > 0:
+            avg_price = total_cost / current_vol
+            portfolio_data.append({
+                'symbol': sym,
+                'volume': current_vol,
+                'total_cost': total_cost,
+                'price_avg': avg_price,
+                'realized_pl': realized_pl # Lưu lại mức lãi/lỗ đã chốt của mã này
+            })
+            
+        total_realized_pl += realized_pl # Cộng dồn tổng lãi lỗ đã chốt của tất cả các mã
+
+    portfolio = pd.DataFrame(portfolio_data)
+    if portfolio.empty: return pd.DataFrame(), total_realized_pl
     
-    portfolio = df.groupby('Symbol').agg(
-        volume=('Volume', 'sum'),
-        total_cost=('Total_Cost', 'sum')
-    ).reset_index()
-    
-    # Lọc bỏ những mã đã bán hết (volume <= 0)
-    portfolio = portfolio[portfolio['volume'] > 0].copy()
-    if portfolio.empty: return pd.DataFrame()
-    
-    portfolio['price_avg'] = portfolio['total_cost'] / portfolio['volume']
-    
-    # Kéo giá thị trường realtime từ yfinance (đã chia 1000 để chuẩn hóa)
+    # Kéo giá thị trường realtime từ yfinance
     market_prices = []
-    for sym in portfolio['Symbol']:
+    for sym in portfolio['symbol']:
         try:
             ticker = yf.Ticker(f"{sym}.VN")
             current_price = ticker.history(period="1d")['Close'].iloc[-1] / 1000.0
@@ -160,18 +206,19 @@ def get_user_portfolio(username):
     portfolio['profit_loss'] = portfolio['total_value'] - portfolio['cost_value']
     portfolio['percent_pl'] = (portfolio['profit_loss'] / portfolio['cost_value']) * 100
     
-    # Đổi tên cột cho khớp với App.py
-    portfolio = portfolio.rename(columns={"Symbol": "symbol"})
-    return portfolio
+    return portfolio, total_realized_pl
 
 def delete_portfolio_stock(username, symbol):
+    """
+    [BỎ SỬ DỤNG - THAY BẰNG ADD_TRANSACTION (SELL)]
+    Tuy nhiên Emo vẫn giữ hàm này cho tính năng "Reset/Xóa Trắng" mã bị lỗi.
+    """
     sheet = get_sheet("Transactions")
     if not sheet: return False
     
-    # Lấy dữ liệu và tìm hàng cần xóa (chạy ngược từ dưới lên để không bị lệch index)
     records = sheet.get_all_records()
     for idx in range(len(records) - 1, -1, -1):
-        if records[idx].get('Username') == username and records[idx].get('Symbol') == symbol:
+        if str(records[idx].get('Username')) == username and str(records[idx].get('Symbol')) == symbol:
             sheet.delete_rows(idx + 2)
     return True
 
