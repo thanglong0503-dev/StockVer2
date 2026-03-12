@@ -855,11 +855,11 @@ with main_tab1:
                 else:
                     # KHI BÁN SẠCH HÀNG: Check xem két sắt có tiền không
                     if total_realized_pl > 0:
-                        st.success(f"🎉 **TUYỆT VỜI!** Lão đại đã chốt lời toàn bộ danh mục! Tổng tiền mặt cất két: **{total_realized_pl:,.0f} K**.")
+                        st.success(f" **TUYỆT VỜI!** Đã chốt lời toàn bộ danh mục! Tổng tiền mặt cất két: **{total_realized_pl:,.0f} K**.")
                         st.info("💡 Hãy ngắm nghía thị trường và nhập lệnh MUA mã mới bên trái để hệ thống tiếp tục vẽ biểu đồ nhé!")
                     elif total_realized_pl < 0:
-                        st.warning(f"⚔️ **ALL CASH!** Lão đại đã tất toán toàn bộ danh mục. Tổng thiệt hại đã chốt: **{total_realized_pl:,.0f} K**.")
-                        st.info("💡 Thua keo này ta bày keo khác! Hãy chuẩn bị đạn dược và săn mã mới bên trái!")
+                        st.warning(f" **ALL CASH!**  Đã tất toán toàn bộ danh mục. Tổng thiệt hại đã chốt: **{total_realized_pl:,.0f} K**.")
+                        st.info("💡 Thua keo này ta bày keo khác! Hãy chuẩn bị và săn mã mới bên trái!")
                     else:
                         st.info("Ví trống. Hãy nhập lệnh MUA bên trái để bắt đầu theo dõi tài sản!")
 
