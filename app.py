@@ -702,24 +702,24 @@ with main_tab1:
             with c_p2: 
                 if st.button("🔄 LÀM MỚI BẢNG GIÁ", use_container_width=True): st.rerun()
 
-            # Lấy dữ liệu từ Database mới (Bây giờ nó nhả ra 2 biến)
+            # Lấy dữ liệu từ Database mới 
             df_port, total_realized_pl = get_user_portfolio(current_user)
 
-            # --- KHU VỰC 1: BẢNG TỔNG QUAN (DASHBOARD) ---
-            if not df_port.empty:
-                total_invest = df_port['cost_value'].sum()
-                total_unrealized_pl = df_port['profit_loss'].sum()
-                total_nav = total_invest + total_unrealized_pl + total_realized_pl # NAV = Giá trị cổ phiếu + Tiền lãi đã chốt
-                total_pct = (total_unrealized_pl / total_invest * 100) if total_invest > 0 else 0
-                
-                # 4 Ô Metric hoành tráng
-                m1, m2, m3, m4 = st.columns(4)
-                m1.metric("💰 TỔNG NAV", f"{total_nav:,.0f} K")
-                m2.metric("💳 VỐN ĐẦU TƯ", f"{total_invest:,.0f} K")
-                m3.metric("📈 ĐANG TẠM LÃI/LỖ", f"{total_unrealized_pl:,.0f} K", f"{total_pct:.2f}%")
-                m4.metric("🏦 ĐÃ CHỐT LỜI/LỖ", f"{total_realized_pl:,.0f} K")
-                
-                st.markdown("---")
+            # --- KHU VỰC 1: BẢNG TỔNG QUAN (LUÔN HIỂN THỊ DÙ CÓ HÀNG HAY KHÔNG) ---
+            # Tính toán an toàn kể cả khi df_port trống
+            total_invest = df_port['cost_value'].sum() if not df_port.empty else 0
+            total_unrealized_pl = df_port['profit_loss'].sum() if not df_port.empty else 0
+            total_nav = total_invest + total_unrealized_pl + total_realized_pl # NAV = Giá trị cổ phiếu + Tiền lãi đã chốt
+            total_pct = (total_unrealized_pl / total_invest * 100) if total_invest > 0 else 0
+            
+            # 4 Ô Metric hoành tráng luôn hiện diện
+            m1, m2, m3, m4 = st.columns(4)
+            m1.metric("💰 TỔNG NAV", f"{total_nav:,.0f} K")
+            m2.metric("💳 VỐN ĐẦU TƯ", f"{total_invest:,.0f} K")
+            m3.metric("📈 ĐANG TẠM LÃI/LỖ", f"{total_unrealized_pl:,.0f} K", f"{total_pct:.2f}%")
+            m4.metric("🏦 ĐÃ CHỐT LỜI/LỖ", f"{total_realized_pl:,.0f} K")
+            
+            st.markdown("---")
 
             col_input, col_table = st.columns([1, 2])
             
@@ -745,13 +745,10 @@ with main_tab1:
                 with tab_sell:
                     if not df_port.empty:
                         with st.form("portfolio_sell"):
-                            # Lấy danh sách mã đang cầm
                             my_stock_list = df_port['symbol'].unique().tolist()
                             sell_symbol = st.selectbox("Chọn mã BÁN", my_stock_list)
                             
-                            # Hiển thị số lượng tối đa đang có (gợi ý)
                             max_vol = int(df_port[df_port['symbol'] == sell_symbol]['volume'].iloc[0])
-                            
                             sell_vol = st.number_input(f"Khối lượng BÁN (Tối đa: {max_vol})", min_value=10, max_value=max_vol, step=100)
                             sell_price = st.number_input("Giá bán (Nghìn VNĐ)", min_value=0.0, step=0.1, format="%.2f")
                             
@@ -779,7 +776,7 @@ with main_tab1:
             # --- CỘT PHẢI: BẢNG DANH MỤC & BIỂU ĐỒ HIỆU SUẤT ---
             with col_table:
                 if not df_port.empty:
-                    # 1. ĐƯA BẢNG CHI TIẾT LÊN TRÊN (Để ngài dễ nhìn số liệu thực tế trước)
+                    # 1. ĐƯA BẢNG CHI TIẾT LÊN TRÊN
                     st.dataframe(
                         df_port[['symbol', 'volume', 'price_avg', 'market_price', 'profit_loss', 'percent_pl']],
                         column_config={
@@ -803,7 +800,6 @@ with main_tab1:
                     symbols = df_port['symbol'].tolist()
                     volumes = df_port.set_index('symbol')['volume'].to_dict()
                     
-                    # Lấy dữ liệu 3 tháng (90 ngày) gần nhất để vẽ đường
                     end_date = datetime.datetime.now()
                     start_date = end_date - datetime.timedelta(days=90)
                     
@@ -816,53 +812,40 @@ with main_tab1:
                         else:
                             close_df = hist_data
                             
-                        # Nếu ví chỉ có 1 mã thì yfinance trả về Series, cần bọc lại thành DataFrame
                         if isinstance(close_df, pd.Series):
                             close_df = close_df.to_frame(name=tickers[0])
                             
-                        # Dọn dẹp tên cột và quy đổi giá về Nghìn VNĐ
                         close_df.columns = [c.replace('.VN', '') for c in close_df.columns]
                         close_df = close_df / 1000.0
-                        close_df = close_df.ffill() # Điền dữ liệu rỗng cho các ngày T7, CN
+                        close_df = close_df.ffill() 
                         
-                        # --- TÍNH TOÁN ĐƯỜNG CHỈ SỐ ---
-                        # 1. Đường Tổng Tài Sản (NAV = Số lượng hiện tại * Giá từng ngày trong quá khứ)
                         nav_series = pd.Series(0.0, index=close_df.index)
                         for sym in symbols:
                             if sym in close_df.columns:
                                 nav_series += close_df[sym] * volumes[sym]
                                 
-                        # 2. Đường % Lợi nhuận (Biến động chuẩn hóa Base 0 so với 90 ngày trước)
                         pct_df = (close_df / close_df.iloc[0] - 1) * 100
                         
-                        # --- HIỂN THỊ CHẺ ĐÔI (ĐÃ MỞ KHÓA ZOOM & KÉO THẢ) ---
-                        # --- HIỂN THỊ CHẺ ĐÔI (CHẾ ĐỘ KÉO THẢ PAN CHUẨN TRADINGVIEW) ---
+                        # --- HIỂN THỊ CHẺ ĐÔI ---
                         c_chart1, c_chart2 = st.columns(2)
                         
                         with c_chart1:
-                            # Biểu đồ 1: Các đường Line của từng cổ phiếu
                             fig1 = px.line(pct_df, title="📈 % Hiệu suất từng mã (3 Tháng)", template="plotly_dark")
-                            
-                            # [TÍNH NĂNG MỚI]: Kẻ đường ranh giới sinh tử (Mốc 0%) màu Vàng Đậm
                             fig1.add_hline(y=0, line_width=3, line_color="#FFD700", opacity=0.9)
-                            
                             fig1.update_layout(
                                 height=350, margin=dict(l=10, r=10, t=40, b=10), 
                                 yaxis_title="% Lợi nhuận", showlegend=False,
-                                hovermode="x unified", 
-                                dragmode="pan"  
+                                hovermode="x unified", dragmode="pan"
                             )
                             st.plotly_chart(fig1, use_container_width=True, config={'scrollZoom': True, 'displayModeBar': True})
                             
                         with c_chart2:
-                            # Biểu đồ 2: Tăng trưởng Tổng tài sản có đổ bóng mờ (Area Line)
                             fig2 = px.line(x=nav_series.index, y=nav_series.values, title="💰 Tăng trưởng NAV Quy Chiếu", template="plotly_dark")
                             fig2.update_traces(line_color='#00f3ff', fill='tozeroy', fillcolor='rgba(0, 243, 255, 0.1)') 
                             fig2.update_layout(
                                 height=350, margin=dict(l=10, r=10, t=40, b=10), 
                                 yaxis_title="Nghìn VNĐ", xaxis_title="",
-                                hovermode="x unified", 
-                                dragmode="pan"  # <--- ĐỔI THÀNH PAN (Bàn tay kéo thả)
+                                hovermode="x unified", dragmode="pan"
                             )
                             st.plotly_chart(fig2, use_container_width=True, config={'scrollZoom': True, 'displayModeBar': True})
                             
@@ -870,7 +853,15 @@ with main_tab1:
                         st.caption("Đang tải dữ liệu để vẽ biểu đồ, xin chờ giây lát...")
 
                 else:
-                    st.info("Ví trống. Hãy nhập lệnh MUA bên trái để bắt đầu theo dõi tài sản!")
+                    # KHI BÁN SẠCH HÀNG: Check xem két sắt có tiền không
+                    if total_realized_pl > 0:
+                        st.success(f"🎉 **TUYỆT VỜI!** Lão đại đã chốt lời toàn bộ danh mục! Tổng tiền mặt cất két: **{total_realized_pl:,.0f} K**.")
+                        st.info("💡 Hãy ngắm nghía thị trường và nhập lệnh MUA mã mới bên trái để hệ thống tiếp tục vẽ biểu đồ nhé!")
+                    elif total_realized_pl < 0:
+                        st.warning(f"⚔️ **ALL CASH!** Lão đại đã tất toán toàn bộ danh mục. Tổng thiệt hại đã chốt: **{total_realized_pl:,.0f} K**.")
+                        st.info("💡 Thua keo này ta bày keo khác! Hãy chuẩn bị đạn dược và săn mã mới bên trái!")
+                    else:
+                        st.info("Ví trống. Hãy nhập lệnh MUA bên trái để bắt đầu theo dõi tài sản!")
 
             st.markdown('</div>', unsafe_allow_html=True)
 # ==============================================================================
