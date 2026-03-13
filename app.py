@@ -759,7 +759,7 @@ with main_tab1:
                             st.error(f"Lỗi khởi chạy động cơ HMM: {str(e)}")
                             st.info("Lão đại nhớ mở terminal gõ 'pip install hmmlearn scikit-learn' nhé!")
         st.markdown('</div>', unsafe_allow_html=True)
- # TAB 9: ĐỘNG CƠ PHÂN LOẠI TÍN HIỆU MUA/BÁN (RANDOM FOREST)
+# TAB 9: ĐỘNG CƠ PHÂN LOẠI TÍN HIỆU MUA/BÁN (RANDOM FOREST)
             with t9:
                 st.markdown("### 🌲 RANDOM FOREST (CỖ MÁY TÌM KIẾM TÍN HIỆU)")
                 st.info("💡 Trí tuệ nhân tạo sẽ tổng hợp các đường Trung bình động (MA) và Biên độ giá, học từ hàng ngàn phiên giao dịch quá khứ để dự báo Tỷ lệ nến Xanh vào ngày mai.")
@@ -855,7 +855,7 @@ with main_tab1:
                             else:
                                 st.warning("Dữ liệu không đủ (cần ít nhất 50 ngày) để AI học các chỉ báo.")
                         except Exception as e:
-                            st.error(f"Lỗi khởi chạy động cơ Random Forest: {str(e)}")       
+                            st.error(f"Lỗi khởi chạy động cơ Random Forest: {str(e)}")   
 # === TAB 2: MY PORTFOLIO (SỔ TAY ĐẦU TƯ) - [BẢN NÂNG CẤP ASSET MANAGEMENT] ===
         with main_tab2:
             st.markdown('<div class="glass-box">', unsafe_allow_html=True)
