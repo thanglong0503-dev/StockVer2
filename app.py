@@ -571,7 +571,7 @@ with main_tab1:
             
             st.markdown("---")
 
-            t1, t2, t3, t4, t5, t6, t7 = st.tabs(["CHART", "TRADINGVIEW", "AI_PROPHET", "MONTE_CARLO", "NEWS", "HMM_VISION", "ML_SIGNALS"])
+            t1, t2, t3, t4, t5, t6, t7, t8 = st.tabs(["CHART", "TRADINGVIEW", "AI_PROPHET", "MONTE_CARLO", "NEWS", "HMM_VISION", "ML_SIGNALS", "GARCH_RADAR"])
             
             # TAB 1: CHART (Crosshair Neon)
             with t1: render_interactive_chart(hist_df, target_symbol)
@@ -674,7 +674,7 @@ with main_tab1:
                 else: st.info("NO NEWS DATA.")
                 
             
-# TAB 8: TRUNG TÂM PHÂN TÍCH TRẠNG THÁI HMM (NHÃN THUẬT)
+# TAB 6: TRUNG TÂM PHÂN TÍCH TRẠNG THÁI HMM (NHÃN THUẬT)
             with t6:
                 st.markdown("### 👁️ HIDDEN MARKOV MODEL ")
                 st.info("💡 HMM quét qua dữ liệu quá khứ, phân tích lợi nhuận và độ giật (Volatility) để bắt mạch 'Mùa' của cổ phiếu (Bò, Gấu, Đi Ngang).")
@@ -748,7 +748,7 @@ with main_tab1:
                             st.error(f"Lỗi khởi chạy động cơ HMM: {str(e)}")
                             st.info("Lão đại nhớ mở terminal gõ 'pip install hmmlearn scikit-learn' nhé!")
         st.markdown('</div>', unsafe_allow_html=True)
-# TAB 9: ĐỘNG CƠ PHÂN LOẠI TÍN HIỆU MUA/BÁN (RANDOM FOREST)
+# TAB 7: ĐỘNG CƠ PHÂN LOẠI TÍN HIỆU MUA/BÁN (RANDOM FOREST)
         with t7:
                 st.markdown("### 🌲 RANDOM FOREST (CỖ MÁY TÌM KIẾM TÍN HIỆU)")
                 st.info("💡 Trí tuệ nhân tạo sẽ tổng hợp các đường Trung bình động (MA) và Biên độ giá, học từ hàng ngàn phiên giao dịch quá khứ để dự báo Tỷ lệ nến Xanh vào ngày mai.")
@@ -844,7 +844,92 @@ with main_tab1:
                             else:
                                 st.warning("Dữ liệu không đủ (cần ít nhất 50 ngày) để AI học các chỉ báo.")
                         except Exception as e:
-                            st.error(f"Lỗi khởi chạy động cơ Random Forest: {str(e)}")   
+                            st.error(f"Lỗi khởi chạy động cơ Random Forest: {str(e)}")
+# TAB 8: RADAR DÒ MÌN VOLATILITY (GARCH MODEL)
+        with t8:
+                st.markdown("### 🌪️ GARCH MODEL (RADAR DỰ BÁO BIẾN ĐỘNG)")
+                st.info("💡 Radar không dự báo giá lên hay xuống, mà dự báo 'Độ giật' (Volatility). Nếu radar báo ĐỎ, thị trường sắp có bão lớn, hãy quản trị rủi ro thật chặt!")
+
+                if st.button("📡 KHỞI ĐỘNG RADAR GARCH", type="primary", use_container_width=True):
+                    with st.spinner("ĐANG QUÉT PHƯƠNG SAI VÀ ĐỘ NHIỄU THỊ TRƯỜNG..."):
+                        try:
+                            from arch import arch_model
+                            import plotly.graph_objects as go
+                            import numpy as np
+
+                            # Lấy dataframe lịch sử ngài đã tải sẵn
+                            df_garch = hist_df.copy()
+                            
+                            if len(df_garch) > 50:
+                                # 1. Tính toán Lợi nhuận hàng ngày (Return) theo %
+                                returns = df_garch['Close'].pct_change().dropna() * 100
+
+                                # 2. Xây dựng lõi mô hình GARCH(1,1)
+                                am = arch_model(returns, vol='Garch', p=1, o=0, q=1, dist='Normal')
+                                res = am.fit(disp='off')
+
+                                # 3. Dự báo biến động (Volatility) cho phiên tiếp theo
+                                forecasts = res.forecast(horizon=1)
+                                # Lấy căn bậc 2 của phương sai để ra Độ lệch chuẩn (Volatility)
+                                next_day_vol = np.sqrt(forecasts.variance.iloc[-1, 0])
+
+                                # 4. Phân tích Tín hiệu Radar (Thiết lập độ nhạy cao theo phong cách của ngài)
+                                avg_vol = returns.std()
+                                vol_ratio = next_day_vol / avg_vol
+
+                                if vol_ratio >= 1.5:
+                                    alert, color = "BÃO LỚN (RỦI RO CỰC CAO) - TẮT MARGIN!", "#ff3366"
+                                elif vol_ratio >= 1.1:
+                                    alert, color = "THỜI TIẾT XẤU (RUNG LẮC MẠNH) - THẬN TRỌNG", "#ffa500"
+                                else:
+                                    alert, color = "BIỂN ÊM (BIẾN ĐỘNG THẤP) - AN TOÀN", "#00f3ff"
+
+                                st.markdown(f"#### 🚨 TÍN HIỆU NGÀY MAI: <span style='color:{color}'>{alert}</span>", unsafe_allow_html=True)
+
+                                # 5. Vẽ Bản đồ Radar
+                                cond_vol = res.conditional_volatility
+                                fig_garch = go.Figure()
+
+                                # Cột mờ: Lợi nhuận thực tế hàng ngày
+                                fig_garch.add_trace(go.Bar(
+                                    x=returns.index, y=returns,
+                                    name='Biến động Giá (%)',
+                                    marker_color='rgba(150, 150, 150, 0.3)'
+                                ))
+
+                                # Đường sóng radar: Độ giật do GARCH tính toán
+                                fig_garch.add_trace(go.Scatter(
+                                    x=cond_vol.index, y=cond_vol,
+                                    mode='lines', name='Đường Radar GARCH',
+                                    line=dict(color='#00f3ff', width=2)
+                                ))
+
+                                # Kẻ vạch dự báo ngày mai
+                                fig_garch.add_hline(y=next_day_vol, line_dash="dot",
+                                                    annotation_text=f"Dự báo mai: {next_day_vol:.2f}%",
+                                                    annotation_position="top left",
+                                                    line_color=color)
+
+                                fig_garch.update_layout(
+                                    title="🌪️ BẢN ĐỒ ĐỘ GIẬT (VOLATILITY CLUSTERING)",
+                                    height=400, margin=dict(l=10, r=10, t=40, b=10),
+                                    template="plotly_dark",
+                                    hovermode="x unified", dragmode="pan"
+                                )
+                                st.plotly_chart(fig_garch, use_container_width=True, config={'scrollZoom': True, 'displayModeBar': True})
+
+                                # 6. Hiển thị thông số cụ thể
+                                c1, c2, c3 = st.columns(3)
+                                c1.metric("Biến động Lịch sử (TB)", f"{avg_vol:.2f}%")
+                                c2.metric("Dự báo Ngày mai", f"{next_day_vol:.2f}%", f"{(vol_ratio - 1)*100:.1f}%")
+                                c3.metric("Khuyến nghị Lão đại", "Phòng thủ" if vol_ratio > 1.1 else "Tấn công")
+
+                            else:
+                                st.warning("Dữ liệu quá ngắn để Radar hoạt động (cần > 50 ngày).")
+                        except ImportError:
+                            st.error("⚠️ Lão đại chưa nạp đạn thư viện! Hãy cài 'arch' trước nhé.")
+                        except Exception as e:
+                            st.error(f"Lỗi khởi chạy Radar GARCH: {str(e)}")                           
 # === TAB 2: MY PORTFOLIO (SỔ TAY ĐẦU TƯ) - [BẢN NÂNG CẤP ASSET MANAGEMENT] ===
         with main_tab2:
             st.markdown('<div class="glass-box">', unsafe_allow_html=True)
