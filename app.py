@@ -687,10 +687,10 @@ with main_tab1:
                     if not divs.empty: st.bar_chart(divs.head(10))
 # TAB 8: TRUNG TÂM PHÂN TÍCH TRẠNG THÁI HMM (NHÃN THUẬT)
             with t8:
-                st.markdown("### 👁️ HIDDEN MARKOV MODEL (BÓC TÁCH TRẠNG THÁI MÙA VỤ)")
+                st.markdown("### 👁️ HIDDEN MARKOV MODEL ")
                 st.info("💡 HMM quét qua dữ liệu quá khứ, phân tích lợi nhuận và độ giật (Volatility) để bắt mạch 'Mùa' của cổ phiếu (Bò, Gấu, Đi Ngang).")
                 
-                if st.button("👁️ KHAI NHÃN HMM (QUÉT X-QUANG)", type="primary", use_container_width=True):
+                if st.button(" HMM (QUÉT X-QUANG)", type="primary", use_container_width=True):
                     with st.spinner("ĐANG HUẤN LUYỆN MẠNG MARKOV CHỜ TRONG GIÂY LÁT..."):
                         import numpy as np
                         from hmmlearn.hmm import GaussianHMM
