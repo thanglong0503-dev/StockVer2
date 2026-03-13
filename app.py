@@ -1058,7 +1058,7 @@ with main_tab5:
     # Danh sách các trang web an toàn
     web_options = {
         "🔥 FireAnt (Dashboard)": "https://fireant.vn/top-symbols",
-        "Cryto": "https://priceboard.tcex.com.vn/home",
+        "TCEX Cryto Toàn thị trường": "https://priceboard.tcex.com.vn/home",
         "📰 CafeF (Thị trường)": "https://cafef.vn/thi-truong-chung-khoan.chn",
         "🏢 StockBiz (Tổng hợp)": "https://stockbiz.vn/",
         "💰 24H Money": "https://24hmoney.vn",
