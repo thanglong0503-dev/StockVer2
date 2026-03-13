@@ -571,7 +571,7 @@ with main_tab1:
             
             st.markdown("---")
 
-            t1, t2, t3, t4, t5, t6, t7, t8, t9 = st.tabs(["CHART", "TRADINGVIEW", "AI_PROPHET", "MONTE_CARLO", "NEWS", "FINANCIALS", "PROFILE", "HMM_VISION", "ML_SIGNALS"])
+            t1, t2, t3, t4, t5, t6, t7 = st.tabs(["CHART", "TRADINGVIEW", "AI_PROPHET", "MONTE_CARLO", "NEWS", "HMM_VISION", "ML_SIGNALS"])
             
             # TAB 1: CHART (Crosshair Neon)
             with t1: render_interactive_chart(hist_df, target_symbol)
@@ -673,20 +673,9 @@ with main_tab1:
                     for n in news: st.markdown(f"- [{n['title']}]({n['link']})")
                 else: st.info("NO NEWS DATA.")
                 
-            # TAB 6: FINANCE
-            with t6:
-                if not fin.empty: 
-                    st.dataframe(fin.iloc[:, :4], use_container_width=True)
-                else: st.warning("NO FINANCIAL DATA.")
-                
-            # TAB 7: PROFILE
-            with t7:
-                c1, c2 = st.columns(2)
-                with c1: st.info(f"SECTOR: {info.get('sector', 'N/A')}")
-                with c2: 
-                    if not divs.empty: st.bar_chart(divs.head(10))
+            
 # TAB 8: TRUNG TÂM PHÂN TÍCH TRẠNG THÁI HMM (NHÃN THUẬT)
-            with t8:
+            with t6:
                 st.markdown("### 👁️ HIDDEN MARKOV MODEL ")
                 st.info("💡 HMM quét qua dữ liệu quá khứ, phân tích lợi nhuận và độ giật (Volatility) để bắt mạch 'Mùa' của cổ phiếu (Bò, Gấu, Đi Ngang).")
                 
@@ -760,7 +749,7 @@ with main_tab1:
                             st.info("Lão đại nhớ mở terminal gõ 'pip install hmmlearn scikit-learn' nhé!")
         st.markdown('</div>', unsafe_allow_html=True)
 # TAB 9: ĐỘNG CƠ PHÂN LOẠI TÍN HIỆU MUA/BÁN (RANDOM FOREST)
-        with t9:
+        with t7:
                 st.markdown("### 🌲 RANDOM FOREST (CỖ MÁY TÌM KIẾM TÍN HIỆU)")
                 st.info("💡 Trí tuệ nhân tạo sẽ tổng hợp các đường Trung bình động (MA) và Biên độ giá, học từ hàng ngàn phiên giao dịch quá khứ để dự báo Tỷ lệ nến Xanh vào ngày mai.")
                 
