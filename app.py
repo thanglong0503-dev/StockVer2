@@ -571,7 +571,7 @@ with main_tab1:
             
             st.markdown("---")
 
-            t1, t2, t3, t4, t5, t6, t7, t8 = st.tabs(["CHART", "TRADINGVIEW", "AI_PROPHET", "MONTE_CARLO", "NEWS", "FINANCIALS", "PROFILE", "HMM_VISION"])
+            t1, t2, t3, t4, t5, t6, t7, t8, t9 = st.tabs(["CHART", "TRADINGVIEW", "AI_PROPHET", "MONTE_CARLO", "NEWS", "FINANCIALS", "PROFILE", "HMM_VISION", "ML_SIGNALS"])
             
             # TAB 1: CHART (Crosshair Neon)
             with t1: render_interactive_chart(hist_df, target_symbol)
@@ -759,6 +759,103 @@ with main_tab1:
                             st.error(f"Lỗi khởi chạy động cơ HMM: {str(e)}")
                             st.info("Lão đại nhớ mở terminal gõ 'pip install hmmlearn scikit-learn' nhé!")
         st.markdown('</div>', unsafe_allow_html=True)
+ # TAB 9: ĐỘNG CƠ PHÂN LOẠI TÍN HIỆU MUA/BÁN (RANDOM FOREST)
+            with t9:
+                st.markdown("### 🌲 RANDOM FOREST (CỖ MÁY TÌM KIẾM TÍN HIỆU)")
+                st.info("💡 Trí tuệ nhân tạo sẽ tổng hợp các đường Trung bình động (MA) và Biên độ giá, học từ hàng ngàn phiên giao dịch quá khứ để dự báo Tỷ lệ nến Xanh vào ngày mai.")
+                
+                if st.button("🚀 KÍCH HOẠT RADAR TÌM KIẾM TÍN HIỆU", type="primary", use_container_width=True):
+                    with st.spinner("ĐANG TRỒNG 100 CÂY QUYẾT ĐỊNH ĐỂ PHÂN TÍCH... CHỜ TRONG GIÂY LÁT..."):
+                        from sklearn.ensemble import RandomForestClassifier
+                        import plotly.graph_objects as go
+                        import numpy as np
+                        
+                        try:
+                            # Lấy dataframe lịch sử ngài đã tải sẵn
+                            df_ml = hist_df.copy()
+                            
+                            if len(df_ml) > 50:
+                                # 1. Chế tạo Vũ khí (Features) cho AI học
+                                df_ml['SMA_10'] = df_ml['Close'].rolling(window=10).mean()
+                                df_ml['SMA_50'] = df_ml['Close'].rolling(window=50).mean()
+                                df_ml['Daily_Return'] = df_ml['Close'].pct_change()
+                                df_ml['Volatility'] = (df_ml['High'] - df_ml['Low']) / df_ml['Close']
+                                
+                                # 2. Xác định Mục tiêu (Target): 1 (Tăng) hoặc 0 (Giảm) cho ngày mai
+                                df_ml['Target'] = (df_ml['Close'].shift(-1) > df_ml['Close']).astype(int)
+                                
+                                # Lọc bỏ các ngày thiếu dữ liệu do tính trung bình động
+                                df_model = df_ml.dropna()
+                                
+                                # 3. Đưa vào phòng Huấn luyện
+                                features = ['SMA_10', 'SMA_50', 'Daily_Return', 'Volatility']
+                                X = df_model[features]
+                                y = df_model['Target']
+                                
+                                # Khởi tạo Rừng Quyết Định với 100 cây
+                                rf_model = RandomForestClassifier(n_estimators=100, random_state=42)
+                                rf_model.fit(X, y)
+                                
+                                # 4. Bắt AI dự báo cho ngay ngày hôm nay!
+                                today_features = df_ml[features].iloc[-1:]
+                                # Lấy xác suất của nhãn 1 (Khả năng Tăng giá)
+                                prob_up = rf_model.predict_proba(today_features)[0][1] * 100
+                                
+                                # 5. Định vị Tín hiệu chuẩn Quant Trading
+                                if prob_up >= 70:
+                                    signal, color = "MUA MẠNH (STRONG BUY)", "#00ff00"
+                                elif prob_up >= 55:
+                                    signal, color = "MUA (BUY)", "#90ee90"
+                                elif prob_up <= 30:
+                                    signal, color = "BÁN MẠNH (STRONG SELL)", "#ff0000"
+                                elif prob_up <= 45:
+                                    signal, color = "BÁN (SELL)", "#ffa500"
+                                else:
+                                    signal, color = "TRUNG LẬP (NEUTRAL)", "#aaaaaa"
+                                    
+                                st.markdown(f"#### 🎯 KHUYẾN NGHỊ TỪ AI: <span style='color:{color}'>{signal}</span>", unsafe_allow_html=True)
+                                
+                                # 6. Vẽ Đồng hồ Tín hiệu (Gauge Chart) Cực Ngầu
+                                fig_gauge = go.Figure(go.Indicator(
+                                    mode = "gauge+number",
+                                    value = prob_up,
+                                    domain = {'x': [0, 1], 'y': [0, 1]},
+                                    title = {'text': "TỶ LỆ TĂNG GIÁ VÀO NGÀY MAI (%)", 'font': {'size': 20, 'color': 'white'}},
+                                    number = {'suffix': "%", 'font': {'color': color}},
+                                    gauge = {
+                                        'axis': {'range': [0, 100], 'tickwidth': 1, 'tickcolor': "white"},
+                                        'bar': {'color': color},
+                                        'bgcolor': "rgba(0,0,0,0)",
+                                        'borderwidth': 2,
+                                        'bordercolor': "gray",
+                                        'steps': [
+                                            {'range': [0, 30], 'color': 'rgba(255, 0, 0, 0.3)'},     # Vùng đỏ
+                                            {'range': [30, 45], 'color': 'rgba(255, 165, 0, 0.3)'},  # Vùng cam
+                                            {'range': [45, 55], 'color': 'rgba(128, 128, 128, 0.3)'},# Vùng xám
+                                            {'range': [55, 70], 'color': 'rgba(144, 238, 144, 0.3)'},# Vùng xanh nhạt
+                                            {'range': [70, 100], 'color': 'rgba(0, 128, 0, 0.3)'}    # Vùng xanh đậm
+                                        ],
+                                        'threshold': {
+                                            'line': {'color': "white", 'width': 4},
+                                            'thickness': 0.75,
+                                            'value': prob_up
+                                        }
+                                    }
+                                ))
+                                fig_gauge.update_layout(paper_bgcolor="rgba(0,0,0,0)", font={'color': "white"}, height=400)
+                                st.plotly_chart(fig_gauge, use_container_width=True)
+                                
+                                # Hiển thị mổ xẻ "Não bộ" của AI
+                                with st.expander("🧬 BẤM VÀO ĐỂ XEM AI ĐÃ DỰA VÀO ĐÂU ĐỂ RA QUYẾT ĐỊNH?"):
+                                    st.markdown("Độ quan trọng của các chỉ báo lúc này:")
+                                    importance = rf_model.feature_importances_
+                                    for feat, imp in zip(features, importance):
+                                        st.write(f"- **{feat}** (Mức độ ảnh hưởng): {imp*100:.1f}%")
+
+                            else:
+                                st.warning("Dữ liệu không đủ (cần ít nhất 50 ngày) để AI học các chỉ báo.")
+                        except Exception as e:
+                            st.error(f"Lỗi khởi chạy động cơ Random Forest: {str(e)}")       
 # === TAB 2: MY PORTFOLIO (SỔ TAY ĐẦU TƯ) - [BẢN NÂNG CẤP ASSET MANAGEMENT] ===
         with main_tab2:
             st.markdown('<div class="glass-box">', unsafe_allow_html=True)
