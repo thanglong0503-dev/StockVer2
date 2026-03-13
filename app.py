@@ -571,7 +571,7 @@ with main_tab1:
             
             st.markdown("---")
 
-            t1, t2, t3, t4, t5, t6, t7 = st.tabs(["CHART", "TRADINGVIEW", "AI_PROPHET", "MONTE_CARLO", "NEWS", "FINANCIALS", "PROFILE"])
+            t1, t2, t3, t4, t5, t6, t7, t8 = st.tabs(["CHART", "TRADINGVIEW", "AI_PROPHET", "MONTE_CARLO", "NEWS", "FINANCIALS", "PROFILE", "HMM_VISION"])
             
             # TAB 1: CHART (Crosshair Neon)
             with t1: render_interactive_chart(hist_df, target_symbol)
@@ -685,7 +685,79 @@ with main_tab1:
                 with c1: st.info(f"SECTOR: {info.get('sector', 'N/A')}")
                 with c2: 
                     if not divs.empty: st.bar_chart(divs.head(10))
-
+# TAB 8: TRUNG TÂM PHÂN TÍCH TRẠNG THÁI HMM (NHÃN THUẬT)
+            with t8:
+                st.markdown("### 👁️ HIDDEN MARKOV MODEL (BÓC TÁCH TRẠNG THÁI MÙA VỤ)")
+                st.info("💡 HMM quét qua dữ liệu quá khứ, phân tích lợi nhuận và độ giật (Volatility) để bắt mạch 'Mùa' của cổ phiếu (Bò, Gấu, Đi Ngang).")
+                
+                if st.button("👁️ KHAI NHÃN HMM (QUÉT X-QUANG)", type="primary", use_container_width=True):
+                    with st.spinner("ĐANG HUẤN LUYỆN MẠNG MARKOV CHỜ TRONG GIÂY LÁT..."):
+                        import numpy as np
+                        from hmmlearn.hmm import GaussianHMM
+                        import plotly.graph_objects as go
+                        
+                        try:
+                            # Lấy dataframe lịch sử ngài đã tải sẵn ở ngoài
+                            df_hmm = hist_df.copy() 
+                            
+                            if len(df_hmm) > 100:
+                                # 1. Tạo Đặc trưng (Features) để AI học
+                                df_hmm['Return'] = df_hmm['Close'].pct_change()
+                                df_hmm['Range'] = (df_hmm['High'] - df_hmm['Low']) / df_hmm['Close']
+                                df_model = df_hmm.dropna()
+                                
+                                # 2. Huấn luyện HMM (Ép tìm 3 trạng thái)
+                                X = np.column_stack([df_model['Return'], df_model['Range']])
+                                hmm = GaussianHMM(n_components=3, covariance_type="full", n_iter=1000, random_state=42)
+                                hmm.fit(X)
+                                df_model['Regime'] = hmm.predict(X)
+                                
+                                # 3. Giải mã Trạng thái tự động (Gắn mác)
+                                r_stats = df_model.groupby('Regime')['Return'].mean()
+                                sorted_r = r_stats.sort_values().index.tolist()
+                                
+                                # Logic: Lỗ nhất -> Gấu, Ở giữa -> Đi ngang, Lãi nhất -> Bò
+                                r_map = {
+                                    sorted_r[0]: ('DOWNTREND (GẤU)', '#ff3366'),   # Đỏ
+                                    sorted_r[1]: ('SIDEWAYS (GOM HÀNG)', '#aaaaaa'), # Xám
+                                    sorted_r[2]: ('UPTREND (BÒ)', '#28c840')        # Xanh lá
+                                }
+                                
+                                df_model['Regime_Name'] = df_model['Regime'].map(lambda x: r_map[x][0])
+                                df_model['Color'] = df_model['Regime'].map(lambda x: r_map[x][1])
+                                
+                                # 4. Lấy kết luận ngày hôm nay
+                                current_state = df_model['Regime_Name'].iloc[-1]
+                                current_color = df_model['Color'].iloc[-1]
+                                
+                                st.markdown(f"#### KẾT LUẬN HIỆN TẠI: <span style='color:{current_color}'>{current_state}</span>", unsafe_allow_html=True)
+                                
+                                # 5. Vẽ bản đồ X-Quang
+                                fig_hmm = go.Figure()
+                                # Dây giá trị cốt lõi
+                                fig_hmm.add_trace(go.Scatter(x=df_model.index, y=df_model['Close'], mode='lines', line=dict(color='rgba(150,150,150,0.5)', width=1), hoverinfo='skip', showlegend=False))
+                                # Các điểm sáng trạng thái
+                                fig_hmm.add_trace(go.Scatter(
+                                    x=df_model.index, y=df_model['Close'], mode='markers',
+                                    marker=dict(color=df_model['Color'], size=7, opacity=0.8),
+                                    text=df_model['Regime_Name'],
+                                    hovertemplate='Giá: %{y:,.0f} đ<br>Nhãn: %{text}<extra></extra>',
+                                    showlegend=False
+                                ))
+                                
+                                fig_hmm.update_layout(
+                                    title="📊 PHÂN BỔ TRẠNG THÁI THỊ TRƯỜNG THEO LỊCH SỬ",
+                                    height=500, margin=dict(l=10, r=10, t=40, b=10), 
+                                    hovermode="x unified", dragmode="pan", 
+                                    yaxis_title="Mức Giá", template="plotly_dark"
+                                )
+                                st.plotly_chart(fig_hmm, use_container_width=True, config={'scrollZoom': True, 'displayModeBar': True})
+                            else:
+                                st.warning("Dữ liệu cổ phiếu quá ngắn (dưới 100 ngày), AI HMM không đủ cơ sở để học.")
+                                
+                        except Exception as e:
+                            st.error(f"Lỗi khởi chạy động cơ HMM: {str(e)}")
+                            st.info("Lão đại nhớ mở terminal gõ 'pip install hmmlearn scikit-learn' nhé!")
         st.markdown('</div>', unsafe_allow_html=True)
 # === TAB 2: MY PORTFOLIO (SỔ TAY ĐẦU TƯ) - [BẢN NÂNG CẤP ASSET MANAGEMENT] ===
         with main_tab2:
