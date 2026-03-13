@@ -760,7 +760,7 @@ with main_tab1:
                             st.info("Lão đại nhớ mở terminal gõ 'pip install hmmlearn scikit-learn' nhé!")
         st.markdown('</div>', unsafe_allow_html=True)
 # TAB 9: ĐỘNG CƠ PHÂN LOẠI TÍN HIỆU MUA/BÁN (RANDOM FOREST)
-            with t9:
+        with t9:
                 st.markdown("### 🌲 RANDOM FOREST (CỖ MÁY TÌM KIẾM TÍN HIỆU)")
                 st.info("💡 Trí tuệ nhân tạo sẽ tổng hợp các đường Trung bình động (MA) và Biên độ giá, học từ hàng ngàn phiên giao dịch quá khứ để dự báo Tỷ lệ nến Xanh vào ngày mai.")
                 
