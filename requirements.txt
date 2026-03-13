@@ -13,3 +13,4 @@ gspread==6.0.0
 google-auth==2.27.0
 hmmlearn
 scikit-learn
+arch
