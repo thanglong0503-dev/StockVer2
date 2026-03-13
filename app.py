@@ -922,7 +922,7 @@ with main_tab1:
                                 c1, c2, c3 = st.columns(3)
                                 c1.metric("Biến động Lịch sử (TB)", f"{avg_vol:.2f}%")
                                 c2.metric("Dự báo Ngày mai", f"{next_day_vol:.2f}%", f"{(vol_ratio - 1)*100:.1f}%")
-                                c3.metric("Khuyến nghị Lão đại", "Phòng thủ" if vol_ratio > 1.1 else "Tấn công")
+                                c3.metric("Khuyến nghị", "Phòng thủ" if vol_ratio > 1.1 else "Tấn công")
 
                             else:
                                 st.warning("Dữ liệu quá ngắn để Radar hoạt động (cần > 50 ngày).")
