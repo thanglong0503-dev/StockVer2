@@ -391,3 +391,38 @@ def get_saved_prophet_list(username):
     # Sắp xếp theo thời gian lưu gần nhất
     saved_list.sort(key=lambda x: str(x['Saved_At']), reverse=True)
     return saved_list
+def get_cash_balance(username):
+    """
+    Quét toàn bộ lịch sử để tính toán Sức Mua (Tiền mặt còn lại)
+    """
+    sheet = get_sheet("Transactions")
+    if not sheet: return 0.0
+    
+    records = sheet.get_all_records()
+    if not records: return 0.0
+    
+    df = pd.DataFrame(records)
+    if 'Username' not in df.columns: return 0.0
+    
+    df = df[df['Username'] == username].copy()
+    if df.empty: return 0.0
+    
+    df['Volume'] = pd.to_numeric(df['Volume'].astype(str).str.replace(',', '.').str.strip(), errors='coerce').fillna(0)
+    df['Price'] = pd.to_numeric(df['Price'].astype(str).str.replace(',', '.').str.strip(), errors='coerce').fillna(0)
+    
+    cash = 0.0
+    for _, row in df.iterrows():
+        action = str(row.get('Action', '')).upper()
+        vol = row['Volume']
+        price = row['Price']
+        
+        if action == 'DEPOSIT':
+            cash += price   # Nạp tiền
+        elif action == 'WITHDRAW':
+            cash -= price   # Rút tiền
+        elif action in ['BUY', '']: # Mua cổ phiếu (Trừ tiền)
+            cash -= (abs(vol) * price)
+        elif action == 'SELL':      # Bán cổ phiếu (Cộng tiền)
+            cash += (abs(vol) * price)
+            
+    return cash
