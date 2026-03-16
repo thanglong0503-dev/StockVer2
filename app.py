@@ -934,7 +934,8 @@ with main_tab1:
         with main_tab2:
             st.markdown('<div class="glass-box">', unsafe_allow_html=True)
             
-            from backend.database import delete_portfolio_stock 
+            # NHỚ ĐỂ Ý DÒNG NÀY: Emo đã import thêm hàm get_cash_balance
+            from backend.database import delete_portfolio_stock, get_cash_balance 
             
             user_name = st.session_state.get('user_info', {}).get('name', 'Unknown')
             current_user = st.session_state.get('user_info', {}).get('username', '')
@@ -945,30 +946,35 @@ with main_tab1:
             with c_p2: 
                 if st.button("🔄 LÀM MỚI BẢNG GIÁ", use_container_width=True): st.rerun()
 
-            # Lấy dữ liệu từ Database mới 
+            # Lấy dữ liệu 
             df_port, total_realized_pl = get_user_portfolio(current_user)
+            cash_balance = get_cash_balance(current_user)
 
-            # --- KHU VỰC 1: BẢNG TỔNG QUAN (LUÔN HIỂN THỊ DÙ CÓ HÀNG HAY KHÔNG) ---
-            # Tính toán an toàn kể cả khi df_port trống
+            # --- KHU VỰC 1: BẢNG TỔNG QUAN (DASHBOARD 5 CHỈ SỐ) ---
             total_invest = df_port['cost_value'].sum() if not df_port.empty else 0
+            total_market_value = df_port['total_value'].sum() if not df_port.empty else 0
             total_unrealized_pl = df_port['profit_loss'].sum() if not df_port.empty else 0
-            total_nav = total_invest + total_unrealized_pl + total_realized_pl # NAV = Giá trị cổ phiếu + Tiền lãi đã chốt
+            
+            # CÔNG THỨC CHUẨN: NAV = TIỀN MẶT + THỊ GIÁ CỔ PHIẾU
+            total_nav = cash_balance + total_market_value 
             total_pct = (total_unrealized_pl / total_invest * 100) if total_invest > 0 else 0
             
-            # 4 Ô Metric hoành tráng luôn hiện diện
-            m1, m2, m3, m4 = st.columns(4)
+            # Tách thành 5 ô (Thêm ô Tiền Mặt)
+            m1, m2, m3, m4, m5 = st.columns(5)
             m1.metric("💰 TỔNG NAV", f"{total_nav:,.0f} K")
-            m2.metric("💳 VỐN ĐẦU TƯ", f"{total_invest:,.0f} K")
-            m3.metric("📈 ĐANG TẠM LÃI/LỖ", f"{total_unrealized_pl:,.0f} K", f"{total_pct:.2f}%")
-            m4.metric("🏦 ĐÃ CHỐT LỜI/LỖ", f"{total_realized_pl:,.0f} K")
+            m2.metric("💵 SỨC MUA (TIỀN MẶT)", f"{cash_balance:,.0f} K")
+            m3.metric("📈 THỊ GIÁ CỔ PHIẾU", f"{total_market_value:,.0f} K")
+            m4.metric("⚖️ TẠM LÃI/LỖ", f"{total_unrealized_pl:,.0f} K", f"{total_pct:.2f}%")
+            m5.metric("🏦 ĐÃ CHỐT", f"{total_realized_pl:,.0f} K")
             
             st.markdown("---")
 
             col_input, col_table = st.columns([1, 2])
             
-            # --- CỘT TRÁI: KHU VỰC GIAO DỊCH (NHẬP MUA / BÁN) ---
+            # --- CỘT TRÁI: KHU VỰC GIAO DỊCH ---
             with col_input:
-                tab_buy, tab_sell, tab_delete = st.tabs(["🟢 MUA", "🔴 BÁN", "🗑️ XÓA LỖI"])
+                # [BẢN VÁ]: Thêm Tab NẠP/RÚT TIỀN
+                tab_buy, tab_sell, tab_cash, tab_delete = st.tabs(["🟢 MUA", "🔴 BÁN", "💵 NẠP/RÚT", "🗑️ XÓA LỖI"])
                 
                 # 1. FORM MUA
                 with tab_buy:
@@ -984,13 +990,12 @@ with main_tab1:
                                 time.sleep(1)
                                 st.rerun()
 
-                # 2. FORM BÁN CHỐT LỜI (Ghi nhận Realized P/L)
+                # 2. FORM BÁN CHỐT LỜI
                 with tab_sell:
                     if not df_port.empty:
                         with st.form("portfolio_sell"):
                             my_stock_list = df_port['symbol'].unique().tolist()
                             sell_symbol = st.selectbox("Chọn mã BÁN", my_stock_list)
-                            
                             max_vol = int(df_port[df_port['symbol'] == sell_symbol]['volume'].iloc[0])
                             sell_vol = st.number_input(f"Khối lượng BÁN (Tối đa: {max_vol})", min_value=10, max_value=max_vol, step=100)
                             sell_price = st.number_input("Giá bán (Nghìn VNĐ)", min_value=0.0, step=0.1, format="%.2f")
@@ -1004,8 +1009,29 @@ with main_tab1:
                                     st.rerun()
                     else:
                         st.warning("Ví đang trống, không có hàng để bán.")
+                
+                # 3. FORM NẠP/RÚT TIỀN (NGÂN HÀNG MINI)
+                with tab_cash:
+                    with st.form("portfolio_cash"):
+                        cash_action = st.radio("Hành động", ["NẠP TIỀN", "RÚT TIỀN"], horizontal=True)
+                        cash_amount = st.number_input("Số tiền (Nghìn VNĐ)", min_value=1.0, step=1000.0, format="%.0f")
                         
-                # 3. FORM XÓA (Chỉ dùng khi nhập sai)
+                        if st.form_submit_button("XÁC NHẬN GIAO DỊCH", type="primary", use_container_width=True):
+                            action_str = "DEPOSIT" if cash_action == "NẠP TIỀN" else "WITHDRAW"
+                            
+                            if action_str == "WITHDRAW" and cash_amount > cash_balance:
+                                st.error("Lỗi: Không đủ tiền mặt (Sức mua) để rút!")
+                            else:
+                                # Trick: Dùng Volume=0 để các hàm cũ không bị nhiễu, lưu số tiền vào cột Price
+                                ok = add_transaction(current_user, "CASH", 0, cash_amount, action=action_str)
+                                if ok: 
+                                    st.success(f"Đã {cash_action.lower()} {cash_amount:,.0f} K thành công!")
+                                    time.sleep(1)
+                                    st.rerun()
+                                else: 
+                                    st.error("Lỗi hệ thống.")
+
+                # 4. FORM XÓA LỖI
                 with tab_delete:
                     if not df_port.empty:
                         del_symbol = st.selectbox("Chọn mã XÓA BỎ HOÀN TOÀN", df_port['symbol'].unique().tolist())
